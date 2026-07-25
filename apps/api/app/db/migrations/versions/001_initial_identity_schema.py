@@ -1,7 +1,7 @@
 """Initial Identity Schema (users, roles, permissions, sessions, tokens, oauth)
 
 Revision ID: 001_initial_identity_schema
-Revises: 
+Revises:
 Create Date: 2026-07-25 20:00:00.000000
 """
 

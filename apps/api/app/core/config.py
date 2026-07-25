@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, ge=1, le=65535, description="API port")
     API_PREFIX: str = Field(default="/api/v1", description="API route prefix")
     API_CORS_ORIGINS: list[AnyHttpUrl] = Field(
-        default=["http://localhost:3000"],
+        default=[AnyHttpUrl("http://localhost:3000")],
         description="Allowed CORS origins",
     )
 
@@ -137,10 +137,10 @@ class Settings(BaseSettings):
     )
     MINIO_ENDPOINT: str = Field(default="minio:9000", description="MinIO endpoint")
     MINIO_ACCESS_KEY: SecretStr = Field(
-        default="forgecrm_minio", description="MinIO access key"
+        default=SecretStr("forgecrm_minio"), description="MinIO access key"
     )
     MINIO_SECRET_KEY: SecretStr = Field(
-        default="forgecrm_minio_password", description="MinIO secret key"
+        default=SecretStr("forgecrm_minio_password"), description="MinIO secret key"
     )
     MINIO_BUCKET: str = Field(default="forgecrm", description="MinIO default bucket")
     MINIO_SECURE: bool = Field(default=False, description="Use HTTPS for MinIO")

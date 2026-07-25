@@ -100,6 +100,11 @@ class User(BaseModel):
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
     roles: Mapped[list[Role]] = relationship("Role", secondary="user_roles", back_populates="users")
 
+    __allow_unmapped__ = True
+
+    # Transient state
+    _current_session_id: UUID | None = None
+
     @property
     def full_name(self) -> str:
         """Return full name of user."""

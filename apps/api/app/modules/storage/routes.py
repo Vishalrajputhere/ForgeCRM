@@ -77,11 +77,11 @@ async def confirm_upload(
     description="Lists active document attachments linked to a CRM entity.",
 )
 async def list_attachments(
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
     entity_type: str = Query(..., description="Target CRM entity type (e.g. Company, Contact, Lead, Deal, Task)"),
     entity_id: UUID = Query(..., description="Target CRM record ID"),
-    workspace_id: WorkspaceIdDep = Depends(get_current_workspace_id),
-    member: WorkspaceMemberDep = Depends(get_current_workspace_member),
-    db: AsyncSession = Depends(get_db_session),
 ) -> list[DocumentAttachmentResponse]:
     service = StorageService(db)
     return await service.list_entity_attachments(workspace_id, entity_type, entity_id)

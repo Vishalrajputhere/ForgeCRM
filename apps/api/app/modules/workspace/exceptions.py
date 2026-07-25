@@ -8,7 +8,7 @@ Documentation: docs/03_Backend/301_BACKEND_OVERVIEW.md §11
 
 from __future__ import annotations
 
-from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError, ValidationError
+from app.core.exceptions import AuthorizationError, ConflictError, NotFoundError, ValidationError
 
 
 class WorkspaceNotFoundError(NotFoundError):
@@ -18,7 +18,7 @@ class WorkspaceNotFoundError(NotFoundError):
     message = "The requested workspace was not found."
 
 
-class WorkspaceAccessDeniedError(ForbiddenError):
+class WorkspaceAccessDeniedError(AuthorizationError):
     """Raised when a user attempts to access a workspace they do not belong to."""
 
     error_code = "WORKSPACE_ACCESS_DENIED"

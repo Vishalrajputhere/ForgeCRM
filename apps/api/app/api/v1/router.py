@@ -51,6 +51,17 @@ from app.modules.jobs import routes as job_routes  # noqa: E402
 
 api_v1_router.include_router(job_routes.router)
 
+# Analytics & BI Reporting
+from app.modules.analytics import routes as analytics_routes  # noqa: E402
+
+api_v1_router.include_router(analytics_routes.router)
+
+# AI Productivity & Insights
+from app.modules.ai import routes as ai_routes  # noqa: E402
+
+api_v1_router.include_router(ai_routes.router)
+
+
 
 
 

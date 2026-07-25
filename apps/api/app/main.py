@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     # Initialize database engine and session factory
     from app.db.engine import init_db
 
-    engine, session_factory = init_db(
+    _engine, _session_factory = init_db(
         database_url=str(settings.DATABASE_URL),
         pool_size=settings.DB_POOL_SIZE,
         max_overflow=settings.DB_MAX_OVERFLOW,

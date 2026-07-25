@@ -12,7 +12,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -98,7 +98,6 @@ class StorageService:
 
         # Log timeline activity event
         act_type = await self.activity_repo.get_or_create_activity_type("Document Uploaded", category="Storage")
-        activity = getattr(attachment, "to_activity", None)
         from app.modules.crm.models import Activity
         act = Activity(
             id=uuid4(),
@@ -166,18 +165,18 @@ class StorageService:
 
     async def delete_attachment(self, workspace_id: UUID, attachment_id: UUID) -> None:
         """Soft delete a document attachment metadata record."""
-        stmt = (
-            update(DocumentAttachment)
-            .where(
-                DocumentAttachment.id == attachment_id,
-                DocumentAttachment.workspace_id == workspace_id,
-                DocumentAttachment.deleted_at.is_(None),
-            )
-            .values(deleted_at=datetime.now(UTC))
+        stmt = select(DocumentAttachment).where(
+            DocumentAttachment.id == attachment_id,
+            DocumentAttachment.workspace_id == workspace_id,
+            DocumentAttachment.deleted_at.is_(None),
         )
-        result = await self.db.execute(stmt)
-        if result.rowcount == 0:
+        res = await self.db.execute(stmt)
+        attachment = res.scalar_one_or_none()
+        if attachment is None:
             raise AttachmentNotFoundError()
+
+        attachment.deleted_at = datetime.now(UTC)
+        await self.db.flush()
 
 
 __all__ = ["MAX_FILE_SIZE_BYTES", "StorageService"]

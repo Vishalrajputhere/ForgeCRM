@@ -36,10 +36,10 @@ WorkspaceMemberDep = Annotated[Any, Depends(get_current_workspace_member)]
     description="Performs pattern search across Companies, Contacts, Leads, Deals, and Tasks.",
 )
 async def search(
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
     q: str = Query(..., min_length=2, description="Search query string"),
-    workspace_id: WorkspaceIdDep = Depends(get_current_workspace_id),
-    member: WorkspaceMemberDep = Depends(get_current_workspace_member),
-    db: AsyncSession = Depends(get_db_session),
 ) -> GlobalSearchResponse:
     service = SearchService(db)
     return await service.search(workspace_id, q)

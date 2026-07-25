@@ -12,8 +12,8 @@ Documentation:
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Annotated
+from collections.abc import Callable, Coroutine
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, Request
@@ -108,7 +108,7 @@ async def get_current_active_user(
     return current_user
 
 
-def require_permission(required_permission: str) -> Callable[..., User]:
+def require_permission(required_permission: str) -> Callable[..., Coroutine[Any, Any, User]]:
     """
     Dependency factory that enforces a specific permission string (e.g. leads.read).
 
@@ -181,7 +181,7 @@ async def get_current_workspace_member(
     return member
 
 
-def require_workspace_permission(required_permission: str) -> Callable[..., User]:
+def require_workspace_permission(required_permission: str) -> Callable[..., Coroutine[Any, Any, User]]:
     """
     Dependency factory verifying permission within the current workspace context.
     """

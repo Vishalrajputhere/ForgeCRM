@@ -18,6 +18,8 @@ from app.db.session import get_db_session
 from app.modules.identity.schemas import (
     LoginRequest,
     PasswordChangeRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
     RefreshTokenRequest,
     RegisterRequest,
     SessionResponse,

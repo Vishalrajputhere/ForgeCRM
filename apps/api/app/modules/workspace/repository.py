@@ -72,7 +72,7 @@ class WorkspaceRepository:
             .order_by(Workspace.name.asc())
         )
         result = await self.db.execute(stmt)
-        return result.all()
+        return [(row[0], row[1]) for row in result.all()]
 
 
 class WorkspaceMemberRepository:

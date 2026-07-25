@@ -227,12 +227,12 @@ class CRMService:
 
     async def create_lead(self, workspace_id: UUID, member_id: UUID, payload: LeadCreate) -> LeadResponse:
         """Create a new unqualified sales lead."""
-        status_rec = (
-            await self.lead_repo.get_by_id(workspace_id, payload.status_id)  # type: ignore[arg-type]
-            if payload.status_id
-            else await self.lead_repo.get_or_create_default_status(workspace_id)
-        )
-        status_id = status_rec.id if hasattr(status_rec, "id") else payload.status_id
+        if payload.status_id:
+            status_rec = await self.lead_repo.get_status_by_id(workspace_id, payload.status_id)
+            status_id = status_rec.id if status_rec else (await self.lead_repo.get_or_create_default_status(workspace_id)).id
+        else:
+            status_rec = await self.lead_repo.get_or_create_default_status(workspace_id)
+            status_id = status_rec.id
 
         lead = Lead(
             id=uuid4(),
@@ -257,7 +257,7 @@ class CRMService:
     async def list_leads(self, workspace_id: UUID) -> list[LeadResponse]:
         """List active leads in workspace."""
         leads = await self.lead_repo.list_workspace_leads(workspace_id)
-        return [LeadResponse.model_validate(l) for l in leads]
+        return [LeadResponse.model_validate(lead) for lead in leads]
 
     async def convert_lead(
         self,

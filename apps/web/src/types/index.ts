@@ -467,4 +467,89 @@ export interface GlobalSearchResponse {
   results: SearchResultItem[];
 }
 
+// ── Analytics & Reporting DTOs ─────────────────────────────────────────────────
+
+export interface StageMetricItem {
+  stage_id: string;
+  stage_name: string;
+  sort_order: number;
+  deal_count: number;
+  total_value: number;
+  probability: number;
+  weighted_value: number;
+}
+
+export interface PipelineAnalyticsResponse {
+  pipeline_id: string;
+  pipeline_name: string;
+  total_deals: number;
+  total_pipeline_value: number;
+  total_weighted_forecast: number;
+  overall_win_rate_percent: number;
+  stages: StageMetricItem[];
+}
+
+export interface LeadMetricsResponse {
+  total_leads: number;
+  new_leads: number;
+  contacted_leads: number;
+  qualified_leads: number;
+  converted_leads: number;
+  unqualified_leads: number;
+  conversion_rate_percent: number;
+  avg_conversion_time_days: number;
+}
+
+export interface DealMetricsResponse {
+  total_deals: number;
+  open_deals: number;
+  won_deals: number;
+  lost_deals: number;
+  total_won_revenue: number;
+  total_lost_revenue: number;
+  win_rate_percent: number;
+  avg_deal_size: number;
+}
+
+export interface ExecutiveOverviewResponse {
+  workspace_id: string;
+  active_companies: number;
+  active_contacts: number;
+  total_leads: number;
+  lead_conversion_rate_percent: number;
+  open_deals_count: number;
+  pipeline_total_value: number;
+  pipeline_forecast_value: number;
+  deal_win_rate_percent: number;
+  pending_tasks: number;
+  overdue_tasks: number;
+  recent_activities_count: number;
+}
+
+// ── AI Integration DTOs ───────────────────────────────────────────────────────
+
+export interface LeadSummaryResponse {
+  lead_id: string;
+  summary: string;
+  key_insights: string[];
+  suggested_priority: string;
+  recommended_next_action: string;
+}
+
+export interface DealRiskResponse {
+  deal_id: string;
+  risk_level: string;
+  risk_score: number;
+  key_risks: string[];
+  actionable_recommendations: string[];
+}
+
+export interface EmailDraftResponse {
+  subject: string;
+  body: string;
+  recipient_email?: string;
+  suggested_follow_up_days: number;
+}
+
+
 

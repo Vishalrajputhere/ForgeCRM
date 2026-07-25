@@ -184,6 +184,12 @@ class LeadRepository:
         result = await self.db.execute(stmt)
         return result.scalars().all()
 
+    async def get_status_by_id(self, workspace_id: UUID, status_id: UUID) -> LeadStatus | None:
+        """Fetch LeadStatus by ID for workspace."""
+        stmt = select(LeadStatus).where(LeadStatus.id == status_id, LeadStatus.workspace_id == workspace_id)
+        res = await self.db.execute(stmt)
+        return res.scalar_one_or_none()
+
     async def get_or_create_default_status(self, workspace_id: UUID) -> LeadStatus:
         """Get or create default 'New' lead status for workspace."""
         from uuid import uuid4

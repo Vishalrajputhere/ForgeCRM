@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.modules.identity.models import (
+    PasswordResetToken,
     Permission,
     RefreshToken,
     Role,
@@ -127,9 +128,9 @@ class RoleRepository:
 
         # 3. Create or update system roles
         for role_name, perm_names in DEFAULT_ROLE_PERMISSIONS.items():
-            stmt = select(Role).options(selectinload(Role.permissions)).where(Role.name == role_name)
-            res = await self.db.execute(stmt)
-            role_obj = res.scalar_one_or_none()
+            role_stmt = select(Role).options(selectinload(Role.permissions)).where(Role.name == role_name)
+            role_res = await self.db.execute(role_stmt)
+            role_obj: Role | None = role_res.scalar_one_or_none()
 
             # Fetch matching permission objects
             perm_stmt = select(Permission).where(Permission.name.in_(perm_names))

@@ -45,6 +45,8 @@ from app.modules.identity.repository import (
 from app.modules.identity.schemas import (
     LoginRequest,
     PasswordChangeRequest,
+    PasswordResetConfirm,
+    PasswordResetRequest,
     RegisterRequest,
     SessionResponse,
     TokenResponse,

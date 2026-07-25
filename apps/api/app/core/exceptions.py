@@ -24,7 +24,7 @@ class ForgeCRMError(Exception):
         self,
         message: str | None = None,
         error_code: str | None = None,
-        detail: dict | list | str | None = None,
+        detail: dict[str, Any] | list[Any] | str | None = None,
     ) -> None:
         self.message = message or self.__class__.message
         self.error_code = error_code or self.__class__.error_code

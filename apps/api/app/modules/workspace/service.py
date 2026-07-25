@@ -22,6 +22,7 @@ from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
 from app.modules.identity.permissions import SystemRoles
 from app.modules.identity.repository import RoleRepository, UserRepository
+from app.modules.identity.schemas import RoleResponse
 from app.modules.workspace.exceptions import (
     AlreadyMemberError,
     InvitationExpiredError,
@@ -149,7 +150,7 @@ class WorkspaceService:
             subscription_plan=workspace.subscription_plan,
             status=workspace.status,
             created_at=workspace.created_at,
-            role=admin_role,
+            role=RoleResponse.model_validate(admin_role) if admin_role else None,
         )
 
     async def list_user_workspaces(self, user_id: UUID) -> list[WorkspaceResponse]:
@@ -167,7 +168,7 @@ class WorkspaceService:
                 subscription_plan=ws.subscription_plan,
                 status=ws.status,
                 created_at=ws.created_at,
-                role=role,
+                role=RoleResponse.model_validate(role),
             )
             for ws, role in rows
         ]
@@ -193,7 +194,7 @@ class WorkspaceService:
             subscription_plan=workspace.subscription_plan,
             status=workspace.status,
             created_at=workspace.created_at,
-            role=member.role,
+            role=RoleResponse.model_validate(member.role),
         )
 
     async def update_workspace(
@@ -235,7 +236,7 @@ class WorkspaceService:
             subscription_plan=workspace.subscription_plan,
             status=workspace.status,
             created_at=workspace.created_at,
-            role=member.role,
+            role=RoleResponse.model_validate(member.role),
         )
 
     async def invite_member(
@@ -274,12 +275,11 @@ class WorkspaceService:
 
         logger.info("workspace_invitation_created", workspace_id=str(workspace_id), email=payload.email)
 
-        # Attach raw_token dynamically to response object if needed for testing/email sending
-        invitation.raw_token = raw_token
-
         # Re-fetch with loaded role
         full_inv = await self.invitation_repo.get_by_token_hash(token_h)
-        return WorkspaceInvitationResponse.model_validate(full_inv)
+        res = WorkspaceInvitationResponse.model_validate(full_inv)
+        res.raw_token = raw_token
+        return res
 
     async def accept_invitation(self, user_id: UUID, token_str: str) -> WorkspaceMemberResponse:
         """Accept a workspace invitation with token."""

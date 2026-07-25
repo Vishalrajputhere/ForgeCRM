@@ -94,6 +94,7 @@ class WorkspaceInvitationResponse(BaseModel):
     invited_by: UUID
     expires_at: datetime
     created_at: datetime
+    raw_token: str | None = None
 
 
 # ── Request DTOs ──────────────────────────────────────────────────────────────

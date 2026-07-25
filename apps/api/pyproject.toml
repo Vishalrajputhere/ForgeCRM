@@ -110,7 +110,9 @@ select = [
 ignore = [
     "S101",  # Use of assert (ok in tests)
     "S104",  # Possible binding to all interfaces (ok for dev)
+    "S106",  # Possible hardcoded password (false positives for token_type="bearer")
     "B008",  # Do not perform function calls in default args (FastAPI DI pattern)
+    "E501",  # Line length handled by formatter
 ]
 
 [tool.ruff.lint.per-file-ignores]

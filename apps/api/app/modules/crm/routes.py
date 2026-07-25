@@ -9,7 +9,7 @@ Documentation: docs/03_Backend/302_API_DESIGN.md
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, status
@@ -28,16 +28,13 @@ from app.modules.crm.schemas import (
     CompanyUpdate,
     ContactCreate,
     ContactResponse,
-    ContactUpdate,
     DealCreate,
     DealResponse,
     DealStageMoveRequest,
-    DealUpdate,
     LeadConversionResponse,
     LeadConvertRequest,
     LeadCreate,
     LeadResponse,
-    LeadUpdate,
     PipelineCreate,
     PipelineResponse,
     TaskCreate,
@@ -154,8 +151,8 @@ async def create_contact(
 async def list_contacts(
     workspace_id: WorkspaceIdDep,
     member: WorkspaceMemberDep,
-    company_id: UUID | None = Query(None, description="Optional company filter"),
     db: Annotated[AsyncSession, Depends(get_db_session)],
+    company_id: UUID | None = Query(None, description="Optional company filter"),
 ) -> list[ContactResponse]:
     service = CRMService(db)
     return await service.list_contacts(workspace_id, company_id=company_id)
@@ -295,8 +292,8 @@ async def create_deal(
 async def list_deals(
     workspace_id: WorkspaceIdDep,
     member: WorkspaceMemberDep,
-    pipeline_id: UUID | None = Query(None, description="Filter by pipeline"),
     db: Annotated[AsyncSession, Depends(get_db_session)],
+    pipeline_id: UUID | None = Query(None, description="Filter by pipeline"),
 ) -> list[DealResponse]:
     service = CRMService(db)
     return await service.list_deals(workspace_id, pipeline_id=pipeline_id)
@@ -409,6 +406,3 @@ async def list_timeline(
 ) -> list[ActivityResponse]:
     service = CRMService(db)
     return await service.list_timeline(workspace_id, entity_type, entity_id)
-
-
-from typing import Any  # noqa: E402
