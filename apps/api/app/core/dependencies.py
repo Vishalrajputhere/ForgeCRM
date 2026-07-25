@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -134,10 +134,78 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 CurrentActiveUser = Annotated[User, Depends(get_current_active_user)]
 
 
+# ── Workspace Isolation & Multi-Tenancy Dependencies ───────────────────────────
+
+
+async def get_current_workspace_id(
+    request: Request,
+    current_user: CurrentUser,
+) -> UUID:
+    """Extract current active workspace ID from X-Workspace-ID header."""
+    from app.modules.workspace.exceptions import WorkspaceAccessDeniedError
+
+    workspace_id_str = request.headers.get("X-Workspace-ID") or request.headers.get("x-workspace-id")
+    if not workspace_id_str:
+        raise WorkspaceAccessDeniedError("X-Workspace-ID header is required for multi-tenant requests.")
+
+    try:
+        return UUID(workspace_id_str)
+    except ValueError as exc:
+        raise WorkspaceAccessDeniedError("Invalid X-Workspace-ID header format.") from exc
+
+
+async def get_current_workspace_member(
+    workspace_id: Annotated[UUID, Depends(get_current_workspace_id)],
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> Any:
+    """
+    Ensure the current user is an active member of the target workspace.
+
+    Returns the WorkspaceMember entity with loaded role and permissions.
+    """
+    from app.modules.workspace.exceptions import WorkspaceAccessDeniedError
+    from app.modules.workspace.repository import WorkspaceMemberRepository
+
+    member_repo = WorkspaceMemberRepository(db)
+    member = await member_repo.get_member(workspace_id, current_user.id)
+
+    if member is None or member.status != "Active":
+        raise WorkspaceAccessDeniedError("User is not an active member of this workspace.")
+
+    return member
+
+
+def require_workspace_permission(required_permission: str) -> Callable[..., User]:
+    """
+    Dependency factory verifying permission within the current workspace context.
+    """
+
+    async def _workspace_permission_checker(
+        current_user: CurrentUser,
+        member: Annotated[Any, Depends(get_current_workspace_member)],
+    ) -> User:
+        role_permissions = {perm.name for perm in member.role.permissions}
+
+        if required_permission not in role_permissions:
+            raise InsufficientPermissionsError(
+                f"Missing required workspace permission: {required_permission}"
+            )
+
+        return current_user
+
+    return _workspace_permission_checker
+
+
+HeaderWorkspaceId = Annotated[Any, Depends(get_current_user)]
+
 __all__ = [
     "get_current_user",
     "get_current_active_user",
+    "get_current_workspace_id",
+    "get_current_workspace_member",
     "require_permission",
+    "require_workspace_permission",
     "CurrentUser",
     "CurrentActiveUser",
 ]

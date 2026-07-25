@@ -33,6 +33,14 @@ from app.modules.identity.models import (  # noqa: F401
     UserRole,
     role_permissions,
 )
+from app.modules.workspace.models import (  # noqa: F401
+    Team,
+    TeamMember,
+    Workspace,
+    WorkspaceInvitation,
+    WorkspaceMember,
+    WorkspaceSettings,
+)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Alembic Config object — provides access to .ini file values

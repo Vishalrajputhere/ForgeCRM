@@ -26,5 +26,11 @@ from app.modules.identity import routes as auth_routes  # noqa: E402
 
 api_v1_router.include_router(auth_routes.router)
 
+# Workspace Isolation & Multi-Tenancy
+from app.modules.workspace import routes as workspace_routes  # noqa: E402
+
+api_v1_router.include_router(workspace_routes.router)
+
+
 
 __all__ = ["api_v1_router"]

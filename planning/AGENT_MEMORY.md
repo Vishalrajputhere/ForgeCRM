@@ -2,50 +2,18 @@
 # Persistent implementation checkpoint between AI sessions
 
 ## Last Updated
-2026-07-25T20:55:00+05:30
+2026-07-25T21:00:00+05:30
 
 ---
 
 ## Current Milestone
-**Milestone 02 — Authentication & Identity**
+**Milestone 03 — Workspace Isolation & Multi-Tenancy**
 
 ## Current Phase
-**COMPLETE & AUDITED** — All Authentication & Identity deliverables implemented, audited, and verified
+**COMPLETE** — All Workspace Isolation & Multi-Tenancy deliverables implemented, tested, and committed
 
 ## Completion Percentage
-**Milestone 02: 100%**
-
----
-
-## Audit & Verification Results (Milestone 02)
-
-- **Endpoints Audit**:
-  - `POST /api/v1/auth/register` — Implemented & verified
-  - `POST /api/v1/auth/login` — Implemented & verified
-  - `POST /api/v1/auth/logout` — Implemented & verified (session invalidation)
-  - `POST /api/v1/auth/refresh` — Implemented & verified (token rotation)
-  - `GET /api/v1/auth/me` — Implemented & verified
-  - `PATCH /api/v1/auth/me` — Implemented & verified
-  - `POST /api/v1/auth/password/change` — Implemented & verified
-  - `POST /api/v1/auth/password-reset/request` — Implemented & verified (anti-enumeration)
-  - `POST /api/v1/auth/password-reset/confirm` — Implemented & verified
-  - `GET /api/v1/auth/sessions` — Implemented & verified
-  - `DELETE /api/v1/auth/sessions/{session_id}` — Implemented & verified
-- **Security Audit**:
-  - Passwords hashed with bcrypt (work factor 12) + automatic transparent re-hashing on login
-  - Refresh tokens stored as SHA-256 hashes in DB
-  - Single-use password reset tokens stored as SHA-256 hashes
-  - JWT access tokens short-lived (15 min default); refresh tokens rotated after every use
-  - Session state validated in `get_current_user` dependency to instantly block revoked sessions
-- **RBAC Audit**:
-  - `resource.action` permission model (`Permissions` class)
-  - `require_permission(perm)` dependency factory enforces permissions across user roles
-  - System roles (`Super Admin`, `Workspace Admin`, `Sales Manager`, `Sales Executive`, `Viewer`) automatically seeded on startup
-- **Database & Query Performance Audit**:
-  - `selectinload(User.roles).selectinload(Role.permissions)` used to prevent N+1 queries during auth checks
-  - Indexes verified on `users.email`, `users.is_active`, `users.deleted_at`, `roles.name`, `permissions.name`, `permissions.module`, `sessions.user_id`, `sessions.expires_at`, `refresh_tokens.token_hash`, `password_reset_tokens.token_hash`, `oauth_accounts.provider_user_id`
-- **Frontend / Backend Integration Audit**:
-  - API routes in `apps/web/src/hooks/use-auth.ts` and `apps/web/src/app/(auth)/` match backend contracts exactly
+**Milestone 03: 100%**
 
 ---
 
@@ -59,51 +27,159 @@
 - Health endpoints (`/health`, `/api/v1/health`, `/api/v1/health/live`, `/api/v1/health/ready`)
 - CI/CD GitHub Actions workflow and pre-commit hooks
 
-### Milestone 02 — Authentication & Identity (100% Audited)
-- [x] **Identity Domain Database Models** (`apps/api/app/modules/identity/models.py`)
-  - `User`, `Role`, `Permission`, `role_permissions`, `UserRole`, `Session`, `RefreshToken`, `OAuthAccount`, `PasswordResetToken`, `EmailVerificationToken`
-- [x] **Alembic Database Migration** (`apps/api/app/db/migrations/versions/001_initial_identity_schema.py`)
-- [x] **Validators & Exceptions** (`apps/api/app/modules/identity/validators.py` & `exceptions.py`)
-  - Minimum 12-character password policy enforcement
-- [x] **Pydantic Schemas** (`apps/api/app/modules/identity/schemas.py`)
-- [x] **Permissions Registry & System Roles** (`apps/api/app/modules/identity/permissions.py`)
-- [x] **Repository Layer** (`apps/api/app/modules/identity/repository.py`)
-  - `UserRepository`, `RoleRepository`, `SessionRepository`, `RefreshTokenRepository`, `PasswordResetTokenRepository`
-- [x] **Service Layer** (`apps/api/app/modules/identity/service.py`)
-- [x] **Authentication & RBAC Dependencies** (`apps/api/app/core/dependencies.py`)
-  - `get_current_user` with active session verification + `require_permission` RBAC factory
-- [x] **FastAPI API Routes** (`apps/api/app/modules/identity/routes.py`)
-  - `/register`, `/login`, `/logout`, `/refresh`, `/me`, `/password/change`, `/password-reset/request`, `/password-reset/confirm`, `/sessions`, `/sessions/{session_id}`
-- [x] **Default Roles & Permissions Seeding** (`apps/api/app/modules/identity/seed.py`)
-- [x] **Frontend Authentication** (`apps/web/`)
-  - Zustand auth store, custom `useAuth` hook, glassmorphism auth layout, `/login`, `/register`, `/reset-password`
-- [x] **Automated Test Suite** (`apps/api/tests/test_auth.py`)
-  - 15 unit/integration tests covering all identity features
+### Milestone 02 — Authentication & Identity (100%)
+- Identity domain SQLAlchemy models (`User`, `Role`, `Permission`, `role_permissions`, `UserRole`, `Session`, `RefreshToken`, `OAuthAccount`, `PasswordResetToken`, `EmailVerificationToken`)
+- Alembic database migration (`001_initial_identity_schema.py`)
+- Password policy validator (min 12 chars), exceptions, Pydantic schemas, permissions registry & default roles
+- Repository & Service layers with JWT access token generation, refresh token rotation, session tracking, password hashing & rehashing
+- FastAPI dependencies (`get_current_user`, `require_permission`) with session invalidation checks
+- API routes (`/register`, `/login`, `/logout`, `/refresh`, `/me`, `/password/change`, `/password-reset/request`, `/password-reset/confirm`, `/sessions`)
+- Frontend Zustand auth store, custom `useAuth` hook, glassmorphism layout, `/login`, `/register`, `/reset-password`
+- 15 automated test cases in `apps/api/tests/test_auth.py`
+
+### Milestone 03 — Workspace Isolation & Multi-Tenancy (100%)
+- [x] **Workspace Domain Database Models** (`apps/api/app/modules/workspace/models.py`)
+  - `Workspace`, `WorkspaceMember`, `Team`, `TeamMember`, `WorkspaceInvitation`, `WorkspaceSettings`
+  - Row-level tenant isolation, unique URL slugs, workspace membership status, invitation tokens, workspace settings
+- [x] **Alembic Database Migration** (`apps/api/app/db/migrations/versions/002_workspace_isolation_schema.py`)
+  - Creates `workspaces`, `workspace_members`, `teams`, `team_members`, `workspace_invitations`, `workspace_settings` tables and indexes
+- [x] **Validators & Exceptions** (`apps/api/app/modules/workspace/validators.py` & `exceptions.py`)
+  - Slug generator & validator (`generate_workspace_slug`)
+  - Domain exceptions (`WorkspaceNotFoundError`, `WorkspaceAccessDeniedError`, `WorkspaceSlugAlreadyExistsError`, `InvitationNotFoundError`, `InvitationExpiredError`, `AlreadyMemberError`)
+- [x] **Pydantic Schemas** (`apps/api/app/modules/workspace/schemas.py`)
+  - `WorkspaceCreate`, `WorkspaceUpdate`, `WorkspaceResponse`, `WorkspaceMemberResponse`, `TeamCreate`, `TeamResponse`, `InviteMemberRequest`, `AcceptInvitationRequest`, `WorkspaceSettingsResponse`, `WorkspaceSettingsUpdate`
+- [x] **Repository Layer** (`apps/api/app/modules/workspace/repository.py`)
+  - `WorkspaceRepository`, `WorkspaceMemberRepository`, `TeamRepository`, `InvitationRepository`, `WorkspaceSettingsRepository`
+- [x] **Service Layer** (`apps/api/app/modules/workspace/service.py`)
+  - `WorkspaceService`: workspace creation, auto-slug generation, owner membership assignment, workspace switching, user workspace listing, member invitation, invitation acceptance, team management, and workspace settings management
+- [x] **Workspace Isolation Dependencies** (`apps/api/app/core/dependencies.py`)
+  - `get_current_workspace_id`: extracts `X-Workspace-ID` header
+  - `get_current_workspace_member`: verifies active membership in target workspace
+  - `require_workspace_permission`: verifies user permission within workspace context
+- [x] **FastAPI API Routes** (`apps/api/app/modules/workspace/routes.py`)
+  - `POST /api/v1/workspaces` — Create workspace
+  - `GET /api/v1/workspaces` — List workspaces current user belongs to
+  - `GET /api/v1/workspaces/{workspace_id}` — Get workspace details
+  - `PATCH /api/v1/workspaces/{workspace_id}` — Update workspace details
+  - `GET /api/v1/workspaces/{workspace_id}/members` — List members
+  - `POST /api/v1/workspaces/{workspace_id}/invitations` — Invite member
+  - `POST /api/v1/workspaces/invitations/accept` — Accept invitation with token
+  - `GET /api/v1/workspaces/{workspace_id}/teams` — List teams
+  - `POST /api/v1/workspaces/{workspace_id}/teams` — Create team
+  - `GET /api/v1/workspaces/{workspace_id}/settings` — Get settings
+  - `PATCH /api/v1/workspaces/{workspace_id}/settings` — Update settings
+- [x] **Frontend Workspace Components & Store** (`apps/web/`)
+  - `src/stores/workspace-store.ts` — Zustand store for persistent active workspace state
+  - `src/hooks/use-workspace.ts` — Custom hook for workspace creation, switching, invitations, and querying
+  - `src/components/workspace/workspace-switcher.tsx` — Interactive workspace switcher dropdown UI
+- [x] **Automated Test Suite** (`apps/api/tests/test_workspace.py`)
+  - Integration tests covering workspace creation, cross-tenant isolation enforcement (`403 Forbidden`), member listing, invitation flow, team creation, and settings update.
 
 ---
 
-## Files Created / Modified in Audit
-- `apps/api/app/modules/identity/repository.py` — Added `PasswordResetTokenRepository`
-- `apps/api/app/modules/identity/exceptions.py` — Exported `InvalidCredentialsError`
-- `apps/api/app/modules/identity/service.py` — Added `request_password_reset` and `confirm_password_reset`
-- `apps/api/app/modules/identity/routes.py` — Added `/logout`, `/password-reset/request`, `/password-reset/confirm`
-- `apps/api/app/core/dependencies.py` — Added session status validation to `get_current_user`
-- `apps/api/tests/test_auth.py` — Added test cases for session revocation on logout and anti-enumeration password reset
+## Files Created (Milestone 03)
+- `apps/api/app/modules/workspace/models.py`
+- `apps/api/app/modules/workspace/schemas.py`
+- `apps/api/app/modules/workspace/validators.py`
+- `apps/api/app/modules/workspace/exceptions.py`
+- `apps/api/app/modules/workspace/repository.py`
+- `apps/api/app/modules/workspace/service.py`
+- `apps/api/app/modules/workspace/routes.py`
+- `apps/api/app/db/migrations/versions/002_workspace_isolation_schema.py`
+- `apps/api/tests/test_workspace.py`
+- `apps/web/src/stores/workspace-store.ts`
+- `apps/web/src/hooks/use-workspace.ts`
+- `apps/web/src/components/workspace/workspace-switcher.tsx`
+
+---
+
+## Files Modified (Milestone 03)
+- `apps/api/app/db/migrations/env.py` — Imported Workspace domain models for Alembic
+- `apps/api/app/core/dependencies.py` — Added `get_current_workspace_id`, `get_current_workspace_member`, `require_workspace_permission`
+- `apps/api/app/api/v1/router.py` — Registered Workspace routes in central V1 router
+
+---
+
+## Database Migrations Completed
+- `001_initial_identity_schema.py` — Identity domain schema
+- `002_workspace_isolation_schema.py` — Creates `workspaces`, `workspace_members`, `teams`, `team_members`, `workspace_invitations`, `workspace_settings`
+
+---
+
+## APIs Implemented (Milestone 03)
+- `POST /api/v1/workspaces`
+- `GET /api/v1/workspaces`
+- `GET /api/v1/workspaces/{workspace_id}`
+- `PATCH /api/v1/workspaces/{workspace_id}`
+- `GET /api/v1/workspaces/{workspace_id}/members`
+- `POST /api/v1/workspaces/{workspace_id}/invitations`
+- `GET /api/v1/workspaces/invitations/accept`
+- `POST /api/v1/workspaces/invitations/accept`
+- `GET /api/v1/workspaces/{workspace_id}/teams`
+- `POST /api/v1/workspaces/{workspace_id}/teams`
+- `GET /api/v1/workspaces/{workspace_id}/settings`
+- `PATCH /api/v1/workspaces/{workspace_id}/settings`
+
+---
+
+## Frontend Components & Pages Completed
+- `apps/web/src/components/workspace/workspace-switcher.tsx` — Workspace switcher UI dropdown
+- `apps/web/src/stores/workspace-store.ts` — Active workspace Zustand state manager
+- `apps/web/src/hooks/use-workspace.ts` — React hook for workspace operations
+
+---
+
+## Tests Completed
+- `apps/api/tests/test_workspace.py` — Integration test suite covering workspace creation, multi-tenant isolation, invitations, teams, and settings.
+
+---
+
+## Important Engineering Decisions Made
+
+1. **Row-Level Tenant Isolation**: Implemented row-level multi-tenancy per `ADR-003`. All domain entities reference `workspace_id`.
+2. **Workspace Member as Central Link**: Membership in `workspace_members` binds a user to a workspace and assigns a role (`role_id`), permitting a single user to belong to multiple customer organizations with different roles.
+3. **Workspace Resolution**: `X-Workspace-ID` request header is resolved via `get_current_workspace_id` and verified against `get_current_workspace_member` to block unauthorized cross-tenant data access.
+4. **Auto Slug Generation**: Workspace names are converted into clean URL slugs with fallback random suffixes to guarantee uniqueness.
+
+---
+
+## Known Issues
+None.
+
+---
+
+## Technical Debt
+None.
+
+---
+
+## Assumptions Made
+None.
+
+---
+
+## Blockers
+None.
 
 ---
 
 ## Exact Next Task for Next Session
 
-**START MILESTONE 03 — Workspace Isolation & Multi-Tenancy**
+**START MILESTONE 04 — CRM Core Operational**
 
 Read in order:
-1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 03 details
-2. `docs/02_Database/203_WORKSPACE_SCHEMA.md` — Workspace & Team schema
-3. `docs/05_Security/505_AUTHORIZATION_AND_RBAC.md` — Workspace isolation
-4. `docs/09_ADRs/ADR-003_WORKSPACE_BASED_MULTI_TENANCY.md` — Multi-tenancy ADR
+1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 04 details
+2. `docs/02_Database/204_CRM_OVERVIEW.md` & `205_COMPANIES_CONTACTS_SCHEMA.md` — Companies & Contacts schema
+3. `docs/02_Database/206_LEADS_SCHEMA.md` — Leads schema
+4. `docs/02_Database/207_DEALS_PIPELINES_SCHEMA.md` — Deals & Pipelines schema
+5. `docs/02_Database/208_ACTIVITIES_TASKS_SCHEMA.md` — Activities & Tasks schema
 
-**First task in Milestone 03:**
-1. Create Alembic migration for `workspaces`, `workspace_members`, `teams`, `team_members`, and `workspace_invitations`
-2. Implement `app/modules/workspace/` domain (models, schemas, repository, service, routes)
-3. Implement workspace creation & switching
-4. Implement workspace isolation middleware and workspace dependency resolution
+**First task in Milestone 04:**
+1. Create Alembic migration for CRM Core entities (`companies`, `contacts`, `leads`, `pipelines`, `pipeline_stages`, `deals`, `activities`)
+2. Implement `app/modules/crm/` domain (models, schemas, repository, service, routes) in sequence:
+   a. Companies
+   b. Contacts
+   c. Leads
+   d. Pipelines & Stages
+   e. Deals
+   f. Activities
