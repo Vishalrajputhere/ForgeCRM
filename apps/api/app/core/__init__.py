@@ -1,0 +1,1 @@
+"""ForgeCRM API — Core Package."""
