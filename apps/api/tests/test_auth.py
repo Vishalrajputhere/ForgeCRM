@@ -244,3 +244,28 @@ class TestPasswordChangeAndSessions:
         body = response.json()
         assert isinstance(body, list)
         assert len(body) >= 1
+
+    @pytest.mark.asyncio
+    async def test_logout_invalidates_session(self, client: AsyncClient) -> None:
+        """Logging out should terminate session and invalidate access token for subsequent requests."""
+        reg_res = await client.post("/api/v1/auth/register", json=REGISTER_DATA)
+        access_token = reg_res.json()["access_token"]
+        headers = {"Authorization": f"Bearer {access_token}"}
+
+        logout_res = await client.post("/api/v1/auth/logout", headers=headers)
+        assert logout_res.status_code == 204
+
+        # Subsequent authenticated request with same access token should fail
+        me_res = await client.get("/api/v1/auth/me", headers=headers)
+        assert me_res.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_password_reset_request_always_returns_200(self, client: AsyncClient) -> None:
+        """Password reset request should return 200 regardless of email presence."""
+        response = await client.post(
+            "/api/v1/auth/password-reset/request",
+            json={"email": "nonexistent@forgecrm.io"},
+        )
+        assert response.status_code == 200
+        assert "message" in response.json()
+

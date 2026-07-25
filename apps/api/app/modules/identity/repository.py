@@ -238,9 +238,45 @@ class RefreshTokenRepository:
         await self.db.execute(stmt)
 
 
+class PasswordResetTokenRepository:
+    """Repository for PasswordResetToken operations."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def create(self, reset_token: PasswordResetToken) -> PasswordResetToken:
+        """Create a new password reset token record."""
+        self.db.add(reset_token)
+        await self.db.flush()
+        return reset_token
+
+    async def get_by_hash(self, token_hash: str) -> PasswordResetToken | None:
+        """Fetch valid password reset token by hash."""
+        stmt = (
+            select(PasswordResetToken)
+            .where(
+                PasswordResetToken.token_hash == token_hash,
+                PasswordResetToken.used_at.is_(None),
+                PasswordResetToken.expires_at > datetime.now(UTC),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def mark_used(self, token_id: UUID) -> None:
+        """Mark reset token as used."""
+        stmt = (
+            update(PasswordResetToken)
+            .where(PasswordResetToken.id == token_id)
+            .values(used_at=datetime.now(UTC))
+        )
+        await self.db.execute(stmt)
+
+
 __all__ = [
     "UserRepository",
     "RoleRepository",
     "SessionRepository",
     "RefreshTokenRepository",
+    "PasswordResetTokenRepository",
 ]

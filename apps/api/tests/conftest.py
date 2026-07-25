@@ -9,6 +9,15 @@ Documentation: docs/07_Testing/
 
 from __future__ import annotations
 
+import os
+
+# Set test environment variables BEFORE importing app modules
+os.environ["APP_ENV"] = "testing"
+os.environ["APP_SECRET_KEY"] = "test_secret_key_that_is_at_least_32_characters_long"
+os.environ["DATABASE_URL"] = "postgresql+asyncpg://forgecrm:forgecrm_dev_password@localhost:5432/forgecrm_test"
+os.environ["REDIS_URL"] = "redis://:forgecrm_dev_password@localhost:6379/1"
+os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_that_is_at_least_32_characters_long"
+
 import asyncio
 from collections.abc import AsyncGenerator, Generator
 from typing import Any
@@ -29,13 +38,7 @@ from app.db.session import get_db_session
 
 def get_test_settings() -> Settings:
     """Return settings configured for the test environment."""
-    return Settings(
-        APP_ENV="testing",
-        APP_SECRET_KEY="test_secret_key_that_is_at_least_32_characters_long",
-        DATABASE_URL="postgresql+asyncpg://forgecrm:forgecrm_dev_password@localhost:5432/forgecrm_test",
-        REDIS_URL="redis://:forgecrm_dev_password@localhost:6379/1",
-        JWT_SECRET_KEY="test_jwt_secret_key_that_is_at_least_32_characters_long",
-    )  # type: ignore[call-arg]
+    return get_settings()
 
 
 # ── Pytest Configuration ──────────────────────────────────────────────────────

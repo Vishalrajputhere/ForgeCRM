@@ -69,6 +69,18 @@ async def get_current_user(
     except ValueError as exc:
         raise TokenInvalidError("Invalid user ID format.") from exc
 
+    session_id_str = payload.get("session_id")
+    if session_id_str:
+        try:
+            session_id = UUID(session_id_str)
+            from app.modules.identity.repository import SessionRepository
+            session_repo = SessionRepository(db)
+            session = await session_repo.get_by_id(session_id)
+            if session is None or not session.is_active_session:
+                raise TokenExpiredError("Session has been terminated or expired.")
+        except (ValueError, TypeError):
+            pass
+
     user_repo = UserRepository(db)
     user = await user_repo.get_by_id(user_id)
 
@@ -77,6 +89,9 @@ async def get_current_user(
 
     if not user.is_active:
         raise AuthenticationError("User account is disabled.")
+
+    if session_id_str:
+        setattr(user, "_current_session_id", UUID(session_id_str))
 
     return user
 

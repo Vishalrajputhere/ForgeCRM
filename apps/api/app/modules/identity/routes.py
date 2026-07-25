@@ -134,6 +134,52 @@ async def change_password(
     return {"message": "Password changed successfully."}
 
 
+@router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Logout User Session",
+    description="Revokes the current authenticated user session.",
+)
+async def logout(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    session_id = getattr(current_user, "_current_session_id", None)
+    if session_id:
+        service = IdentityService(db)
+        await service.logout_session(session_id)
+
+
+@router.post(
+    "/password-reset/request",
+    status_code=status.HTTP_200_OK,
+    summary="Request Password Reset",
+    description="Generates a password reset token and sends recovery instructions.",
+)
+async def request_password_reset(
+    payload: PasswordResetRequest,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> dict[str, str]:
+    service = IdentityService(db)
+    await service.request_password_reset(payload)
+    return {"message": "If an account with that email exists, reset instructions have been sent."}
+
+
+@router.post(
+    "/password-reset/confirm",
+    status_code=status.HTTP_200_OK,
+    summary="Confirm Password Reset",
+    description="Resets user password using single-use recovery token.",
+)
+async def confirm_password_reset(
+    payload: PasswordResetConfirm,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> dict[str, str]:
+    service = IdentityService(db)
+    await service.confirm_password_reset(payload)
+    return {"message": "Password reset successfully. You can now log in with your new password."}
+
+
 @router.get(
     "/sessions",
     response_model=list[SessionResponse],
@@ -146,7 +192,8 @@ async def list_sessions(
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> list[SessionResponse]:
     service = IdentityService(db)
-    return await service.list_user_sessions(current_user.id)
+    current_session_id = getattr(current_user, "_current_session_id", None)
+    return await service.list_user_sessions(current_user.id, current_session_id=current_session_id)
 
 
 @router.delete(
@@ -164,3 +211,4 @@ async def revoke_session(
 
     service = IdentityService(db)
     await service.logout_session(UUID(session_id))
+

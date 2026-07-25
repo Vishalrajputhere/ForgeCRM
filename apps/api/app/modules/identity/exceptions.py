@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from http import HTTPStatus
 
-from app.core.exceptions import AuthenticationError, ConflictError, ForgeCRMError, ValidationError
+from app.core.exceptions import AuthenticationError, ConflictError, ForgeCRMError, InvalidCredentialsError, ValidationError
 
 
 class UserAlreadyExistsError(ConflictError):
@@ -72,6 +72,7 @@ class PasswordPolicyError(ValidationError):
 
 __all__ = [
     "UserAlreadyExistsError",
+    "InvalidCredentialsError",
     "AccountDisabledError",
     "EmailNotVerifiedError",
     "InvalidTokenError",

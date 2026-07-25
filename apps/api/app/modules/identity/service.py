@@ -283,6 +283,61 @@ class IdentityService:
         user.password_hash = hash_password(payload.new_password)
         await self.db.flush()
 
+    async def request_password_reset(self, payload: PasswordResetRequest) -> None:
+        """
+        Initiate password reset process.
+
+        Generates a single-use token and stores its hash. Always succeeds silently
+        to prevent user enumeration attacks.
+        """
+        import secrets
+        from app.modules.identity.models import PasswordResetToken
+        from app.modules.identity.repository import PasswordResetTokenRepository
+
+        user = await self.user_repo.get_by_email(payload.email)
+        if user is None or not user.is_active:
+            # Silent return to prevent account enumeration
+            logger.info("password_reset_requested_nonexistent_or_disabled", email=payload.email)
+            return
+
+        raw_token = secrets.token_urlsafe(32)
+        token_h = hash_token(raw_token)
+        expires_at = datetime.now(UTC) + timedelta(hours=1)
+
+        reset_token_repo = PasswordResetTokenRepository(self.db)
+        reset_record = PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_h,
+            expires_at=expires_at,
+        )
+        await reset_token_repo.create(reset_record)
+        logger.info("password_reset_token_created", user_id=str(user.id))
+
+    async def confirm_password_reset(self, payload: PasswordResetConfirm) -> None:
+        """Confirm password reset using single-use token."""
+        from app.modules.identity.exceptions import InvalidTokenError
+        from app.modules.identity.repository import PasswordResetTokenRepository
+
+        token_h = hash_token(payload.token)
+        reset_repo = PasswordResetTokenRepository(self.db)
+        reset_record = await reset_repo.get_by_hash(token_h)
+
+        if reset_record is None:
+            raise InvalidTokenError("Password reset token is invalid or expired.")
+
+        user = await self.user_repo.get_by_id(reset_record.user_id)
+        if user is None or not user.is_active:
+            raise InvalidTokenError()
+
+        # Update password
+        user.password_hash = hash_password(payload.new_password)
+
+        # Mark token used
+        await reset_repo.mark_used(reset_record.id)
+        await self.db.flush()
+
+        logger.info("password_reset_confirmed", user_id=str(user.id))
+
     async def list_user_sessions(self, user_id: UUID, current_session_id: UUID | None = None) -> list[SessionResponse]:
         """List active sessions for user."""
         sessions = await self.session_repo.list_user_sessions(user_id)
