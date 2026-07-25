@@ -19,17 +19,15 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
-    Index,
-    String,
     Table,
     Text,
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import INET, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, BaseModel, TimestampMixin, UUIDPrimaryKeyMixin, generate_uuid7
+from app.db.base import Base, BaseModel, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     pass
@@ -224,14 +222,14 @@ class EmailVerificationToken(BaseModel):
 
 
 __all__ = [
-    "User",
-    "Role",
-    "Permission",
-    "role_permissions",
-    "UserRole",
-    "Session",
-    "RefreshToken",
+    "EmailVerificationToken",
     "OAuthAccount",
     "PasswordResetToken",
-    "EmailVerificationToken",
+    "Permission",
+    "RefreshToken",
+    "Role",
+    "Session",
+    "User",
+    "UserRole",
+    "role_permissions",
 ]

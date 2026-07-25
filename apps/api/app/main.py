@@ -24,7 +24,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.router import api_v1_router
 from app.core.config import get_settings
@@ -32,12 +31,11 @@ from app.core.exceptions import ForgeCRMError
 from app.core.logging import get_logger, setup_logging
 from app.schemas.errors import ErrorResponse, ValidationErrorDetail, ValidationErrorResponse
 
-
 # ── Application Lifespan ──────────────────────────────────────────────────────
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """
     Application lifespan context manager.
 
@@ -288,7 +286,7 @@ class _ORJSONResponse(JSONResponse):
 
     media_type = "application/json"
 
-    def render(self, content: Any) -> bytes:  # noqa: ANN401
+    def render(self, content: Any) -> bytes:
         return orjson.dumps(
             content,
             option=orjson.OPT_NON_STR_KEYS | orjson.OPT_SERIALIZE_UUID,
@@ -298,6 +296,7 @@ class _ORJSONResponse(JSONResponse):
 async def _ensure_minio_bucket(settings: Any) -> None:
     """Create the default MinIO bucket if it does not exist."""
     import asyncio
+
     import boto3
     from botocore.config import Config
     from botocore.exceptions import ClientError

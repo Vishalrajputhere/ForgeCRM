@@ -21,7 +21,12 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
-from app.core.exceptions import AuthenticationError, InsufficientPermissionsError, TokenExpiredError, TokenInvalidError
+from app.core.exceptions import (
+    AuthenticationError,
+    InsufficientPermissionsError,
+    TokenExpiredError,
+    TokenInvalidError,
+)
 from app.core.security import JWTError, decode_token
 from app.db.session import get_db_session
 from app.modules.identity.models import User
@@ -91,7 +96,7 @@ async def get_current_user(
         raise AuthenticationError("User account is disabled.")
 
     if session_id_str:
-        setattr(user, "_current_session_id", UUID(session_id_str))
+        user._current_session_id = UUID(session_id_str)
 
     return user
 
@@ -200,12 +205,12 @@ def require_workspace_permission(required_permission: str) -> Callable[..., User
 HeaderWorkspaceId = Annotated[Any, Depends(get_current_user)]
 
 __all__ = [
-    "get_current_user",
+    "CurrentActiveUser",
+    "CurrentUser",
     "get_current_active_user",
+    "get_current_user",
     "get_current_workspace_id",
     "get_current_workspace_member",
     "require_permission",
     "require_workspace_permission",
-    "CurrentUser",
-    "CurrentActiveUser",
 ]

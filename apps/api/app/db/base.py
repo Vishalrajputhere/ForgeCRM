@@ -21,7 +21,7 @@ from uuid import UUID
 import uuid6
 from sqlalchemy import DateTime, func
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, MappedColumn, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 def generate_uuid7() -> UUID:
@@ -153,11 +153,11 @@ class BaseModel(Base, UUIDPrimaryKeyMixin, AuditMixin, SoftDeleteMixin):
 
 
 __all__ = [
+    "AuditMixin",
     "Base",
     "BaseModel",
-    "TimestampMixin",
     "SoftDeleteMixin",
+    "TimestampMixin",
     "UUIDPrimaryKeyMixin",
-    "AuditMixin",
     "generate_uuid7",
 ]

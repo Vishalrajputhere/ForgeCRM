@@ -64,4 +64,4 @@ class CorrelationIDMiddleware(BaseHTTPMiddleware):
         return response
 
 
-__all__ = ["CorrelationIDMiddleware", "CORRELATION_ID_HEADER"]
+__all__ = ["CORRELATION_ID_HEADER", "CorrelationIDMiddleware"]

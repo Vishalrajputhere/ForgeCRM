@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.engine import get_session_factory
 
 
-async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
+async def get_db_session() -> AsyncGenerator[AsyncSession]:
     """
     Async generator that yields an SQLAlchemy session for a single request.
 
@@ -47,4 +47,4 @@ async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 
 
-__all__ = ["get_db_session", "DbSession"]
+__all__ = ["DbSession", "get_db_session"]

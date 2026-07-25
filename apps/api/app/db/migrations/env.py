@@ -19,6 +19,22 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 # Import the base metadata — all models must be imported here for autogenerate
 from app.db.base import Base
+from app.modules.crm.models import (  # noqa: F401
+    Activity,
+    ActivityType,
+    Company,
+    CompanyIndustry,
+    Contact,
+    Deal,
+    DealProduct,
+    Lead,
+    LeadConversion,
+    LeadSource,
+    LeadStatus,
+    Pipeline,
+    PipelineStage,
+    Task,
+)
 
 # ── Import all models so Alembic can detect them ─────────────────────────────
 from app.modules.identity.models import (  # noqa: F401
@@ -41,6 +57,7 @@ from app.modules.workspace.models import (  # noqa: F401
     WorkspaceMember,
     WorkspaceSettings,
 )
+
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Alembic Config object — provides access to .ini file values

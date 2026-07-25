@@ -3,7 +3,6 @@
 import { useState } from 'react';
 
 import { useWorkspace } from '@/hooks/use-workspace';
-import type { WorkspaceResponse } from '@/types';
 
 export function WorkspaceSwitcher(): React.JSX.Element {
   const { currentWorkspace, userWorkspaces, switchWorkspace } = useWorkspace();

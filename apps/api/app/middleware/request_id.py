@@ -58,4 +58,4 @@ def _generate_request_id() -> str:
     return f"req_{uuid.uuid4().hex}"
 
 
-__all__ = ["RequestIDMiddleware", "REQUEST_ID_HEADER"]
+__all__ = ["REQUEST_ID_HEADER", "RequestIDMiddleware"]

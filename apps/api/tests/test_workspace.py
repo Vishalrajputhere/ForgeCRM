@@ -136,31 +136,14 @@ class TestWorkspaceInvitations:
         assert inv_res.status_code == 201
 
         # Retrieve raw invitation token for testing
-        # (In production, token is emailed; here we query DB via API or mock)
-        from app.db.session import get_db_session
-        from app.modules.workspace.repository import InvitationRepository
-
         inv_id = inv_res.json()["id"]
 
-        # Bob accepts invitation via token query
-        # Fetch token from invitation repo in DB
-        async for session in get_db_session():
-            inv_repo = InvitationRepository(session)
-
-            # Accept invitation with raw token
-            # Get token hash from invitation table
-            stmt = await session.execute(
-                f"SELECT invitation_token_hash FROM workspace_invitations WHERE id = '{inv_id}'"
-            )
-            raw_hash = stmt.scalar()
-            break
-
-        # Bob accepts invitation via POST /workspaces/invitations/accept
-        # We test with valid token via service
+        # Bob accepts invitation via service generated raw token
+        from app.db.session import get_db_session
         from app.modules.workspace.service import WorkspaceService
+
         async for session in get_db_session():
             ws_service = WorkspaceService(session)
-            # Create fresh invitation to get raw token
             inv_obj = await ws_service.invite_member(
                 invited_by_id=(await client.get("/api/v1/auth/me", headers=headers_a)).json()["id"],
                 workspace_id=ws_id,

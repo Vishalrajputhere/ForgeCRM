@@ -32,7 +32,6 @@ from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.db.session import get_db_session
 
-
 # ── Test Settings Override ────────────────────────────────────────────────────
 
 
@@ -45,7 +44,7 @@ def get_test_settings() -> Settings:
 
 
 @pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
+def event_loop() -> Generator[asyncio.AbstractEventLoop]:
     """Create a shared event loop for the test session."""
     loop = asyncio.new_event_loop()
     yield loop
@@ -76,7 +75,7 @@ def app(test_settings: Settings) -> FastAPI:
 
 
 @pytest_asyncio.fixture(scope="session")
-async def test_engine(test_settings: Settings) -> AsyncGenerator[Any, None]:
+async def test_engine(test_settings: Settings) -> AsyncGenerator[Any]:
     """
     Create and configure the test database engine.
 
@@ -102,7 +101,7 @@ async def test_engine(test_settings: Settings) -> AsyncGenerator[Any, None]:
 
 
 @pytest_asyncio.fixture
-async def db_session(test_engine: Any) -> AsyncGenerator[AsyncSession, None]:
+async def db_session(test_engine: Any) -> AsyncGenerator[AsyncSession]:
     """
     Yield an async database session for each test.
 
@@ -121,14 +120,14 @@ async def db_session(test_engine: Any) -> AsyncGenerator[AsyncSession, None]:
 
 
 @pytest_asyncio.fixture
-async def client(app: FastAPI, db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
+async def client(app: FastAPI, db_session: AsyncSession) -> AsyncGenerator[AsyncClient]:
     """
     Yield an async HTTP test client for API endpoint testing.
 
     The database session dependency is overridden to use the test session.
     """
 
-    async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
+    async def override_get_db() -> AsyncGenerator[AsyncSession]:
         yield db_session
 
     app.dependency_overrides[get_db_session] = override_get_db

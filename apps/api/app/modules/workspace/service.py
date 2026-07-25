@@ -20,8 +20,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.logging import get_logger
-from app.modules.identity.exceptions import UserAlreadyExistsError
-from app.modules.identity.models import Role
 from app.modules.identity.permissions import SystemRoles
 from app.modules.identity.repository import RoleRepository, UserRepository
 from app.modules.workspace.exceptions import (
@@ -47,15 +45,12 @@ from app.modules.workspace.repository import (
     WorkspaceSettingsRepository,
 )
 from app.modules.workspace.schemas import (
-    AcceptInvitationRequest,
     InviteMemberRequest,
     TeamCreate,
     TeamResponse,
-    TeamUpdate,
     WorkspaceCreate,
     WorkspaceInvitationResponse,
     WorkspaceMemberResponse,
-    WorkspaceMemberUpdate,
     WorkspaceResponse,
     WorkspaceSettingsResponse,
     WorkspaceSettingsUpdate,
@@ -280,7 +275,7 @@ class WorkspaceService:
         logger.info("workspace_invitation_created", workspace_id=str(workspace_id), email=payload.email)
 
         # Attach raw_token dynamically to response object if needed for testing/email sending
-        setattr(invitation, "raw_token", raw_token)
+        invitation.raw_token = raw_token
 
         # Re-fetch with loaded role
         full_inv = await self.invitation_repo.get_by_token_hash(token_h)

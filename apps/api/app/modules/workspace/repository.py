@@ -9,18 +9,17 @@ Documentation: docs/03_Backend/301_BACKEND_OVERVIEW.md §5 (Repository Layer)
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Sequence
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.identity.models import Role, User
+from app.modules.identity.models import Role
 from app.modules.workspace.models import (
     Team,
-    TeamMember,
     Workspace,
     WorkspaceInvitation,
     WorkspaceMember,
@@ -229,9 +228,9 @@ class WorkspaceSettingsRepository:
 
 
 __all__ = [
-    "WorkspaceRepository",
-    "WorkspaceMemberRepository",
-    "TeamRepository",
     "InvitationRepository",
+    "TeamRepository",
+    "WorkspaceMemberRepository",
+    "WorkspaceRepository",
     "WorkspaceSettingsRepository",
 ]

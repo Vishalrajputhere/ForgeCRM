@@ -17,12 +17,9 @@ from sqlalchemy import (
     BOOLEAN,
     SMALLINT,
     VARCHAR,
-    Column,
     DateTime,
     ForeignKey,
     Integer,
-    String,
-    Table,
     Text,
     UniqueConstraint,
     func,
@@ -30,7 +27,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, BaseModel, TimestampMixin, UUIDPrimaryKeyMixin, generate_uuid7
+from app.db.base import Base, BaseModel, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.modules.identity.models import Role, User
@@ -167,10 +164,10 @@ class WorkspaceSettings(Base, TimestampMixin):
 
 
 __all__ = [
-    "Workspace",
-    "WorkspaceMember",
     "Team",
     "TeamMember",
+    "Workspace",
     "WorkspaceInvitation",
+    "WorkspaceMember",
     "WorkspaceSettings",
 ]

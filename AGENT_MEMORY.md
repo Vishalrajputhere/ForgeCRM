@@ -2,18 +2,18 @@
 # Persistent implementation checkpoint between AI sessions
 
 ## Last Updated
-2026-07-25T21:00:00+05:30
+2026-07-25T21:10:00+05:30
 
 ---
 
 ## Current Milestone
-**Milestone 03 — Workspace Isolation & Multi-Tenancy**
+**Milestone 04 — CRM Core Operational**
 
 ## Current Phase
-**COMPLETE** — All Workspace Isolation & Multi-Tenancy deliverables implemented, tested, and committed
+**COMPLETE** — All CRM Core Operational deliverables implemented, type-checked, tested, and committed
 
 ## Completion Percentage
-**Milestone 03: 100%**
+**Milestone 04: 100%**
 
 ---
 
@@ -38,108 +38,109 @@
 - 15 automated test cases in `apps/api/tests/test_auth.py`
 
 ### Milestone 03 — Workspace Isolation & Multi-Tenancy (100%)
-- [x] **Workspace Domain Database Models** (`apps/api/app/modules/workspace/models.py`)
-  - `Workspace`, `WorkspaceMember`, `Team`, `TeamMember`, `WorkspaceInvitation`, `WorkspaceSettings`
-  - Row-level tenant isolation, unique URL slugs, workspace membership status, invitation tokens, workspace settings
-- [x] **Alembic Database Migration** (`apps/api/app/db/migrations/versions/002_workspace_isolation_schema.py`)
-  - Creates `workspaces`, `workspace_members`, `teams`, `team_members`, `workspace_invitations`, `workspace_settings` tables and indexes
-- [x] **Validators & Exceptions** (`apps/api/app/modules/workspace/validators.py` & `exceptions.py`)
-  - Slug generator & validator (`generate_workspace_slug`)
-  - Domain exceptions (`WorkspaceNotFoundError`, `WorkspaceAccessDeniedError`, `WorkspaceSlugAlreadyExistsError`, `InvitationNotFoundError`, `InvitationExpiredError`, `AlreadyMemberError`)
-- [x] **Pydantic Schemas** (`apps/api/app/modules/workspace/schemas.py`)
-  - `WorkspaceCreate`, `WorkspaceUpdate`, `WorkspaceResponse`, `WorkspaceMemberResponse`, `TeamCreate`, `TeamResponse`, `InviteMemberRequest`, `AcceptInvitationRequest`, `WorkspaceSettingsResponse`, `WorkspaceSettingsUpdate`
-- [x] **Repository Layer** (`apps/api/app/modules/workspace/repository.py`)
-  - `WorkspaceRepository`, `WorkspaceMemberRepository`, `TeamRepository`, `InvitationRepository`, `WorkspaceSettingsRepository`
-- [x] **Service Layer** (`apps/api/app/modules/workspace/service.py`)
-  - `WorkspaceService`: workspace creation, auto-slug generation, owner membership assignment, workspace switching, user workspace listing, member invitation, invitation acceptance, team management, and workspace settings management
-- [x] **Workspace Isolation Dependencies** (`apps/api/app/core/dependencies.py`)
-  - `get_current_workspace_id`: extracts `X-Workspace-ID` header
-  - `get_current_workspace_member`: verifies active membership in target workspace
-  - `require_workspace_permission`: verifies user permission within workspace context
-- [x] **FastAPI API Routes** (`apps/api/app/modules/workspace/routes.py`)
-  - `POST /api/v1/workspaces` — Create workspace
-  - `GET /api/v1/workspaces` — List workspaces current user belongs to
-  - `GET /api/v1/workspaces/{workspace_id}` — Get workspace details
-  - `PATCH /api/v1/workspaces/{workspace_id}` — Update workspace details
-  - `GET /api/v1/workspaces/{workspace_id}/members` — List members
-  - `POST /api/v1/workspaces/{workspace_id}/invitations` — Invite member
-  - `POST /api/v1/workspaces/invitations/accept` — Accept invitation with token
-  - `GET /api/v1/workspaces/{workspace_id}/teams` — List teams
-  - `POST /api/v1/workspaces/{workspace_id}/teams` — Create team
-  - `GET /api/v1/workspaces/{workspace_id}/settings` — Get settings
-  - `PATCH /api/v1/workspaces/{workspace_id}/settings` — Update settings
-- [x] **Frontend Workspace Components & Store** (`apps/web/`)
-  - `src/stores/workspace-store.ts` — Zustand store for persistent active workspace state
-  - `src/hooks/use-workspace.ts` — Custom hook for workspace creation, switching, invitations, and querying
-  - `src/components/workspace/workspace-switcher.tsx` — Interactive workspace switcher dropdown UI
-- [x] **Automated Test Suite** (`apps/api/tests/test_workspace.py`)
-  - Integration tests covering workspace creation, cross-tenant isolation enforcement (`403 Forbidden`), member listing, invitation flow, team creation, and settings update.
+- Workspace Domain Database Models (`Workspace`, `WorkspaceMember`, `Team`, `TeamMember`, `WorkspaceInvitation`, `WorkspaceSettings`)
+- Alembic Database Migration (`002_workspace_isolation_schema.py`)
+- Validators, Exceptions, Pydantic Schemas, Repositories, Service Layer
+- Workspace isolation dependencies (`get_current_workspace_id`, `get_current_workspace_member`, `require_workspace_permission`)
+- FastAPI routes (`/workspaces`, `/workspaces/{id}`, `/workspaces/{id}/members`, `/workspaces/{id}/invitations`, `/workspaces/invitations/accept`, `/workspaces/{id}/teams`, `/workspaces/{id}/settings`)
+- Frontend Zustand workspace store, custom `useWorkspace` hook, `WorkspaceSwitcher` UI component
+- Automated integration test suite in `apps/api/tests/test_workspace.py`
+
+### Milestone 04 — CRM Core Operational (100%)
+- [x] **CRM Domain Database Models** (`apps/api/app/modules/crm/models.py`)
+  - 14 entities: `CompanyIndustry`, `LeadSource`, `LeadStatus`, `ActivityType`, `Company`, `Contact`, `Lead`, `LeadConversion`, `Pipeline`, `PipelineStage`, `Deal`, `DealProduct`, `Activity`, `Task`
+  - Explicit `workspace_id` tenant isolation across every table
+- [x] **Alembic Database Migration** (`apps/api/app/db/migrations/versions/003_crm_core_schema.py`)
+  - Creates all 14 CRM core tables, foreign keys, constraints, and performance indexes
+- [x] **Domain Exceptions & Pydantic Schemas** (`apps/api/app/modules/crm/exceptions.py` & `schemas.py`)
+  - DTOs for Companies, Contacts, Leads, Lead Conversion, Pipelines, Stages, Deals, Deal Products, Tasks, and Timeline Activities
+- [x] **Repository Layer** (`apps/api/app/modules/crm/repository.py`)
+  - `CompanyRepository`, `ContactRepository`, `LeadRepository`, `PipelineRepository`, `DealRepository`, `TaskRepository`, `ActivityRepository` with mandatory workspace filtering
+- [x] **Business Service Layer** (`apps/api/app/modules/crm/service.py`)
+  - `CRMService`: Complete CRUD for Companies, Contacts, Leads, Pipelines, Deals, Tasks, Activities, and **Transactional Lead Conversion** (Company + Contact + Deal in atomic unit of work)
+- [x] **FastAPI API Routes** (`apps/api/app/modules/crm/routes.py`)
+  - `/companies`, `/companies/{id}`, `/contacts`, `/contacts/{id}`, `/leads`, `/leads/{id}/convert`, `/pipelines`, `/deals`, `/deals/{id}`, `/deals/{id}/move-stage`, `/tasks`, `/tasks/{id}/complete`, `/timeline`
+- [x] **Frontend CRM Components & Hooks** (`apps/web/`)
+  - `src/stores/crm-store.ts` — Zustand store for active CRM entity lists
+  - `src/hooks/use-crm.ts` — Custom hook for queries, mutations, conversion, and stage moves
+  - `src/components/crm/kanban-board.tsx` — Interactive Sales Pipeline Kanban Board component
+- [x] **Automated Integration Test Suite** (`apps/api/tests/test_crm.py`)
+  - Automated tests covering Company/Contact creation, Lead conversion, Pipeline stage movements, Deal weighted forecasting, Task completion, and cross-workspace multi-tenant isolation.
 
 ---
 
-## Files Created (Milestone 03)
-- `apps/api/app/modules/workspace/models.py`
-- `apps/api/app/modules/workspace/schemas.py`
-- `apps/api/app/modules/workspace/validators.py`
-- `apps/api/app/modules/workspace/exceptions.py`
-- `apps/api/app/modules/workspace/repository.py`
-- `apps/api/app/modules/workspace/service.py`
-- `apps/api/app/modules/workspace/routes.py`
-- `apps/api/app/db/migrations/versions/002_workspace_isolation_schema.py`
-- `apps/api/tests/test_workspace.py`
-- `apps/web/src/stores/workspace-store.ts`
-- `apps/web/src/hooks/use-workspace.ts`
-- `apps/web/src/components/workspace/workspace-switcher.tsx`
+## Files Created (Milestone 04)
+- `apps/api/app/modules/crm/models.py`
+- `apps/api/app/modules/crm/schemas.py`
+- `apps/api/app/modules/crm/exceptions.py`
+- `apps/api/app/modules/crm/repository.py`
+- `apps/api/app/modules/crm/service.py`
+- `apps/api/app/modules/crm/routes.py`
+- `apps/api/app/db/migrations/versions/003_crm_core_schema.py`
+- `apps/api/tests/test_crm.py`
+- `apps/web/src/stores/crm-store.ts`
+- `apps/web/src/hooks/use-crm.ts`
+- `apps/web/src/components/crm/kanban-board.tsx`
 
 ---
 
-## Files Modified (Milestone 03)
-- `apps/api/app/db/migrations/env.py` — Imported Workspace domain models for Alembic
-- `apps/api/app/core/dependencies.py` — Added `get_current_workspace_id`, `get_current_workspace_member`, `require_workspace_permission`
-- `apps/api/app/api/v1/router.py` — Registered Workspace routes in central V1 router
+## Files Modified (Milestone 04)
+- `apps/api/app/db/migrations/env.py` — Imported CRM domain models for Alembic
+- `apps/api/app/api/v1/router.py` — Registered CRM routes in central V1 router
+- `apps/web/src/types/index.ts` — Added Workspace & CRM TypeScript DTO interfaces
+- `apps/web/src/lib/api-client.ts` — Fixed request_id type handling
+- `apps/web/src/providers/theme-provider.tsx` — Updated next-themes prop type
 
 ---
 
 ## Database Migrations Completed
-- `001_initial_identity_schema.py` — Identity domain schema
-- `002_workspace_isolation_schema.py` — Creates `workspaces`, `workspace_members`, `teams`, `team_members`, `workspace_invitations`, `workspace_settings`
+- `001_initial_identity_schema.py`
+- `002_workspace_isolation_schema.py`
+- `003_crm_core_schema.py` — Creates 14 CRM core tables and indexes
 
 ---
 
-## APIs Implemented (Milestone 03)
-- `POST /api/v1/workspaces`
-- `GET /api/v1/workspaces`
-- `GET /api/v1/workspaces/{workspace_id}`
-- `PATCH /api/v1/workspaces/{workspace_id}`
-- `GET /api/v1/workspaces/{workspace_id}/members`
-- `POST /api/v1/workspaces/{workspace_id}/invitations`
-- `GET /api/v1/workspaces/invitations/accept`
-- `POST /api/v1/workspaces/invitations/accept`
-- `GET /api/v1/workspaces/{workspace_id}/teams`
-- `POST /api/v1/workspaces/{workspace_id}/teams`
-- `GET /api/v1/workspaces/{workspace_id}/settings`
-- `PATCH /api/v1/workspaces/{workspace_id}/settings`
+## APIs Implemented (Milestone 04)
+- `POST /api/v1/companies`
+- `GET /api/v1/companies`
+- `GET /api/v1/companies/{company_id}`
+- `PATCH /api/v1/companies/{company_id}`
+- `POST /api/v1/contacts`
+- `GET /api/v1/contacts`
+- `GET /api/v1/contacts/{contact_id}`
+- `POST /api/v1/leads`
+- `GET /api/v1/leads`
+- `POST /api/v1/leads/{lead_id}/convert`
+- `POST /api/v1/pipelines`
+- `GET /api/v1/pipelines`
+- `POST /api/v1/deals`
+- `GET /api/v1/deals`
+- `GET /api/v1/deals/{deal_id}`
+- `POST /api/v1/deals/{deal_id}/move-stage`
+- `POST /api/v1/tasks`
+- `GET /api/v1/tasks`
+- `POST /api/v1/tasks/{task_id}/complete`
+- `GET /api/v1/timeline`
 
 ---
 
-## Frontend Components & Pages Completed
-- `apps/web/src/components/workspace/workspace-switcher.tsx` — Workspace switcher UI dropdown
-- `apps/web/src/stores/workspace-store.ts` — Active workspace Zustand state manager
-- `apps/web/src/hooks/use-workspace.ts` — React hook for workspace operations
+## Frontend Components & Hooks Completed
+- `apps/web/src/components/crm/kanban-board.tsx` — Drag-and-drop Kanban Board UI
+- `apps/web/src/stores/crm-store.ts` — Zustand CRM store
+- `apps/web/src/hooks/use-crm.ts` — React hook for CRM queries and mutations
 
 ---
 
 ## Tests Completed
-- `apps/api/tests/test_workspace.py` — Integration test suite covering workspace creation, multi-tenant isolation, invitations, teams, and settings.
+- `apps/api/tests/test_crm.py` — Integration test suite for Companies, Contacts, Leads, Conversion, Deals, Tasks, Timelines, and multi-tenant isolation.
 
 ---
 
 ## Important Engineering Decisions Made
 
-1. **Row-Level Tenant Isolation**: Implemented row-level multi-tenancy per `ADR-003`. All domain entities reference `workspace_id`.
-2. **Workspace Member as Central Link**: Membership in `workspace_members` binds a user to a workspace and assigns a role (`role_id`), permitting a single user to belong to multiple customer organizations with different roles.
-3. **Workspace Resolution**: `X-Workspace-ID` request header is resolved via `get_current_workspace_id` and verified against `get_current_workspace_member` to block unauthorized cross-tenant data access.
-4. **Auto Slug Generation**: Workspace names are converted into clean URL slugs with fallback random suffixes to guarantee uniqueness.
+1. **Transactional Lead Conversion**: Implemented atomic lead conversion in `CRMService.convert_lead()`. Converts Lead into Company, Contact, and optional Deal within a single database transaction, recording a historical `LeadConversion` record.
+2. **Immutable Timeline Activities**: `Activity` records are append-only. Business operations create activity timeline events which are rendered chronologically descending.
+3. **Workspace Isolation Enforced**: All repository queries strictly filter by `workspace_id`. Cross-workspace access is prevented at both dependency and repository levels.
 
 ---
 
@@ -165,21 +166,14 @@ None.
 
 ## Exact Next Task for Next Session
 
-**START MILESTONE 04 — CRM Core Operational**
+**START MILESTONE 05 — Advanced Features & Integrations**
 
 Read in order:
-1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 04 details
-2. `docs/02_Database/204_CRM_OVERVIEW.md` & `205_COMPANIES_CONTACTS_SCHEMA.md` — Companies & Contacts schema
-3. `docs/02_Database/206_LEADS_SCHEMA.md` — Leads schema
-4. `docs/02_Database/207_DEALS_PIPELINES_SCHEMA.md` — Deals & Pipelines schema
-5. `docs/02_Database/208_ACTIVITIES_TASKS_SCHEMA.md` — Activities & Tasks schema
+1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 05 details
+2. `docs/03_Backend/305_SEARCH_AND_FILTERS.md` — Global search & filter engine
+3. `docs/03_Backend/306_BACKGROUND_JOBS.md` — Async job processing
+4. `docs/03_Backend/307_FILE_STORAGE.md` — MinIO file storage & document attachments
 
-**First task in Milestone 04:**
-1. Create Alembic migration for CRM Core entities (`companies`, `contacts`, `leads`, `pipelines`, `pipeline_stages`, `deals`, `activities`)
-2. Implement `app/modules/crm/` domain (models, schemas, repository, service, routes) in sequence:
-   a. Companies
-   b. Contacts
-   c. Leads
-   d. Pipelines & Stages
-   e. Deals
-   f. Activities
+**First task in Milestone 05:**
+1. Implement document attachments domain (`app/modules/storage/`) for Companies, Contacts, Leads, Deals, Tasks
+2. Implement global search API endpoint across CRM entities

@@ -109,3 +109,301 @@ export interface SelectOption<T = string> {
   readonly disabled?: boolean;
   readonly description?: string;
 }
+
+// ── Role & User DTOs ──────────────────────────────────────────────────────────
+
+export interface RoleResponse {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  phone?: string;
+  is_active: boolean;
+  roles?: RoleResponse[];
+}
+
+export interface LoginRequest {
+  email: string;
+  password?: string;
+}
+
+export interface RegisterRequest {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password?: string;
+}
+
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+  user?: UserResponse;
+}
+
+export interface UserProfileUpdate {
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+}
+
+// ── Workspace Domain DTOs ──────────────────────────────────────────────────────
+
+export interface WorkspaceResponse {
+  id: string;
+  name: string;
+  slug: string;
+  logo_url?: string;
+  industry?: string;
+  website?: string;
+  company_size?: number;
+  subscription_plan: string;
+  status: string;
+  created_at: string;
+  role?: RoleResponse;
+}
+
+export interface WorkspaceCreate {
+  name: string;
+  slug?: string;
+  industry?: string;
+  website?: string;
+  company_size?: number;
+}
+
+export interface WorkspaceMemberResponse {
+  id: string;
+  workspace_id: string;
+  user_id: string;
+  user: UserResponse;
+  role: RoleResponse;
+  status: string;
+  joined_at: string;
+  last_active_at?: string;
+  is_default_workspace: boolean;
+}
+
+export interface InviteMemberRequest {
+  email: string;
+  role_id: string;
+}
+
+export interface WorkspaceSettingsResponse {
+  workspace_id: string;
+  timezone: string;
+  currency: string;
+  language: string;
+  date_format: string;
+  time_format: string;
+  week_start_day: number;
+  branding_primary_color?: string;
+  branding_logo_url?: string;
+}
+
+// ── CRM Domain DTOs ───────────────────────────────────────────────────────────
+
+export interface CompanyResponse {
+  id: string;
+  workspace_id: string;
+  owner_member_id: string;
+  name: string;
+  legal_name?: string;
+  industry_id?: string;
+  website?: string;
+  email?: string;
+  phone?: string;
+  annual_revenue?: number;
+  employee_count?: number;
+  description?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CompanyCreate {
+  name: string;
+  legal_name?: string;
+  industry_id?: string;
+  website?: string;
+  email?: string;
+  phone?: string;
+  annual_revenue?: number;
+  employee_count?: number;
+  description?: string;
+}
+
+export interface ContactResponse {
+  id: string;
+  workspace_id: string;
+  company_id: string;
+  owner_member_id: string;
+  first_name: string;
+  last_name: string;
+  job_title?: string;
+  department?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  linkedin_url?: string;
+  birthday?: string;
+  is_primary: boolean;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContactCreate {
+  company_id: string;
+  first_name: string;
+  last_name: string;
+  job_title?: string;
+  department?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  linkedin_url?: string;
+  birthday?: string;
+  is_primary?: boolean;
+}
+
+export interface LeadResponse {
+  id: string;
+  workspace_id: string;
+  owner_member_id: string;
+  source_id?: string;
+  status_id: string;
+  first_name: string;
+  last_name?: string;
+  company_name?: string;
+  job_title?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  estimated_value?: number;
+  priority: string;
+  description?: string;
+  converted_at?: string;
+  created_at: string;
+}
+
+export interface LeadCreate {
+  first_name: string;
+  last_name?: string;
+  company_name?: string;
+  job_title?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  estimated_value?: number;
+  priority?: string;
+  description?: string;
+  source_id?: string;
+  status_id?: string;
+}
+
+export interface LeadConvertRequest {
+  create_deal?: boolean;
+  deal_name?: string;
+  deal_value?: number;
+  pipeline_id?: string;
+  stage_id?: string;
+}
+
+export interface StageResponse {
+  id: string;
+  pipeline_id: string;
+  name: string;
+  sort_order: number;
+  probability: number;
+  is_closed: boolean;
+  is_won: boolean;
+  color?: string;
+}
+
+export interface PipelineResponse {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description?: string;
+  is_default: boolean;
+  is_active: boolean;
+  stages: StageResponse[];
+}
+
+export interface DealProductSchema {
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  discount_percent: number;
+  line_total: number;
+}
+
+export interface DealResponse {
+  id: string;
+  workspace_id: string;
+  pipeline_id: string;
+  stage_id: string;
+  company_id: string;
+  primary_contact_id?: string;
+  owner_member_id: string;
+  name: string;
+  value: number;
+  expected_close_date?: string;
+  probability?: number;
+  status: string;
+  loss_reason?: string;
+  description?: string;
+  created_at: string;
+  products?: DealProductSchema[];
+}
+
+export interface DealCreate {
+  name: string;
+  company_id: string;
+  pipeline_id?: string;
+  stage_id?: string;
+  primary_contact_id?: string;
+  value?: number;
+  expected_close_date?: string;
+  probability?: number;
+  description?: string;
+}
+
+export interface DealStageMoveRequest {
+  stage_id: string;
+  loss_reason?: string;
+}
+
+export interface TaskResponse {
+  id: string;
+  workspace_id: string;
+  owner_member_id: string;
+  assigned_member_id: string;
+  entity_type?: string;
+  entity_id?: string;
+  title: string;
+  description?: string;
+  priority: string;
+  status: string;
+  due_date?: string;
+  completed_at?: string;
+  created_at: string;
+}
+
+export interface TaskCreate {
+  title: string;
+  description?: string;
+  priority?: string;
+  due_date?: string;
+  assigned_member_id?: string;
+  entity_type?: string;
+  entity_id?: string;
+}
+

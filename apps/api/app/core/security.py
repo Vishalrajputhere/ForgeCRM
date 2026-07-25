@@ -173,11 +173,11 @@ def decode_token(
 
 
 __all__ = [
-    "hash_password",
-    "verify_password",
-    "needs_password_rehash",
+    "JWTError",
     "create_access_token",
     "create_refresh_token",
     "decode_token",
-    "JWTError",
+    "hash_password",
+    "needs_password_rehash",
+    "verify_password",
 ]

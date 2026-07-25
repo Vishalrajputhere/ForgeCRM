@@ -9,8 +9,8 @@ Documentation: docs/03_Backend/301_BACKEND_OVERVIEW.md §5 (Repository Layer)
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
-from typing import Sequence
 from uuid import UUID
 
 from sqlalchemy import select, update
@@ -24,9 +24,8 @@ from app.modules.identity.models import (
     Session,
     User,
     UserRole,
-    role_permissions,
 )
-from app.modules.identity.permissions import DEFAULT_ROLE_PERMISSIONS, SystemRoles
+from app.modules.identity.permissions import DEFAULT_ROLE_PERMISSIONS
 
 
 class UserRepository:
@@ -274,9 +273,9 @@ class PasswordResetTokenRepository:
 
 
 __all__ = [
-    "UserRepository",
+    "PasswordResetTokenRepository",
+    "RefreshTokenRepository",
     "RoleRepository",
     "SessionRepository",
-    "RefreshTokenRepository",
-    "PasswordResetTokenRepository",
+    "UserRepository",
 ]

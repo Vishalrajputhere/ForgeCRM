@@ -11,7 +11,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { apiGet, apiPost, apiPatch } from '@/lib/api-client';
+import { apiGet, apiPost } from '@/lib/api-client';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import type {
   InviteMemberRequest,

@@ -19,7 +19,7 @@ from structlog.types import EventDict, Processor
 
 
 def _add_app_context(
-    logger: Any,  # noqa: ANN401
+    logger: Any,
     method_name: str,
     event_dict: EventDict,
 ) -> EventDict:
@@ -34,7 +34,7 @@ def _add_app_context(
 
 
 def _drop_color_message_key(
-    logger: Any,  # noqa: ANN401
+    logger: Any,
     method_name: str,
     event_dict: EventDict,
 ) -> EventDict:

@@ -9,9 +9,12 @@ Documentation: docs/03_Backend/301_BACKEND_OVERVIEW.md §11
 
 from __future__ import annotations
 
-from http import HTTPStatus
-
-from app.core.exceptions import AuthenticationError, ConflictError, ForgeCRMError, InvalidCredentialsError, ValidationError
+from app.core.exceptions import (
+    AuthenticationError,
+    ConflictError,
+    InvalidCredentialsError,
+    ValidationError,
+)
 
 
 class UserAlreadyExistsError(ConflictError):
@@ -71,13 +74,13 @@ class PasswordPolicyError(ValidationError):
 
 
 __all__ = [
-    "UserAlreadyExistsError",
-    "InvalidCredentialsError",
     "AccountDisabledError",
     "EmailNotVerifiedError",
+    "InvalidCredentialsError",
     "InvalidTokenError",
-    "TokenRevokedError",
+    "PasswordPolicyError",
     "SessionExpiredError",
     "SessionRevokedError",
-    "PasswordPolicyError",
+    "TokenRevokedError",
+    "UserAlreadyExistsError",
 ]

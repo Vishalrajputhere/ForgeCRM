@@ -104,7 +104,7 @@ def init_db(
     Returns:
         Tuple of (engine, session_factory).
     """
-    global _engine, _async_session_factory  # noqa: PLW0603
+    global _engine, _async_session_factory
 
     _engine = create_engine(
         database_url=database_url,
@@ -155,7 +155,7 @@ async def dispose_engine() -> None:
 
     Closes all connections in the pool.
     """
-    global _engine  # noqa: PLW0603
+    global _engine
 
     if _engine is not None:
         await _engine.dispose()
@@ -181,10 +181,10 @@ def _json_deserializer(obj: str) -> object:
 
 
 __all__ = [
-    "init_db",
-    "get_engine",
-    "get_session_factory",
-    "dispose_engine",
     "create_engine",
     "create_session_factory",
+    "dispose_engine",
+    "get_engine",
+    "get_session_factory",
+    "init_db",
 ]

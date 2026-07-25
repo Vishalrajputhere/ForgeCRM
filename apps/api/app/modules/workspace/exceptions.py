@@ -54,10 +54,10 @@ class AlreadyMemberError(ConflictError):
 
 
 __all__ = [
-    "WorkspaceNotFoundError",
-    "WorkspaceAccessDeniedError",
-    "WorkspaceSlugAlreadyExistsError",
-    "InvitationNotFoundError",
-    "InvitationExpiredError",
     "AlreadyMemberError",
+    "InvitationExpiredError",
+    "InvitationNotFoundError",
+    "WorkspaceAccessDeniedError",
+    "WorkspaceNotFoundError",
+    "WorkspaceSlugAlreadyExistsError",
 ]

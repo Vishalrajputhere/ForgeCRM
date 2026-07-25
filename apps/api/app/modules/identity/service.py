@@ -291,6 +291,7 @@ class IdentityService:
         to prevent user enumeration attacks.
         """
         import secrets
+
         from app.modules.identity.models import PasswordResetToken
         from app.modules.identity.repository import PasswordResetTokenRepository
 
