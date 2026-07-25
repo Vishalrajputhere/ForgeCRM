@@ -21,10 +21,18 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from app.db.base import Base
 
 # ── Import all models so Alembic can detect them ─────────────────────────────
-# Models will be added here as they are implemented in future milestones.
-# Example:
-#   from app.modules.identity.models import User, Role
-#   from app.modules.workspace.models import Workspace
+from app.modules.identity.models import (  # noqa: F401
+    EmailVerificationToken,
+    OAuthAccount,
+    PasswordResetToken,
+    Permission,
+    RefreshToken,
+    Role,
+    Session,
+    User,
+    UserRole,
+    role_permissions,
+)
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Alembic Config object — provides access to .ini file values

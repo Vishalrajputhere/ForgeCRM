@@ -1,0 +1,76 @@
+/**
+ * ForgeCRM — Auth Zustand Store
+ *
+ * Client-side global authentication state management.
+ * Persists user state and tokens.
+ *
+ * Documentation: docs/04_Frontend/404_STATE_MANAGEMENT.md
+ */
+
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+
+export interface UserState {
+  id: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  email: string;
+  phone?: string | null;
+  avatar_url?: string | null;
+  job_title?: string | null;
+  timezone: string;
+  language: string;
+  is_active: boolean;
+  is_email_verified: boolean;
+  roles: { id: string; name: string }[];
+}
+
+interface AuthStore {
+  user: UserState | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+
+  setAuth: (user: UserState, accessToken: string, refreshToken: string) => void;
+  setUser: (user: UserState) => void;
+  clearAuth: () => void;
+}
+
+export const useAuthStore = create<AuthStore>()(
+  persist(
+    (set) => ({
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      isAuthenticated: false,
+
+      setAuth: (user, accessToken, refreshToken) =>
+        set({
+          user,
+          accessToken,
+          refreshToken,
+          isAuthenticated: true,
+        }),
+
+      setUser: (user) =>
+        set({
+          user,
+        }),
+
+      clearAuth: () =>
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          isAuthenticated: false,
+        }),
+    }),
+    {
+      name: 'forge_auth_storage',
+      storage: createJSONStorage(() =>
+        typeof window !== 'undefined' ? localStorage : ({} as Storage),
+      ),
+    },
+  ),
+);

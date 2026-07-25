@@ -21,9 +21,10 @@ api_v1_router = APIRouter(prefix="/api/v1")
 # Health checks (no auth required)
 api_v1_router.include_router(health.router)
 
-# Future milestones will register their routers here:
-# from app.modules.identity import routes as auth_routes
-# api_v1_router.include_router(auth_routes.router, prefix="/auth", tags=["Auth"])
-# ...
+# Authentication & Identity
+from app.modules.identity import routes as auth_routes  # noqa: E402
+
+api_v1_router.include_router(auth_routes.router)
+
 
 __all__ = ["api_v1_router"]

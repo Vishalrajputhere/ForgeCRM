@@ -76,6 +76,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     )
     logger.info("database_initialized")
 
+    # Seed default system roles & permissions
+    try:
+        from app.modules.identity.seed import seed_identity_defaults
+
+        await seed_identity_defaults()
+    except Exception as exc:
+        logger.warning("seed_identity_defaults_failed", error=str(exc))
+
     # Ensure MinIO bucket exists in development
     if settings.is_development or settings.STORAGE_PROVIDER == "minio":
         try:

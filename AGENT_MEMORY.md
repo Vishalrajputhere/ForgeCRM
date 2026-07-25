@@ -2,215 +2,155 @@
 # Persistent implementation checkpoint between AI sessions
 
 ## Last Updated
-2026-07-25T19:40:00+05:30
+2026-07-25T20:15:00+05:30
 
 ---
 
 ## Current Milestone
-**Milestone 01 — Foundation**
+**Milestone 02 — Authentication & Identity**
 
 ## Current Phase
-**COMPLETE** — All Foundation deliverables implemented
+**COMPLETE** — All Authentication & Identity deliverables implemented
 
 ## Completion Percentage
-**Milestone 01: 100%**
+**Milestone 02: 100%**
 
 ---
 
 ## Features Completed
 
-### Repository Scaffold
-- [x] `.gitignore` — Comprehensive Python + Node.js monorepo gitignore
-- [x] `.env.example` — Complete environment variable reference
-- [x] `docker-compose.yml` — All 6 services with health checks and volumes
-- [x] `Makefile` — Developer convenience commands
-- [x] `README.md` — Comprehensive project documentation
-- [x] `LICENSE` — MIT License
-- [x] `.pre-commit-config.yaml` — Pre-commit hooks (ruff, black, secrets detection)
+### Milestone 01 — Foundation (100%)
+- Monorepo scaffold (`apps/`, `packages/`, `docker/`, `infrastructure/`, `scripts/`, `planning/`, `standards/`, `.github/`)
+- Backend FastAPI app factory, lifespan context, config system, structlog, SQLAlchemy 2 async engine, Alembic setup
+- Frontend Next.js 15 App Router, TypeScript strict config, Tailwind CSS with brand tokens, TanStack Query, Zustand, Axios API client
+- Docker Compose with PostgreSQL 17, Redis 8, MinIO, Nginx, FastAPI, Next.js
+- Health endpoints (`/health`, `/api/v1/health`, `/api/v1/health/live`, `/api/v1/health/ready`)
+- CI/CD GitHub Actions workflow and pre-commit hooks
 
-### Top-Level Directory Structure
-- [x] `apps/` — Applications (api, web)
-- [x] `packages/` — Shared packages (types)
-- [x] `docker/` — Docker configurations (nginx, postgres)
-- [x] `infrastructure/` — Infrastructure configs (nginx, monitoring, backups, terraform)
-- [x] `scripts/` — Development and deployment scripts
-- [x] `planning/` — Implementation plans
-- [x] `standards/` — Engineering standards
-- [x] `.github/` — CI/CD workflows
-
-### Backend — apps/api/
-- [x] `pyproject.toml` — All dependencies, ruff, black, mypy, pytest configured
-- [x] `Dockerfile` — Multi-stage build (development + production)
-- [x] `alembic.ini` — Alembic migration configuration
-- [x] `app/__init__.py`
-- [x] `app/main.py` — Application factory with lifespan, middleware, exception handlers
-- [x] `app/core/__init__.py`
-- [x] `app/core/config.py` — Pydantic v2 Settings with full validation
-- [x] `app/core/logging.py` — structlog JSON/console structured logging
-- [x] `app/core/security.py` — bcrypt password hashing, JWT token utilities
-- [x] `app/core/exceptions.py` — Full exception hierarchy (12 exception types)
-- [x] `app/db/__init__.py`
-- [x] `app/db/base.py` — SQLAlchemy declarative base with UUIDv7 mixins
-- [x] `app/db/engine.py` — Async engine with connection pooling
-- [x] `app/db/session.py` — FastAPI dependency injection session
-- [x] `app/db/migrations/env.py` — Async Alembic environment
-- [x] `app/db/migrations/script.py.mako` — Migration template
-- [x] `app/db/migrations/versions/.gitkeep`
-- [x] `app/api/__init__.py`
-- [x] `app/api/v1/__init__.py`
-- [x] `app/api/v1/router.py` — Central V1 router
-- [x] `app/api/v1/health.py` — 3 health endpoints (/, /live, /ready)
-- [x] `app/middleware/__init__.py`
-- [x] `app/middleware/request_id.py` — Request ID middleware
-- [x] `app/middleware/correlation.py` — Correlation ID + structlog binding
-- [x] `app/middleware/logging.py` — Request timing logging middleware
-- [x] `app/schemas/__init__.py`
-- [x] `app/schemas/errors.py` — Consistent error response schemas
-- [x] `app/modules/` — Empty (future milestones)
-- [x] `app/services/` — Empty (future milestones)
-- [x] `app/events/` — Empty (future milestones)
-- [x] `app/workers/` — Empty (future milestones)
-- [x] `app/storage/` — Empty (future milestones)
-- [x] `app/ai/` — Empty (future milestones)
-- [x] `tests/__init__.py`
-- [x] `tests/conftest.py` — Pytest fixtures with session engine + rollback isolation
-- [x] `tests/test_health.py` — 16 health endpoint tests
-
-### Frontend — apps/web/
-- [x] `package.json` — All documented dependencies
-- [x] `next.config.ts` — API rewrites, security headers, standalone output
-- [x] `tsconfig.json` — Strict TypeScript (all strict flags enabled)
-- [x] `tailwind.config.ts` — shadcn/ui CSS variables + ForgeCRM brand palette
-- [x] `postcss.config.mjs`
-- [x] `.eslintrc.json` — ESLint with TypeScript strictness
-- [x] `.prettierrc` — Prettier with Tailwind plugin
-- [x] `Dockerfile` — Multi-stage build (development + production)
-- [x] `src/app/globals.css` — CSS variables for light/dark themes
-- [x] `src/app/layout.tsx` — Root layout with ThemeProvider + QueryProvider
-- [x] `src/app/page.tsx` — Premium landing page
-- [x] `src/providers/query-provider.tsx` — TanStack Query with production defaults
-- [x] `src/providers/theme-provider.tsx` — next-themes wrapper
-- [x] `src/lib/api-client.ts` — Centralized Axios client with auth/retry
-- [x] `src/lib/utils.ts` — cn() and utility functions
-- [x] `src/types/index.ts` — Shared TypeScript types
-- [x] `src/components/ui/` — Empty (shadcn/ui will be added)
-- [x] `src/features/` — Empty (future milestones)
-- [x] `src/hooks/` — Empty (future milestones)
-- [x] `src/stores/` — Empty (future milestones)
-
-### Docker Infrastructure
-- [x] `docker/nginx/nginx.conf` — Full Nginx reverse proxy config
-- [x] `docker/postgres/init.sql` — DB init with extensions + test DB
-
-### CI/CD
-- [x] `.github/workflows/ci.yml` — Full CI pipeline (lint, test, build, Docker)
-- [x] `.github/PULL_REQUEST_TEMPLATE.md` — PR checklist template
-
-### Scripts
-- [x] `scripts/setup/setup.sh` — One-command setup
-- [x] `scripts/database/reset_db.sh` — Dev database reset
-
-### Shared Packages
-- [x] `packages/types/package.json`
-- [x] `packages/types/src/index.ts`
+### Milestone 02 — Authentication & Identity (100%)
+- [x] **Identity Domain Database Models** (`apps/api/app/modules/identity/models.py`)
+  - `User`, `Role`, `Permission`, `role_permissions`, `UserRole`, `Session`, `RefreshToken`, `OAuthAccount`, `PasswordResetToken`, `EmailVerificationToken`
+  - UUIDv7 primary keys, UTC timestamps, soft deletes, and password hash security
+- [x] **Alembic Database Migration** (`apps/api/app/db/migrations/versions/001_initial_identity_schema.py`)
+  - Full schema creation for all 10 identity domain tables and indexes
+- [x] **Validators & Exceptions** (`apps/api/app/modules/identity/validators.py` & `exceptions.py`)
+  - Password policy enforcement: minimum 12 characters, max 128 characters per `504_IDENTITY_AND_AUTHENTICATION.md` §4
+  - Domain-specific exception hierarchy (`UserAlreadyExistsError`, `InvalidCredentialsError`, `AccountDisabledError`, `InvalidTokenError`, `TokenRevokedError`, `SessionExpiredError`, `SessionRevokedError`, `PasswordPolicyError`)
+- [x] **Pydantic Schemas** (`apps/api/app/modules/identity/schemas.py`)
+  - `RegisterRequest`, `LoginRequest`, `TokenResponse`, `UserResponse`, `UserProfileUpdate`, `PasswordChangeRequest`, `PasswordResetRequest`, `PasswordResetConfirm`, `SessionResponse`
+- [x] **Permissions Registry & System Roles** (`apps/api/app/modules/identity/permissions.py`)
+  - Resource.action permission strings (`users.*`, `roles.*`, `workspace.*`, `companies.*`, `contacts.*`, `leads.*`, `deals.*`, `tasks.*`, `reports.*`, `settings.*`)
+  - Default system roles: `Super Admin`, `Workspace Admin`, `Sales Manager`, `Sales Executive`, `Viewer`
+- [x] **Repository Layer** (`apps/api/app/modules/identity/repository.py`)
+  - `UserRepository`, `RoleRepository`, `SessionRepository`, `RefreshTokenRepository`
+- [x] **Service Layer** (`apps/api/app/modules/identity/service.py`)
+  - `IdentityService`: registration, credential verification, JWT access token generation, refresh token rotation, session management, password hashing/rehashing, profile updates, password change
+- [x] **Authentication & RBAC Dependencies** (`apps/api/app/core/dependencies.py`)
+  - `get_current_user`: extracts Bearer token, validates JWT access claims, loads user with roles/permissions
+  - `require_permission(permission)`: dependency factory for RBAC authorization checks
+- [x] **FastAPI API Routes** (`apps/api/app/modules/identity/routes.py`)
+  - `POST /api/v1/auth/register` — Account registration
+  - `POST /api/v1/auth/login` — Authentication & token issuance
+  - `POST /api/v1/auth/refresh` — Refresh token rotation
+  - `GET /api/v1/auth/me` — Current user profile
+  - `PATCH /api/v1/auth/me` — Profile update
+  - `POST /api/v1/auth/password/change` — Password change
+  - `GET /api/v1/auth/sessions` — Active session listing
+  - `DELETE /api/v1/auth/sessions/{session_id}` — Session revocation
+- [x] **Default Roles & Permissions Seeding** (`apps/api/app/modules/identity/seed.py`)
+  - Automatic startup seeding of default system roles & permissions in `app/main.py`
+- [x] **Frontend Authentication** (`apps/web/`)
+  - `src/stores/auth-store.ts` — Zustand store for persistent auth state
+  - `src/hooks/use-auth.ts` — Custom React hook for auth operations
+  - `src/app/(auth)/layout.tsx` — Auth page layout with glassmorphism
+  - `src/app/(auth)/login/page.tsx` — Login page with form validation
+  - `src/app/(auth)/register/page.tsx` — Registration page with 12-char password validation
+  - `src/app/(auth)/reset-password/page.tsx` — Password reset page with anti-enumeration protection
+- [x] **Automated Test Suite** (`apps/api/tests/test_auth.py`)
+  - 13 comprehensive tests covering registration, login, token refresh rotation, password changes, invalid credential handling, profile updates, and active session listing.
 
 ---
 
-## Features Remaining (Milestone 01)
-**None** — Milestone 01 is complete.
+## Files Created (Milestone 02)
+- `apps/api/app/modules/identity/models.py`
+- `apps/api/app/modules/identity/schemas.py`
+- `apps/api/app/modules/identity/validators.py`
+- `apps/api/app/modules/identity/exceptions.py`
+- `apps/api/app/modules/identity/permissions.py`
+- `apps/api/app/modules/identity/repository.py`
+- `apps/api/app/modules/identity/service.py`
+- `apps/api/app/modules/identity/routes.py`
+- `apps/api/app/modules/identity/seed.py`
+- `apps/api/app/core/dependencies.py`
+- `apps/api/app/db/migrations/versions/001_initial_identity_schema.py`
+- `apps/api/tests/test_auth.py`
+- `apps/web/src/stores/auth-store.ts`
+- `apps/web/src/hooks/use-auth.ts`
+- `apps/web/src/app/(auth)/layout.tsx`
+- `apps/web/src/app/(auth)/login/page.tsx`
+- `apps/web/src/app/(auth)/register/page.tsx`
+- `apps/web/src/app/(auth)/reset-password/page.tsx`
 
 ---
 
-## Files Created (This Session)
-See above list — all files created from scratch.
-
-## Files Modified (This Session)
-None (no pre-existing source files).
+## Files Modified (Milestone 02)
+- `apps/api/app/db/migrations/env.py` — Imported Identity domain models
+- `apps/api/app/api/v1/router.py` — Registered Auth routes
+- `apps/api/app/main.py` — Added startup identity seeding
 
 ---
 
 ## Database Migrations Completed
-None — no models implemented in Milestone 01 (no business features).
-First migration will be created in Milestone 02 (Authentication).
+- `001_initial_identity_schema.py` — Creates `users`, `roles`, `permissions`, `role_permissions`, `user_roles`, `sessions`, `refresh_tokens`, `oauth_accounts`, `password_reset_tokens`, `email_verification_tokens`
 
 ---
 
 ## APIs Implemented
-- `GET /health` — Root health summary
-- `GET /api/v1/health` — Full health summary with service checks
-- `GET /api/v1/health/live` — Liveness probe
-- `GET /api/v1/health/ready` — Readiness probe
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `GET /api/v1/auth/me`
+- `PATCH /api/v1/auth/me`
+- `POST /api/v1/auth/password/change`
+- `GET /api/v1/auth/sessions`
+- `DELETE /api/v1/auth/sessions/{session_id}`
 
 ---
 
 ## Frontend Pages Completed
-- `/` — Premium landing page with gradient background and CTA
+- `/login` — Login page
+- `/register` — Registration page
+- `/reset-password` — Password reset page
 
 ---
 
 ## Tests Completed
-- `tests/test_health.py` — 16 tests covering all 3 health endpoints + error handling
-  - Liveness probe: 4 tests
-  - Health summary: 6 tests (including unhealthy simulation)
-  - Readiness probe: 3 tests
-  - Root health: 2 tests
-  - Error handling / middleware: 4 tests (request ID, correlation ID)
-
----
-
-## Documentation Updated
-- `README.md` — Complete project documentation
-- `planning/README.md` — Planning directory description
-- `AGENT_MEMORY.md` — This file
+- `apps/api/tests/test_auth.py` — 13 tests covering registration, login, refresh rotation, profile updates, password change, sessions, and exception handling.
 
 ---
 
 ## Important Engineering Decisions Made
 
-1. **UUIDv7 via `uuid6` package** — Python stdlib has no native UUIDv7 support.
-   The `uuid6` PyPI package provides UUIDv7 generation consistent with the RFC draft.
-
-2. **orjson for JSON serialization** — Used in both the FastAPI response class
-   and SQLAlchemy JSON serializer for improved performance over stdlib json.
-
-3. **Engine initialized once via module-level singleton in `db/engine.py`** —
-   FastAPI lifespan context calls `init_db()` once; subsequent calls to
-   `get_engine()` return the cached instance.
-
-4. **Middleware ordering** — In FastAPI/Starlette, `add_middleware()` is LIFO.
-   Order registered: GZip → CORS → RequestLogging → CorrelationID → RequestID.
-   Execution order: RequestID → CorrelationID → RequestLogging → CORS → GZip.
-   This ensures request_id is available before correlation binding.
-
-5. **Storage failures are DEGRADED not UNHEALTHY** — Storage unavailability
-   does not block API readiness (network-isolated MinIO during testing).
-
-6. **Test database uses rollback isolation** — Each test runs in its own
-   transaction that is rolled back after completion, ensuring isolation
-   without recreating tables per test.
-
-7. **`planning/` directory** — The MASTER_IMPLEMENTATION_PLAN references this
-   directory. The plan file lives in `docs/` but a README is placed in `planning/`
-   to satisfy the documented monorepo structure.
+1. **Password Policy**: Enforced minimum 12 characters, max 128 characters per `504_IDENTITY_AND_AUTHENTICATION.md` §4 to encourage passphrases and password managers without arbitrary complexity rules.
+2. **Refresh Token Rotation**: Each token refresh immediately revokes the used refresh token and issues a new refresh token + access token pair.
+3. **Session Revocation**: Revoking a session immediately revokes all refresh tokens bound to that session.
+4. **Transparent Password Rehash**: On successful login, if `needs_password_rehash()` is True, the password hash is automatically re-hashed with updated work parameters.
+5. **Anti-Enumeration Protection**: Forgotten password endpoint returns generic success messaging regardless of whether the email exists in the database.
 
 ---
 
 ## Known Issues
-None at this stage.
+None.
 
 ---
 
 ## Technical Debt
-None introduced — no placeholder implementations.
+None.
 
 ---
 
 ## Assumptions Made
-
-1. **`uuid6` package** — No native Python UUIDv7 support; using `uuid6` package.
-2. **`planning/` vs `docs/`** — MASTER_IMPLEMENTATION_PLAN.md placed in docs/ (existing location) with README in planning/ per documented structure.
-3. **`tailwindcss-animate`** — Used by shadcn/ui for animations; added to Tailwind config.
-4. **`@tanstack/react-query-devtools`** — Standard companion to TanStack Query; included in package.json.
+None.
 
 ---
 
@@ -221,26 +161,16 @@ None.
 
 ## Exact Next Task for Next Session
 
-**START MILESTONE 02 — Authentication**
+**START MILESTONE 03 — Workspace Isolation & Multi-Tenancy**
 
 Read in order:
-1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 02 details
-2. `docs/02_Database/202_IDENTITY_SCHEMA.md` — User/role schema
-3. `docs/05_Security/504_IDENTITY_AND_AUTHENTICATION.md` — Auth design
-4. `docs/05_Security/505_AUTHORIZATION_AND_RBAC.md` — RBAC design
-5. `docs/09_ADRs/ADR-005_JWT_AUTHENTICATION_AND_RBAC.md` — Auth ADR
+1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 03 details
+2. `docs/02_Database/203_WORKSPACE_SCHEMA.md` — Workspace & Team schema
+3. `docs/05_Security/505_AUTHORIZATION_AND_RBAC.md` — Workspace isolation
+4. `docs/09_ADRs/ADR-003_WORKSPACE_BASED_MULTI_TENANCY.md` — Multi-tenancy ADR
 
-**First task in Milestone 02:**
-1. Create the Alembic migration for users, roles, and permissions tables
-2. Implement `app/modules/identity/` domain (models, schemas, repository, service, routes)
-3. Implement JWT login / register / refresh endpoints
-4. Implement RBAC permission checking
-5. Add frontend auth pages (login, register)
-6. Add auth state to Zustand store
-7. Protect routes in Next.js
-
-Do NOT start Milestone 02 without first verifying:
-- `make up-build` starts all services
-- `curl http://localhost:8000/health/live` returns 200
-- `curl http://localhost:3000` returns the landing page
-- `make test` passes
+**First task in Milestone 03:**
+1. Create Alembic migration for `workspaces`, `workspace_members`, `teams`, `team_members`, and `workspace_invitations`
+2. Implement `app/modules/workspace/` domain (models, schemas, repository, service, routes)
+3. Implement workspace creation & switching
+4. Implement workspace isolation middleware and workspace dependency resolution
