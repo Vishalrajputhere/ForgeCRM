@@ -11,6 +11,7 @@ Architecture:  docs/01_Architecture/101_SYSTEM_ARCHITECTURE.md §18
 from __future__ import annotations
 
 from http import HTTPStatus
+from typing import Any
 
 
 class ForgeCRMError(Exception):

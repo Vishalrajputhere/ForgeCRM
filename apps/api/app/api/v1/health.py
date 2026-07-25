@@ -274,7 +274,7 @@ async def _check_redis() -> ServiceCheck:
         from app.core.config import get_settings
 
         settings = get_settings()
-        client = aioredis.from_url(str(settings.REDIS_URL), decode_responses=True)
+        client = aioredis.from_url(str(settings.REDIS_URL), decode_responses=True)  # type: ignore[no-untyped-call]
         await client.ping()
         await client.aclose()
 
