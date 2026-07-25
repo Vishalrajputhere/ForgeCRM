@@ -407,3 +407,64 @@ export interface TaskCreate {
   entity_id?: string;
 }
 
+// ── Storage Domain DTOs ───────────────────────────────────────────────────────
+
+export interface DocumentAttachmentResponse {
+  id: string;
+  workspace_id: string;
+  uploaded_by_member_id: string;
+  entity_type: string;
+  entity_id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  storage_key: string;
+  storage_provider: string;
+  created_at: string;
+}
+
+export interface PresignedUploadResponse {
+  storage_key: string;
+  upload_url: string;
+  expires_in_seconds: number;
+}
+
+export interface PresignedDownloadResponse {
+  download_url: string;
+  expires_in_seconds: number;
+}
+
+export interface RequestUploadUrlRequest {
+  entity_type: string;
+  entity_id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+}
+
+export interface ConfirmUploadRequest {
+  storage_key: string;
+  entity_type: string;
+  entity_id: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+}
+
+// ── Global Search Domain DTOs ──────────────────────────────────────────────────
+
+export interface SearchResultItem {
+  id: string;
+  entity_type: string;
+  title: string;
+  subtitle?: string;
+  url?: string;
+}
+
+export interface GlobalSearchResponse {
+  query: string;
+  total: number;
+  results: SearchResultItem[];
+}
+
+

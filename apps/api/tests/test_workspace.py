@@ -135,9 +135,6 @@ class TestWorkspaceInvitations:
         inv_res = await client.post(f"/api/v1/workspaces/{ws_id}/invitations", json=invite_payload, headers=headers_a)
         assert inv_res.status_code == 201
 
-        # Retrieve raw invitation token for testing
-        inv_id = inv_res.json()["id"]
-
         # Bob accepts invitation via service generated raw token
         from app.db.session import get_db_session
         from app.modules.workspace.service import WorkspaceService

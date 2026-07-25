@@ -2,18 +2,18 @@
 # Persistent implementation checkpoint between AI sessions
 
 ## Last Updated
-2026-07-25T21:10:00+05:30
+2026-07-25T21:15:00+05:30
 
 ---
 
 ## Current Milestone
-**Milestone 04 — CRM Core Operational**
+**Milestone 05 — Advanced Features & Integrations**
 
 ## Current Phase
-**COMPLETE** — All CRM Core Operational deliverables implemented, type-checked, tested, and committed
+**COMPLETE** — All Advanced Features & Integrations deliverables implemented, type-checked, tested, and committed
 
 ## Completion Percentage
-**Milestone 04: 100%**
+**Milestone 05: 100%**
 
 ---
 
@@ -47,100 +47,101 @@
 - Automated integration test suite in `apps/api/tests/test_workspace.py`
 
 ### Milestone 04 — CRM Core Operational (100%)
-- [x] **CRM Domain Database Models** (`apps/api/app/modules/crm/models.py`)
-  - 14 entities: `CompanyIndustry`, `LeadSource`, `LeadStatus`, `ActivityType`, `Company`, `Contact`, `Lead`, `LeadConversion`, `Pipeline`, `PipelineStage`, `Deal`, `DealProduct`, `Activity`, `Task`
-  - Explicit `workspace_id` tenant isolation across every table
-- [x] **Alembic Database Migration** (`apps/api/app/db/migrations/versions/003_crm_core_schema.py`)
-  - Creates all 14 CRM core tables, foreign keys, constraints, and performance indexes
-- [x] **Domain Exceptions & Pydantic Schemas** (`apps/api/app/modules/crm/exceptions.py` & `schemas.py`)
-  - DTOs for Companies, Contacts, Leads, Lead Conversion, Pipelines, Stages, Deals, Deal Products, Tasks, and Timeline Activities
-- [x] **Repository Layer** (`apps/api/app/modules/crm/repository.py`)
-  - `CompanyRepository`, `ContactRepository`, `LeadRepository`, `PipelineRepository`, `DealRepository`, `TaskRepository`, `ActivityRepository` with mandatory workspace filtering
-- [x] **Business Service Layer** (`apps/api/app/modules/crm/service.py`)
-  - `CRMService`: Complete CRUD for Companies, Contacts, Leads, Pipelines, Deals, Tasks, Activities, and **Transactional Lead Conversion** (Company + Contact + Deal in atomic unit of work)
-- [x] **FastAPI API Routes** (`apps/api/app/modules/crm/routes.py`)
-  - `/companies`, `/companies/{id}`, `/contacts`, `/contacts/{id}`, `/leads`, `/leads/{id}/convert`, `/pipelines`, `/deals`, `/deals/{id}`, `/deals/{id}/move-stage`, `/tasks`, `/tasks/{id}/complete`, `/timeline`
-- [x] **Frontend CRM Components & Hooks** (`apps/web/`)
-  - `src/stores/crm-store.ts` — Zustand store for active CRM entity lists
-  - `src/hooks/use-crm.ts` — Custom hook for queries, mutations, conversion, and stage moves
-  - `src/components/crm/kanban-board.tsx` — Interactive Sales Pipeline Kanban Board component
-- [x] **Automated Integration Test Suite** (`apps/api/tests/test_crm.py`)
-  - Automated tests covering Company/Contact creation, Lead conversion, Pipeline stage movements, Deal weighted forecasting, Task completion, and cross-workspace multi-tenant isolation.
+- CRM Domain Database Models (`CompanyIndustry`, `LeadSource`, `LeadStatus`, `ActivityType`, `Company`, `Contact`, `Lead`, `LeadConversion`, `Pipeline`, `PipelineStage`, `Deal`, `DealProduct`, `Activity`, `Task`)
+- Alembic Database Migration (`003_crm_core_schema.py`)
+- Domain Exceptions, Pydantic Schemas, Repositories, Service Layer with **Transactional Lead Conversion**
+- FastAPI routes (`/companies`, `/contacts`, `/leads`, `/leads/{id}/convert`, `/pipelines`, `/deals`, `/tasks`, `/timeline`)
+- Frontend Zustand CRM store, custom `useCRM` React hook, drag-and-drop `KanbanBoard` UI component
+- Automated integration test suite in `apps/api/tests/test_crm.py`
+
+### Milestone 05 — Advanced Features & Integrations (100%)
+- [x] **Document Storage & File Attachments System** (`apps/api/app/modules/storage/`)
+  - `DocumentAttachment` model (`models.py`) with 25 MB file size limit validation
+  - Alembic Database Migration (`004_storage_and_search_schema.py`)
+  - Presigned upload URL generation (key pattern: `{workspace_id}/{entity_type}/{uuidv7}.ext`) and confirmation workflow (`service.py`)
+  - Short-lived presigned download link generation and soft deletion
+  - FastAPI endpoints (`POST /storage/upload-url`, `POST /storage/confirm`, `GET /storage/attachments`, `GET /storage/attachments/{id}/download-url`, `DELETE /storage/attachments/{id}`)
+- [x] **Global Workspace Search Engine** (`apps/api/app/modules/storage/search.py`)
+  - Cross-entity workspace-isolated search across Companies, Contacts, Leads, Deals, and Tasks (`service.py`)
+  - FastAPI endpoint (`GET /api/v1/search?q={query}`)
+- [x] **Background Jobs & Worker System** (`apps/api/app/modules/jobs/`)
+  - `JobDispatcher` abstraction interface (`dispatcher.py`) for queue-agnostic background task scheduling (`dispatch_email`, `dispatch_cleanup_expired_tokens`)
+  - FastAPI endpoints (`POST /jobs/dispatch`, `GET /jobs/status/{job_id}`)
+- [x] **Frontend Storage & Search Components** (`apps/web/`)
+  - `src/stores/storage-store.ts` — Zustand store for document attachment state
+  - `src/hooks/use-storage.ts` — Custom hook for presigned uploads, attachment listing, and downloads
+  - `src/hooks/use-search.ts` — Custom hook for workspace-wide global search
+  - `src/components/common/global-search-bar.tsx` — Header global search bar component with dropdown category results
+- [x] **Automated Integration Test Suite** (`apps/api/tests/test_storage_search_jobs.py`)
+  - Automated tests covering presigned upload URL generation, file size limit enforcement, upload confirmation, attachment listing, download link generation, global search tenant isolation, and background job dispatching.
 
 ---
 
-## Files Created (Milestone 04)
-- `apps/api/app/modules/crm/models.py`
-- `apps/api/app/modules/crm/schemas.py`
-- `apps/api/app/modules/crm/exceptions.py`
-- `apps/api/app/modules/crm/repository.py`
-- `apps/api/app/modules/crm/service.py`
-- `apps/api/app/modules/crm/routes.py`
-- `apps/api/app/db/migrations/versions/003_crm_core_schema.py`
-- `apps/api/tests/test_crm.py`
-- `apps/web/src/stores/crm-store.ts`
-- `apps/web/src/hooks/use-crm.ts`
-- `apps/web/src/components/crm/kanban-board.tsx`
+## Files Created (Milestone 05)
+- `apps/api/app/modules/storage/models.py`
+- `apps/api/app/modules/storage/schemas.py`
+- `apps/api/app/modules/storage/exceptions.py`
+- `apps/api/app/modules/storage/service.py`
+- `apps/api/app/modules/storage/routes.py`
+- `apps/api/app/modules/search/schemas.py`
+- `apps/api/app/modules/search/service.py`
+- `apps/api/app/modules/search/routes.py`
+- `apps/api/app/modules/jobs/dispatcher.py`
+- `apps/api/app/modules/jobs/routes.py`
+- `apps/api/app/db/migrations/versions/004_storage_and_search_schema.py`
+- `apps/api/tests/test_storage_search_jobs.py`
+- `apps/web/src/stores/storage-store.ts`
+- `apps/web/src/hooks/use-storage.ts`
+- `apps/web/src/hooks/use-search.ts`
+- `apps/web/src/components/common/global-search-bar.tsx`
 
 ---
 
-## Files Modified (Milestone 04)
-- `apps/api/app/db/migrations/env.py` — Imported CRM domain models for Alembic
-- `apps/api/app/api/v1/router.py` — Registered CRM routes in central V1 router
-- `apps/web/src/types/index.ts` — Added Workspace & CRM TypeScript DTO interfaces
-- `apps/web/src/lib/api-client.ts` — Fixed request_id type handling
-- `apps/web/src/providers/theme-provider.tsx` — Updated next-themes prop type
+## Files Modified (Milestone 05)
+- `apps/api/app/db/migrations/env.py` — Imported `DocumentAttachment` model
+- `apps/api/app/api/v1/router.py` — Registered Storage, Search, and Job routes in central V1 router
+- `apps/web/src/types/index.ts` — Added Storage, Search, and Job DTO interfaces
 
 ---
 
 ## Database Migrations Completed
 - `001_initial_identity_schema.py`
 - `002_workspace_isolation_schema.py`
-- `003_crm_core_schema.py` — Creates 14 CRM core tables and indexes
+- `003_crm_core_schema.py`
+- `004_storage_and_search_schema.py` — Creates `document_attachments` table and indexes
 
 ---
 
-## APIs Implemented (Milestone 04)
-- `POST /api/v1/companies`
-- `GET /api/v1/companies`
-- `GET /api/v1/companies/{company_id}`
-- `PATCH /api/v1/companies/{company_id}`
-- `POST /api/v1/contacts`
-- `GET /api/v1/contacts`
-- `GET /api/v1/contacts/{contact_id}`
-- `POST /api/v1/leads`
-- `GET /api/v1/leads`
-- `POST /api/v1/leads/{lead_id}/convert`
-- `POST /api/v1/pipelines`
-- `GET /api/v1/pipelines`
-- `POST /api/v1/deals`
-- `GET /api/v1/deals`
-- `GET /api/v1/deals/{deal_id}`
-- `POST /api/v1/deals/{deal_id}/move-stage`
-- `POST /api/v1/tasks`
-- `GET /api/v1/tasks`
-- `POST /api/v1/tasks/{task_id}/complete`
-- `GET /api/v1/timeline`
+## APIs Implemented (Milestone 05)
+- `POST /api/v1/storage/upload-url`
+- `POST /api/v1/storage/confirm`
+- `GET /api/v1/storage/attachments`
+- `GET /api/v1/storage/attachments/{attachment_id}/download-url`
+- `DELETE /api/v1/storage/attachments/{attachment_id}`
+- `GET /api/v1/search`
+- `POST /api/v1/jobs/dispatch`
+- `GET /api/v1/jobs/status/{job_id}`
 
 ---
 
 ## Frontend Components & Hooks Completed
-- `apps/web/src/components/crm/kanban-board.tsx` — Drag-and-drop Kanban Board UI
-- `apps/web/src/stores/crm-store.ts` — Zustand CRM store
-- `apps/web/src/hooks/use-crm.ts` — React hook for CRM queries and mutations
+- `apps/web/src/components/common/global-search-bar.tsx` — Global search bar with dropdown result categories
+- `apps/web/src/stores/storage-store.ts` — Zustand store for file attachment state
+- `apps/web/src/hooks/use-storage.ts` — React hook for presigned uploads, attachment query, and downloads
+- `apps/web/src/hooks/use-search.ts` — React hook for workspace global search
 
 ---
 
 ## Tests Completed
-- `apps/api/tests/test_crm.py` — Integration test suite for Companies, Contacts, Leads, Conversion, Deals, Tasks, Timelines, and multi-tenant isolation.
+- `apps/api/tests/test_storage_search_jobs.py` — Integration test suite for Document Storage, Presigned URLs, File size validation, Global Search, Tenant Isolation, and Background Jobs.
 
 ---
 
 ## Important Engineering Decisions Made
 
-1. **Transactional Lead Conversion**: Implemented atomic lead conversion in `CRMService.convert_lead()`. Converts Lead into Company, Contact, and optional Deal within a single database transaction, recording a historical `LeadConversion` record.
-2. **Immutable Timeline Activities**: `Activity` records are append-only. Business operations create activity timeline events which are rendered chronologically descending.
-3. **Workspace Isolation Enforced**: All repository queries strictly filter by `workspace_id`. Cross-workspace access is prevented at both dependency and repository levels.
+1. **Direct-to-Storage Presigned Uploads**: Large binary files never pass through the FastAPI backend server. Clients request presigned S3/MinIO upload URLs and upload directly to object storage per `307_FILE_STORAGE.md`.
+2. **Metadata Separation**: Binary content resides in MinIO/S3 object storage under key `{workspace_id}/{entity_type}/{uuidv7}.ext`, while structured file metadata resides in PostgreSQL `document_attachments`.
+3. **Queue-Agnostic Job Dispatcher**: `JobDispatcher` isolates business logic from specific queue workers (ARQ/Celery/Redis).
 
 ---
 
@@ -166,14 +167,14 @@ None.
 
 ## Exact Next Task for Next Session
 
-**START MILESTONE 05 — Advanced Features & Integrations**
+**START MILESTONE 06 — Analytics, Reporting & Production Hardening**
 
 Read in order:
-1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 05 details
-2. `docs/03_Backend/305_SEARCH_AND_FILTERS.md` — Global search & filter engine
-3. `docs/03_Backend/306_BACKGROUND_JOBS.md` — Async job processing
-4. `docs/03_Backend/307_FILE_STORAGE.md` — MinIO file storage & document attachments
+1. `docs/MASTER_IMPLEMENTATION_PLAN.md` — Find Milestone 06 details
+2. `docs/03_Backend/308_AI_INTEGRATION.md` — AI insights & analytics
+3. `docs/03_Backend/309_OBSERVABILITY.md` — Prometheus metrics & observability
+4. `docs/06_Deployment/601_DEPLOYMENT_OVERVIEW.md` — Production deployment & Docker hardening
 
-**First task in Milestone 05:**
-1. Implement document attachments domain (`app/modules/storage/`) for Companies, Contacts, Leads, Deals, Tasks
-2. Implement global search API endpoint across CRM entities
+**First task in Milestone 06:**
+1. Implement Analytics & Reporting domain (`app/modules/analytics/`) for pipeline win rates, revenue forecasts, lead conversion metrics, and sales velocity
+2. Build production Docker images and health verification scripts

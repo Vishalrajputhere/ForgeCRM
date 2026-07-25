@@ -49,6 +49,7 @@ from app.modules.identity.models import (  # noqa: F401
     UserRole,
     role_permissions,
 )
+from app.modules.storage.models import DocumentAttachment  # noqa: F401
 from app.modules.workspace.models import (  # noqa: F401
     Team,
     TeamMember,

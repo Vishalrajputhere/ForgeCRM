@@ -36,6 +36,22 @@ from app.modules.crm import routes as crm_routes  # noqa: E402
 
 api_v1_router.include_router(crm_routes.router)
 
+# Document Storage & Attachments
+from app.modules.storage import routes as storage_routes  # noqa: E402
+
+api_v1_router.include_router(storage_routes.router)
+
+# Global Search
+from app.modules.search import routes as search_routes  # noqa: E402
+
+api_v1_router.include_router(search_routes.router)
+
+# Background Jobs
+from app.modules.jobs import routes as job_routes  # noqa: E402
+
+api_v1_router.include_router(job_routes.router)
+
+
 
 
 
