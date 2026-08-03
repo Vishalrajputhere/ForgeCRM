@@ -68,8 +68,8 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Output configuration
-  output: 'standalone',
+  // Output configuration (standalone for Docker containerization)
+  ...(process.env.NEXT_STANDALONE ? { output: 'standalone' as const } : {}),
 
   // Compression
   compress: true,

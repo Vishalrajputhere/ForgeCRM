@@ -1,128 +1,125 @@
 'use client';
 
 import { useState } from 'react';
+import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 
 import { CreateWorkspaceModal } from '@/components/workspace/create-workspace-modal';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { cn } from '@/lib/cn';
 
 export function WorkspaceSwitcher(): React.JSX.Element {
   const { currentWorkspace, userWorkspaces, switchWorkspace } = useWorkspace();
   const [isOpen, setIsOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-  if (currentWorkspace === null) {
+  if (!currentWorkspace) {
     return (
-      <div className="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-800/40 px-3.5 py-2 text-xs text-slate-400">
-        <div className="h-4 w-4 animate-spin rounded-full border border-slate-600 border-t-forge-500" />
-        <span>Loading workspace...</span>
+      <div className="flex h-8 items-center gap-2 rounded-md border px-2.5 text-caption text-text-tertiary"
+        style={{ borderColor: 'var(--border-subtle)' }}
+      >
+        <div className="h-3.5 w-3.5 animate-spin rounded-full border border-[rgba(255,255,255,0.08)] border-t-forge-500" />
+        Loading...
       </div>
     );
   }
 
+  // Workspace initial letter badge color
+  const letter = currentWorkspace.name[0]?.toUpperCase() ?? 'W';
+
   return (
     <>
       <div className="relative">
-        {/* Switcher Button */}
+        {/* Trigger */}
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2.5 text-sm font-medium text-white transition-all hover:bg-slate-700/80 focus:outline-none focus:ring-1 focus:ring-forge-500 shadow-sm"
+          className={cn(
+            'flex h-8 w-full items-center gap-2 rounded-md border px-2.5 text-label text-text-primary',
+            'transition-all duration-100',
+            'hover:border-[rgba(255,255,255,0.14)] hover:bg-[rgba(255,255,255,0.04)]',
+            'focus:outline-none focus:ring-2 focus:ring-forge-500 focus:ring-offset-0',
+            isOpen ? 'border-[rgba(255,255,255,0.12)] bg-[rgba(255,255,255,0.04)]' : 'border-[rgba(255,255,255,0.08)]',
+          )}
         >
-          <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gradient-to-tr from-forge-600 to-indigo-500 text-xs font-bold text-white shadow-sm">
-              {currentWorkspace.name[0]?.toUpperCase()}
-            </div>
-            <span className="truncate">{currentWorkspace.name}</span>
+          {/* Avatar */}
+          <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-forge-500/20 text-micro font-semibold text-forge-400">
+            {letter}
           </div>
-          <svg
-            className={`h-4 w-4 shrink-0 text-slate-400 transition-transform ${
-              isOpen ? 'rotate-180' : ''
-            }`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
-          </svg>
+          <span className="flex-1 truncate text-left">{currentWorkspace.name}</span>
+          <ChevronsUpDown
+            className={cn(
+              'h-3.5 w-3.5 shrink-0 text-text-tertiary transition-transform duration-150',
+              isOpen && 'rotate-180',
+            )}
+            strokeWidth={1.5}
+          />
         </button>
 
-        {/* Dropdown Menu */}
+        {/* Dropdown */}
         {isOpen && (
-          <div className="absolute left-0 top-full z-50 mt-1.5 w-full rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-2xl backdrop-blur-xl space-y-1">
-            <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              Workspaces ({userWorkspaces.length})
-            </div>
-            <div className="max-h-56 overflow-y-auto space-y-0.5">
-              {userWorkspaces.map((workspace) => {
-                const isSelected = workspace.id === currentWorkspace.id;
-                return (
-                  <button
-                    key={workspace.id}
-                    type="button"
-                    onClick={() => {
-                      if (!isSelected) {
-                        switchWorkspace(workspace);
-                      }
-                      setIsOpen(false);
-                    }}
-                    className={`flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm transition-colors ${
-                      isSelected
-                        ? 'bg-forge-500/20 text-forge-300 font-semibold border border-forge-500/30'
-                        : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-slate-800 text-xs font-medium border border-slate-700">
-                        {workspace.name[0]?.toUpperCase()}
-                      </div>
-                      <span className="truncate">{workspace.name}</span>
-                    </div>
-                    {isSelected && (
-                      <svg
-                        className="h-4 w-4 shrink-0 text-forge-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2.5}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
 
-            {/* Create Workspace Action */}
-            <div className="pt-1.5 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsOpen(false);
-                  setIsCreateModalOpen(true);
-                }}
-                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-forge-400 hover:bg-forge-500/10 hover:text-forge-300 transition-colors"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                <span>Create New Workspace</span>
-              </button>
+            <div className="absolute left-0 top-full z-20 mt-1.5 w-full overflow-hidden rounded-lg border bg-surface-overlay shadow-md animate-scale-in"
+              style={{ borderColor: 'var(--border-strong)' }}
+            >
+              {/* List */}
+              <div className="max-h-52 overflow-y-auto p-1">
+                {userWorkspaces.map((ws) => {
+                  const isActive = ws.id === currentWorkspace.id;
+                  return (
+                    <button
+                      key={ws.id}
+                      type="button"
+                      onClick={() => {
+                        if (!isActive) switchWorkspace(ws);
+                        setIsOpen(false);
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-label transition-colors duration-100',
+                        isActive
+                          ? 'bg-forge-500/10 text-text-primary'
+                          : 'text-text-secondary hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary',
+                      )}
+                    >
+                      <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-base text-micro font-semibold text-text-secondary border"
+                        style={{ borderColor: 'var(--border-default)' }}
+                      >
+                        {ws.name[0]?.toUpperCase()}
+                      </div>
+                      <span className="flex-1 truncate">{ws.name}</span>
+                      {isActive && (
+                        <Check className="h-3.5 w-3.5 shrink-0 text-forge-400" strokeWidth={2} />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Create action */}
+              <div className="border-t p-1" style={{ borderColor: 'var(--border-subtle)' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsCreateModalOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-label text-text-tertiary hover:bg-[rgba(255,255,255,0.04)] hover:text-text-primary transition-colors duration-100"
+                >
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border text-text-tertiary"
+                    style={{ borderColor: 'var(--border-default)' }}
+                  >
+                    <Plus className="h-3 w-3" strokeWidth={2} />
+                  </div>
+                  <span>New workspace</span>
+                </button>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 
-      {/* Create Workspace Modal */}
       <CreateWorkspaceModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}

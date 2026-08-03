@@ -1,338 +1,306 @@
 'use client';
 
 import Link from 'next/link';
+import {
+  TrendingUp,
+  Users,
+  Zap,
+  Building2,
+  CheckSquare2,
+  ArrowUpRight,
+  Clock,
+} from 'lucide-react';
 
 import { useAnalytics } from '@/hooks/use-analytics';
 import { useCRM } from '@/hooks/use-crm';
 import { useFormatters } from '@/hooks/use-formatters';
-import type { DealResponse, StageResponse, TaskResponse } from '@/types';
+import { Skeleton } from '@/components/ui/primitives';
+import type { DealResponse, TaskResponse } from '@/types';
 
-// ── Stat Card ─────────────────────────────────────────────────────────────────
+// =============================================================================
+// Stat Card
+// =============================================================================
 
 function StatCard({
   label,
   value,
-  icon,
-  color = 'forge',
-  trend,
+  sub,
+  icon: Icon,
   href,
+  loading,
 }: {
   label: string;
   value: string | number;
-  icon: string;
-  color?: 'forge' | 'emerald' | 'blue' | 'amber' | 'rose' | 'violet';
-  trend?: { value: number; positive: boolean } | null;
-  href?: string;
+  sub?: string | undefined;
+  icon: React.ElementType;
+  href?: string | undefined;
+  loading?: boolean | undefined;
 }) {
-  const colorMap = {
-    forge: 'from-forge-600/30 to-indigo-600/30 border-forge-500/20 text-forge-400',
-    emerald: 'from-emerald-600/30 to-teal-600/30 border-emerald-500/20 text-emerald-400',
-    blue: 'from-blue-600/30 to-cyan-600/30 border-blue-500/20 text-blue-400',
-    amber: 'from-amber-600/30 to-orange-600/30 border-amber-500/20 text-amber-400',
-    rose: 'from-rose-600/30 to-pink-600/30 border-rose-500/20 text-rose-400',
-    violet: 'from-violet-600/30 to-purple-600/30 border-violet-500/20 text-violet-400',
-  };
-
-  const card = (
-    <div className={`rounded-xl border border-slate-800 bg-slate-900/60 p-5 backdrop-blur-xl transition-all ${href ? 'hover:border-slate-700 cursor-pointer' : ''}`}>
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-extrabold text-white">{value}</p>
-          {trend && (
-            <p className={`text-xs mt-1.5 font-medium ${trend.positive ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {trend.positive ? '↑' : '↓'} {Math.abs(trend.value)}% from last period
-            </p>
-          )}
-        </div>
-        <div className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br border ${colorMap[color]}`}>
-          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icon} />
-          </svg>
-        </div>
+  const inner = (
+    <div className="group flex flex-col gap-3 rounded-lg border p-4 transition-colors duration-150 hover:border-[rgba(255,255,255,0.14)]"
+      style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--surface-raised)' }}
+    >
+      <div className="flex items-center justify-between">
+        <p className="text-caption text-text-tertiary">{label}</p>
+        <Icon className="h-4 w-4 text-text-tertiary" strokeWidth={1.5} />
       </div>
+      {loading ? (
+        <Skeleton className="h-7 w-20" />
+      ) : (
+        <p className="text-h1 tabular text-text-primary">{value}</p>
+      )}
+      {sub && !loading && (
+        <p className="text-caption text-text-tertiary">{sub}</p>
+      )}
+      {href && (
+        <ArrowUpRight className="absolute right-4 top-4 h-3.5 w-3.5 text-text-tertiary opacity-0 transition-opacity group-hover:opacity-100" strokeWidth={1.5} />
+      )}
     </div>
   );
 
-  return href ? <Link href={href}>{card}</Link> : card;
+  return href ? <Link href={href} className="relative block">{inner}</Link> : <div className="relative">{inner}</div>;
 }
 
-// ── Task Item ─────────────────────────────────────────────────────────────────
+// =============================================================================
+// Task Item
+// =============================================================================
 
 function TaskItem({ task }: { task: TaskResponse }) {
   const { formatDate } = useFormatters();
   const isOverdue = task.status === 'Open' && task.due_date && new Date(task.due_date) < new Date();
-  const PRIORITY_COLOR: Record<string, string> = {
-    Low: 'bg-slate-500/20 text-slate-400',
-    Medium: 'bg-amber-500/20 text-amber-300',
-    High: 'bg-orange-500/20 text-orange-400',
-    Urgent: 'bg-rose-500/20 text-rose-400',
+
+  const priorityColor: Record<string, string> = {
+    Low:    'bg-[rgba(255,255,255,0.06)] text-text-tertiary',
+    Medium: 'bg-amber-500/12 text-amber-400',
+    High:   'bg-orange-500/12 text-orange-400',
+    Urgent: 'bg-red-500/12 text-red-400',
   };
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-800/60 bg-slate-800/40 p-3 hover:border-slate-700 transition-colors">
-      <div className={`h-2 w-2 rounded-full shrink-0 ${isOverdue ? 'bg-rose-400 animate-pulse' : 'bg-forge-400'}`} />
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-medium truncate ${isOverdue ? 'text-rose-300' : 'text-white'}`}>{task.title}</p>
+    <div className="flex items-start gap-3 py-2.5 border-b last:border-0"
+      style={{ borderColor: 'var(--border-subtle)' }}
+    >
+      <div className={`mt-1 h-2 w-2 shrink-0 rounded-full ${isOverdue ? 'bg-red-400' : 'bg-forge-500'}`} />
+      <div className="min-w-0 flex-1">
+        <p className={`text-label truncate ${isOverdue ? 'text-red-300' : 'text-text-primary'}`}>
+          {task.title}
+        </p>
         {task.due_date && (
-          <p className={`text-xs mt-0.5 ${isOverdue ? 'text-rose-500' : 'text-slate-500'}`}>
+          <p className={`text-caption mt-0.5 ${isOverdue ? 'text-red-500' : 'text-text-tertiary'}`}>
             Due {formatDate(task.due_date)}
           </p>
         )}
       </div>
-      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${PRIORITY_COLOR[task.priority] ?? PRIORITY_COLOR.Medium}`}>
+      <span className={`shrink-0 rounded-sm px-1.5 py-0.5 text-micro ${priorityColor[task.priority] ?? priorityColor.Medium}`}>
         {task.priority}
       </span>
     </div>
   );
 }
 
-// ── Deal Item ─────────────────────────────────────────────────────────────────
+// =============================================================================
+// Deal Item
+// =============================================================================
 
-function DealItem({ deal, companyName }: { deal: DealResponse; companyName?: string }) {
+function DealItem({ deal, companies }: { deal: DealResponse; companies: { id: string; name: string }[] }) {
   const { formatCurrency } = useFormatters();
+  const company = companies.find((c) => c.id === deal.company_id);
+
   return (
-    <Link href={`/deals/${deal.id}`} className="flex items-center gap-3 rounded-xl border border-slate-800/60 bg-slate-800/40 p-3 hover:border-forge-500/30 hover:bg-slate-800 transition-all group">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-white group-hover:text-forge-300 transition-colors truncate">{deal.name}</p>
-        {companyName && <p className="text-xs text-slate-500 mt-0.5 truncate">{companyName}</p>}
+    <Link
+      href={`/deals/${deal.id}`}
+      className="flex items-center gap-3 py-2.5 border-b last:border-0 group hover:opacity-80 transition-opacity duration-100"
+      style={{ borderColor: 'var(--border-subtle)' }}
+    >
+      <div className="min-w-0 flex-1">
+        <p className="text-label text-text-primary truncate group-hover:text-forge-400 transition-colors duration-100">
+          {deal.name}
+        </p>
+        {company && <p className="text-caption text-text-tertiary mt-0.5 truncate">{company.name}</p>}
       </div>
-      <div className="text-right shrink-0">
-        <p className="text-sm font-bold text-emerald-400">{formatCurrency(deal.value)}</p>
-        <p className="text-xs text-slate-500 mt-0.5">{deal.status}</p>
-      </div>
+      <p className="shrink-0 text-label tabular font-semibold text-text-primary">
+        {formatCurrency(deal.value ?? 0)}
+      </p>
     </Link>
   );
 }
 
-// ── Main Dashboard ────────────────────────────────────────────────────────────
+// =============================================================================
+// Dashboard Page
+// =============================================================================
 
 export default function DashboardPage(): React.JSX.Element {
-  const {
-    companies,
-    contacts,
-    leads,
-    deals,
-    tasks,
-    pipelines,
-    isLoadingCompanies,
-    isLoadingDeals,
-    isLoadingTasks,
-  } = useCRM();
-  const { dealMetrics } = useAnalytics();
-  const { formatCurrency, formatDate } = useFormatters();
+  const { deals, tasks, companies, isLoadingDeals, isLoadingTasks } = useCRM();
+  const { overview, dealMetrics, leadMetrics, isLoadingOverview } = useAnalytics();
+  const { formatCurrency } = useFormatters();
 
-  // Computed stats
-  const openDeals = deals.filter((d) => d.status === 'Open');
-  const wonDeals = deals.filter((d) => d.status === 'Won');
-  const openTasks = tasks.filter((t) => t.status === 'Open');
-  const overdueTasks = openTasks.filter(
-    (t) => t.due_date && new Date(t.due_date) < new Date()
-  );
-  const activeLeads = leads.filter((l) => !l.converted_at && l.priority !== 'Disqualified');
-  const recentDeals = [...openDeals]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 5);
-  const urgentTasks = [...openTasks]
-    .filter((t) => t.priority === 'Urgent' || t.priority === 'High' || (t.due_date && new Date(t.due_date) < new Date()))
-    .slice(0, 5);
-  const pipelineValue = openDeals.reduce((s, d) => s + d.value, 0);
-  const winRate = dealMetrics?.win_rate_percent ?? 0;
-  const wonRevenue = dealMetrics?.total_won_revenue ?? wonDeals.reduce((s, d) => s + d.value, 0);
+  const openTasks = tasks.filter((t) => t.status === 'Open').slice(0, 6);
+  const recentDeals = deals.filter((d) => d.status === 'Open').slice(0, 6);
 
-  const isLoading = isLoadingCompanies || isLoadingDeals || isLoadingTasks;
+  const totalPipelineValue = deals
+    .filter((d) => d.status === 'Open')
+    .reduce((sum, d) => sum + (d.value ?? 0), 0);
+
+  const companiesList = companies.map((c) => ({ id: c.id, name: c.name }));
 
   return (
-    <div className="space-y-6 p-6">
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Dashboard</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            Your CRM at a glance — {formatDate(new Date(), 'DD MMM YYYY')}
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/leads" className="rounded-lg bg-forge-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-forge-500/20 hover:bg-forge-400 transition-all">
-            + Add Lead
-          </Link>
-        </div>
+    <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* ── Page header ──────────────────────────────────────────────────────── */}
+      <div>
+        <h1 className="text-h1 text-text-primary">Dashboard</h1>
+        <p className="text-label text-text-tertiary mt-0.5">Your sales overview at a glance</p>
       </div>
 
-      {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
-      {isLoading ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 rounded-xl bg-slate-900/60 border border-slate-800 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard
-            label="Open Deals"
-            value={openDeals.length}
-            icon="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            color="forge"
-            href="/deals"
-          />
-          <StatCard
-            label="Pipeline Value"
-            value={formatCurrency(pipelineValue)}
-            icon="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-            color="emerald"
-            href="/deals"
-          />
-          <StatCard
-            label="Won Revenue"
-            value={formatCurrency(wonRevenue)}
-            icon="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-            color="blue"
-            href="/deals"
-          />
-          <StatCard
-            label="Win Rate"
-            value={`${winRate}%`}
-            icon="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-            color="violet"
-            href="/deals"
-          />
-        </div>
-      )}
-
-      {/* ── Secondary Stats Row ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {/* ── KPI Row ──────────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatCard
-          label="Companies"
-          value={companies.filter((c) => c.status === 'Active').length}
-          icon="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"
-          color="amber"
-          href="/companies"
+          label="Pipeline Value"
+          value={formatCurrency(overview?.pipeline_total_value ?? totalPipelineValue)}
+          sub={`${deals.filter((d) => d.status === 'Open').length} open deals`}
+          icon={TrendingUp}
+          href="/deals"
+          loading={isLoadingOverview}
         />
         <StatCard
           label="Contacts"
-          value={contacts.filter((c) => c.status === 'Active').length}
-          icon="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"
-          color="blue"
+          value={overview?.active_contacts ?? '—'}
+          icon={Users}
           href="/contacts"
+          loading={isLoadingOverview}
         />
         <StatCard
-          label="Active Leads"
-          value={activeLeads.length}
-          icon="M13 10V3L4 14h7v7l9-11h-7z"
-          color="rose"
+          label="Lead Conversion"
+          value={leadMetrics ? `${leadMetrics.conversion_rate_percent}%` : '—'}
+          sub={leadMetrics ? `${leadMetrics.converted_leads} of ${leadMetrics.total_leads} leads` : undefined}
+          icon={Zap}
           href="/leads"
+          loading={isLoadingOverview}
         />
         <StatCard
-          label="Open Tasks"
-          value={openTasks.length}
-          icon="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-          color={overdueTasks.length > 0 ? 'rose' : 'forge'}
-          trend={overdueTasks.length > 0 ? { value: overdueTasks.length, positive: false } : null}
-          href="/tasks"
+          label="Won Revenue"
+          value={dealMetrics ? formatCurrency(dealMetrics.total_won_revenue) : '—'}
+          sub={dealMetrics ? `${dealMetrics.win_rate_percent}% win rate` : undefined}
+          icon={Building2}
+          loading={isLoadingOverview}
         />
       </div>
 
-      {/* ── Pipeline Stage Breakdown ─────────────────────────────────── */}
-      {pipelines && pipelines[0]?.stages && pipelines[0].stages.length > 0 && (
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Pipeline by Stage</h3>
-            <Link href="/deals" className="text-xs text-forge-400 hover:text-forge-300 transition-colors">View All →</Link>
-          </div>
-          <div className="space-y-3">
-            {pipelines[0].stages
-              .slice()
-              .sort((a: StageResponse, b: StageResponse) => a.sort_order - b.sort_order)
-              .map((stage: StageResponse) => {
-                const stageDeals = deals.filter((d) => d.stage_id === stage.id && d.status !== 'Cancelled');
-                const stageValue = stageDeals.reduce((s, d) => s + d.value, 0);
-                const pct = pipelineValue > 0 ? (stageValue / pipelineValue) * 100 : 0;
-                return (
-                  <div key={stage.id} className="flex items-center gap-3">
-                    <div className="w-28 shrink-0 text-xs font-medium text-slate-400 truncate">{stage.name}</div>
-                    <div className="flex-1 relative h-2 bg-slate-800 rounded-full overflow-hidden">
-                      <div
-                        className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-forge-600 to-indigo-500 transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
-                    </div>
-                    <div className="w-24 text-right text-xs font-semibold text-white">{formatCurrency(stageValue)}</div>
-                    <div className="w-10 text-right text-xs text-slate-500">{stageDeals.length}</div>
-                  </div>
-                );
-              })}
-          </div>
-        </div>
-      )}
-
-      {/* ── Two-Column Bottom ──────────────────────────────────────────────── */}
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Recent Deals */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Recent Deals</h3>
-            <Link href="/deals" className="text-xs text-forge-400 hover:text-forge-300 transition-colors">View All →</Link>
-          </div>
-          {recentDeals.length === 0 ? (
-            <div className="py-8 text-center text-slate-600 text-sm">No open deals yet.</div>
-          ) : (
-            <div className="space-y-2">
-              {recentDeals.map((deal) => {
-                const company = companies.find((c) => c.id === deal.company_id);
-                return <DealItem key={deal.id} deal={deal} {...(company ? { companyName: company.name } : {})} />;
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Urgent / Overdue Tasks */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">
-              Priority Tasks
-              {overdueTasks.length > 0 && (
-                <span className="ml-2 rounded-full bg-rose-500/20 border border-rose-500/30 px-2 py-0.5 text-xs text-rose-400">
-                  {overdueTasks.length} overdue
-                </span>
-              )}
-            </h3>
-            <Link href="/tasks" className="text-xs text-forge-400 hover:text-forge-300 transition-colors">View All →</Link>
-          </div>
-          {urgentTasks.length === 0 ? (
-            <div className="py-8 text-center text-slate-600 text-sm">No urgent tasks. You&apos;re all caught up! 🎉</div>
-          ) : (
-            <div className="space-y-2">
-              {urgentTasks.map((task) => (
-                <TaskItem key={task.id} task={task} />
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Quick Add Shortcuts ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: 'New Company', href: '/companies', icon: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16', color: 'from-amber-600/20 to-amber-600/10 border-amber-500/20 hover:border-amber-500/40 text-amber-400' },
-          { label: 'New Contact', href: '/contacts', icon: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z', color: 'from-blue-600/20 to-blue-600/10 border-blue-500/20 hover:border-blue-500/40 text-blue-400' },
-          { label: 'New Lead', href: '/leads', icon: 'M13 10V3L4 14h7v7l9-11h-7z', color: 'from-rose-600/20 to-rose-600/10 border-rose-500/20 hover:border-rose-500/40 text-rose-400' },
-          { label: 'New Task', href: '/tasks', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4', color: 'from-forge-600/20 to-forge-600/10 border-forge-500/20 hover:border-forge-500/40 text-forge-400' },
-        ].map(({ label, href, icon, color }) => (
-          <Link
-            key={label}
-            href={href}
-            className={`flex items-center gap-3 rounded-xl border bg-gradient-to-br p-4 transition-all group ${color}`}
+      {/* ── Main Grid ────────────────────────────────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Open Deals */}
+        <section className="rounded-lg border" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--surface-raised)' }}>
+          <div className="flex items-center justify-between border-b px-4 py-3"
+            style={{ borderColor: 'var(--border-subtle)' }}
           >
-            <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={icon} />
-            </svg>
-            <span className="text-sm font-medium text-white group-hover:text-opacity-90">{label}</span>
-            <svg className="h-4 w-4 ml-auto opacity-40 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </Link>
-        ))}
+            <h2 className="text-h3 text-text-primary">Active Deals</h2>
+            <Link href="/deals" className="flex items-center gap-1 text-caption text-text-tertiary hover:text-forge-400 transition-colors duration-100">
+              View all
+              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </div>
+          <div className="px-4">
+            {isLoadingDeals ? (
+              <div className="space-y-3 py-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-2.5 w-20" />
+                    </div>
+                    <Skeleton className="h-3 w-16" />
+                  </div>
+                ))}
+              </div>
+            ) : recentDeals.length === 0 ? (
+              <div className="flex flex-col items-center py-10 text-center">
+                <TrendingUp className="h-8 w-8 text-text-tertiary mb-2.5" strokeWidth={1} />
+                <p className="text-label text-text-secondary">No open deals</p>
+                <p className="text-caption text-text-tertiary mt-1">Create your first deal to get started</p>
+                <Link href="/deals" className="mt-3 text-caption text-forge-400 hover:text-forge-300 transition-colors">
+                  Go to Deals →
+                </Link>
+              </div>
+            ) : (
+              recentDeals.map((deal) => (
+                <DealItem key={deal.id} deal={deal} companies={companiesList} />
+              ))
+            )}
+          </div>
+        </section>
+
+        {/* Open Tasks */}
+        <section className="rounded-lg border" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--surface-raised)' }}>
+          <div className="flex items-center justify-between border-b px-4 py-3"
+            style={{ borderColor: 'var(--border-subtle)' }}
+          >
+            <h2 className="text-h3 text-text-primary">Open Tasks</h2>
+            <Link href="/tasks" className="flex items-center gap-1 text-caption text-text-tertiary hover:text-forge-400 transition-colors duration-100">
+              View all
+              <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+            </Link>
+          </div>
+          <div className="px-4">
+            {isLoadingTasks ? (
+              <div className="space-y-3 py-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-3 w-40" />
+                      <Skeleton className="h-2.5 w-24" />
+                    </div>
+                    <Skeleton className="h-4 w-12 rounded-sm" />
+                  </div>
+                ))}
+              </div>
+            ) : openTasks.length === 0 ? (
+              <div className="flex flex-col items-center py-10 text-center">
+                <CheckSquare2 className="h-8 w-8 text-text-tertiary mb-2.5" strokeWidth={1} />
+                <p className="text-label text-text-secondary">All caught up</p>
+                <p className="text-caption text-text-tertiary mt-1">No open tasks right now</p>
+                <Link href="/tasks" className="mt-3 text-caption text-forge-400 hover:text-forge-300 transition-colors">
+                  Go to Tasks →
+                </Link>
+              </div>
+            ) : (
+              openTasks.map((task) => <TaskItem key={task.id} task={task} />)
+            )}
+          </div>
+        </section>
       </div>
+
+      {/* ── Quick Actions ─────────────────────────────────────────────────────── */}
+      <section>
+        <h2 className="text-h3 text-text-secondary mb-3">Quick actions</h2>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: 'New Lead', href: '/leads', icon: Zap },
+            { label: 'New Contact', href: '/contacts', icon: Users },
+            { label: 'New Deal', href: '/deals', icon: TrendingUp },
+            { label: 'New Task', href: '/tasks', icon: CheckSquare2 },
+            { label: 'Add Company', href: '/companies', icon: Building2 },
+          ].map(({ label, href, icon: Icon }) => (
+            <Link
+              key={label}
+              href={href}
+              className="flex items-center gap-2 rounded-md border px-3 py-2 text-label text-text-secondary hover:border-[rgba(255,255,255,0.14)] hover:text-text-primary transition-all duration-100"
+              style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--surface-raised)' }}
+            >
+              <Icon className="h-4 w-4" strokeWidth={1.5} />
+              {label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Recent activity label ─────────────────────────────────────────────── */}
+      <section className="rounded-lg border px-4 py-3"
+        style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--surface-raised)' }}
+      >
+        <div className="flex items-center gap-2 text-caption text-text-tertiary">
+          <Clock className="h-3.5 w-3.5" strokeWidth={1.5} />
+          <span>Activity timeline is available on individual company and contact pages.</span>
+        </div>
+      </section>
     </div>
   );
 }

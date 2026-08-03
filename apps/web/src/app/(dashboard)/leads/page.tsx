@@ -1,34 +1,171 @@
 'use client';
 
 import { useState } from 'react';
+import { Zap, Plus, Search, X, Check } from 'lucide-react';
 
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
 import { useFormatters } from '@/hooks/use-formatters';
+import { Button, Input, Select, Skeleton, Badge, FormField, Textarea } from '@/components/ui/primitives';
+import { cn } from '@/lib/cn';
 import type { LeadResponse, LeadUpdate } from '@/types';
 
-const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'];
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const PRIORITY_COLORS: Record<string, string> = {
-  Low: 'bg-slate-500/20 text-slate-400 border-slate-500/30',
-  Medium: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-  High: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  Urgent: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-  Disqualified: 'bg-slate-600/20 text-slate-500 border-slate-600/30',
+const PRIORITY_OPTIONS = ['Low', 'Medium', 'High', 'Urgent'] as const;
+
+const PRIORITY_BADGE: Record<string, 'neutral' | 'warning' | 'danger' | 'default'> = {
+  Low:    'neutral',
+  Medium: 'warning',
+  High:   'danger',
+  Urgent: 'danger',
 };
+
+// ── Modal Shell ───────────────────────────────────────────────────────────────
+
+function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+      <div className="w-full max-w-lg overflow-y-auto rounded-xl border bg-surface-overlay shadow-xl max-h-[90vh]"
+        style={{ borderColor: 'var(--border-strong)' }}
+      >
+        <div className="flex items-center justify-between border-b px-5 py-4"
+          style={{ borderColor: 'var(--border-subtle)' }}
+        >
+          <h2 className="text-h3 text-text-primary">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-md p-1 text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
+          >
+            <X className="h-4 w-4" strokeWidth={1.5} />
+          </button>
+        </div>
+        <div className="p-5">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Lead Row ──────────────────────────────────────────────────────────────────
+
+function LeadRow({
+  lead,
+  onConvert,
+  onEdit,
+  onDisqualify,
+  isDeletingLead,
+}: {
+  lead: LeadResponse;
+  onConvert: (lead: LeadResponse) => void;
+  onEdit: (lead: LeadResponse) => void;
+  onDisqualify: (id: string) => void;
+  isDeletingLead: boolean;
+}) {
+  const { formatCurrency } = useFormatters();
+  const isConverted = Boolean(lead.converted_at);
+  const isDisqualified = lead.priority === 'Disqualified';
+
+  return (
+    <tr className={cn(
+      'group border-b transition-colors duration-100 hover:bg-[rgba(255,255,255,0.02)]',
+      (isConverted || isDisqualified) && 'opacity-50',
+    )}
+      style={{ borderColor: 'var(--border-subtle)' }}
+    >
+      {/* Name */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-forge-500/15 text-micro font-semibold text-forge-400 ring-1 ring-forge-500/20">
+            {lead.first_name[0]?.toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="text-label text-text-primary truncate">
+              {lead.first_name} {lead.last_name}
+            </p>
+            {lead.job_title && (
+              <p className="text-caption text-text-tertiary truncate">{lead.job_title}</p>
+            )}
+          </div>
+        </div>
+      </td>
+
+      {/* Company */}
+      <td className="px-4 py-3 text-label text-text-secondary">
+        {lead.company_name ?? '—'}
+      </td>
+
+      {/* Email */}
+      <td className="px-4 py-3 text-caption text-text-tertiary">
+        {lead.email ?? '—'}
+      </td>
+
+      {/* Value */}
+      <td className="px-4 py-3 text-label tabular font-medium text-text-primary">
+        {lead.estimated_value ? formatCurrency(lead.estimated_value) : '—'}
+      </td>
+
+      {/* Priority */}
+      <td className="px-4 py-3">
+        <Badge variant={PRIORITY_BADGE[lead.priority] ?? 'neutral'}>
+          {lead.priority}
+        </Badge>
+      </td>
+
+      {/* Actions */}
+      <td className="px-4 py-3 text-right">
+        <div className="flex items-center justify-end gap-1.5">
+          {isConverted && (
+            <span className="flex items-center gap-1 text-caption text-emerald-400">
+              <Check className="h-3 w-3" strokeWidth={2} /> Converted
+            </span>
+          )}
+          {isDisqualified && (
+            <span className="text-caption text-text-tertiary">Disqualified</span>
+          )}
+          {!isConverted && !isDisqualified && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onEdit(lead)}
+              >
+                Edit
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => onConvert(lead)}
+                className="text-forge-400 border-forge-500/20 hover:bg-forge-500/10"
+              >
+                Convert
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={isDeletingLead}
+                onClick={() => onDisqualify(lead.id)}
+                className="text-text-tertiary hover:text-red-400"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={1.5} />
+              </Button>
+            </>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function LeadsPage(): React.JSX.Element {
   const {
-    leads,
-    isLoadingLeads,
-    createLead,
-    isCreatingLead,
-    updateLead,
-    isUpdatingLead,
-    deleteLead,
-    isDeletingLead,
-    convertLead,
-    isConvertingLead,
+    leads, isLoadingLeads,
+    createLead, isCreatingLead,
+    updateLead, isUpdatingLead,
+    deleteLead, isDeletingLead,
+    convertLead, isConvertingLead,
     pipelines,
   } = useCRM();
   const { toast } = useToast();
@@ -36,10 +173,10 @@ export default function LeadsPage(): React.JSX.Element {
   // ── Filters ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [showConverted, setShowConverted] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   const filtered = leads.filter((l) => {
-    if (!showConverted && (l.converted_at || l.priority === 'Disqualified')) return false;
+    if (!showAll && (l.converted_at || l.priority === 'Disqualified')) return false;
     if (priorityFilter !== 'all' && l.priority !== priorityFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -53,18 +190,15 @@ export default function LeadsPage(): React.JSX.Element {
     return true;
   });
 
+  const activeLeads = leads.filter((l) => !l.converted_at && l.priority !== 'Disqualified');
+  const totalValue = activeLeads.reduce((s, l) => s + (l.estimated_value ?? 0), 0);
+  const convertedCount = leads.filter((l) => l.converted_at).length;
+
   // ── Create Modal ──────────────────────────────────────────────────────────
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone: '',
-    company_name: '',
-    job_title: '',
-    estimated_value: '',
-    priority: 'Medium',
-    description: '',
+    first_name: '', last_name: '', email: '', phone: '', company_name: '',
+    job_title: '', estimated_value: '', priority: 'Medium', description: '',
   });
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -86,34 +220,21 @@ export default function LeadsPage(): React.JSX.Element {
       setIsCreateOpen(false);
       setCreateForm({ first_name: '', last_name: '', email: '', phone: '', company_name: '', job_title: '', estimated_value: '', priority: 'Medium', description: '' });
       toast('success', 'Lead created', `${createForm.first_name} added to your pipeline.`);
-    } catch (err: unknown) {
+    } catch (err) {
       setCreateError(err instanceof Error ? err.message : 'Failed to create lead.');
     }
   };
 
   // ── Edit Modal ────────────────────────────────────────────────────────────
   const [editTarget, setEditTarget] = useState<LeadResponse | null>(null);
-  const [editForm, setEditForm] = useState({
-    first_name: '',
-    last_name: '',
-    email: '',
-    company_name: '',
-    job_title: '',
-    estimated_value: '',
-    priority: 'Medium',
-    description: '',
-  });
+  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', email: '', company_name: '', job_title: '', estimated_value: '', priority: 'Medium', description: '' });
 
   const openEdit = (lead: LeadResponse) => {
     setEditTarget(lead);
     setEditForm({
-      first_name: lead.first_name,
-      last_name: lead.last_name ?? '',
-      email: lead.email ?? '',
-      company_name: lead.company_name ?? '',
-      job_title: lead.job_title ?? '',
-      estimated_value: lead.estimated_value?.toString() ?? '',
-      priority: lead.priority,
+      first_name: lead.first_name, last_name: lead.last_name ?? '', email: lead.email ?? '',
+      company_name: lead.company_name ?? '', job_title: lead.job_title ?? '',
+      estimated_value: lead.estimated_value?.toString() ?? '', priority: lead.priority,
       description: lead.description ?? '',
     });
   };
@@ -133,7 +254,7 @@ export default function LeadsPage(): React.JSX.Element {
       await updateLead({ id: editTarget.id, payload: payload as LeadUpdate });
       setEditTarget(null);
       toast('success', 'Lead updated');
-    } catch (err: unknown) {
+    } catch (err) {
       toast('error', 'Update failed', err instanceof Error ? err.message : '');
     }
   };
@@ -143,7 +264,7 @@ export default function LeadsPage(): React.JSX.Element {
     try {
       await deleteLead(leadId);
       toast('success', 'Lead disqualified');
-    } catch (err: unknown) {
+    } catch (err) {
       toast('error', 'Failed to disqualify', err instanceof Error ? err.message : '');
     }
   };
@@ -187,112 +308,108 @@ export default function LeadsPage(): React.JSX.Element {
           } : {}),
         },
       });
-      setConvertSuccess('Lead successfully converted! Company and Contact have been created.');
+      setConvertSuccess('Lead converted! Company and Contact have been created.');
       toast('success', 'Lead converted!');
-    } catch (err: unknown) {
+    } catch (err) {
       setConvertError(err instanceof Error ? err.message : 'Failed to convert lead.');
     }
   };
 
-  const inputCls = 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-forge-500 transition-colors';
-  const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1.5';
-
-  const totalValue = leads.filter((l) => !l.converted_at && l.priority !== 'Disqualified').reduce((s, l) => s + (l.estimated_value || 0), 0);
-  const convertedCount = leads.filter((l) => l.converted_at).length;
-
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-5 p-6 max-w-7xl mx-auto">
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Leads</h1>
-          <p className="text-sm text-slate-400 mt-0.5">
-            {leads.filter((l) => !l.converted_at && l.priority !== 'Disqualified').length} active · ${totalValue.toLocaleString()} pipeline · {convertedCount} converted
+          <h1 className="text-h1 text-text-primary">Leads</h1>
+          <p className="text-label text-text-tertiary mt-0.5">
+            {activeLeads.length} active · {totalValue > 0 ? `$${totalValue.toLocaleString()} pipeline · ` : ''}{convertedCount} converted
           </p>
         </div>
-        <button
-          onClick={() => setIsCreateOpen(true)}
-          className="rounded-lg bg-forge-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-forge-500/20 hover:bg-forge-400 transition-all flex items-center gap-2"
-        >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
+        <Button onClick={() => setIsCreateOpen(true)} size="md">
+          <Plus className="h-4 w-4" strokeWidth={2} />
           Add Lead
-        </button>
+        </Button>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1 max-w-md">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
+      {/* ── Filters ────────────────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary" strokeWidth={1.5} />
           <input
             type="text"
             placeholder="Search leads…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-slate-700 bg-slate-800 pl-9 pr-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-forge-500"
+            className="w-full rounded-md border bg-surface-sunken py-2 pl-9 pr-3 text-label text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-forge-500 transition-colors duration-100"
+            style={{ borderColor: 'var(--border-default)' }}
           />
         </div>
-        <div className="flex gap-2 flex-wrap items-center">
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-slate-400 focus:outline-none focus:ring-1 focus:ring-forge-500"
-          >
-            <option value="all">All Priorities</option>
-            {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <button
-            onClick={() => setShowConverted(!showConverted)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-medium border transition-all ${
-              showConverted
-                ? 'border-forge-500/40 bg-forge-500/20 text-forge-400'
-                : 'border-slate-700 text-slate-400 hover:text-white'
-            }`}
-          >
-            {showConverted ? '✓ ' : ''}Show All
-          </button>
-        </div>
+        <select
+          value={priorityFilter}
+          onChange={(e) => setPriorityFilter(e.target.value)}
+          className="rounded-md border bg-surface-sunken px-2.5 py-2 text-label text-text-secondary focus:outline-none focus:ring-2 focus:ring-forge-500"
+          style={{ borderColor: 'var(--border-default)' }}
+        >
+          <option value="all">All priorities</option>
+          {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <button
+          onClick={() => setShowAll(!showAll)}
+          className={cn(
+            'rounded-md border px-3 py-2 text-label transition-colors duration-100',
+            showAll
+              ? 'border-forge-500/30 bg-forge-500/10 text-forge-400'
+              : 'text-text-tertiary hover:text-text-primary',
+          )}
+          style={showAll ? {} : { borderColor: 'var(--border-default)' }}
+        >
+          {showAll ? '✓ Showing all' : 'Show all'}
+        </button>
       </div>
 
-      {/* Leads Table */}
-      <div className="rounded-xl border border-slate-800 bg-slate-900/60 shadow-xl backdrop-blur-xl overflow-hidden">
+      {/* ── Table ──────────────────────────────────────────────────────────── */}
+      <div className="overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border-default)' }}>
         {isLoadingLeads ? (
-          <div className="space-y-0">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-4 px-6 py-4 border-b border-slate-800 animate-pulse">
-                <div className="h-8 w-8 rounded-full bg-slate-800" />
+          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4 px-4 py-3">
+                <Skeleton className="h-7 w-7 rounded-full" />
                 <div className="flex-1 space-y-1.5">
-                  <div className="h-3 bg-slate-800 rounded w-36" />
-                  <div className="h-2.5 bg-slate-800/60 rounded w-24" />
+                  <Skeleton className="h-3 w-36" />
+                  <Skeleton className="h-2.5 w-24" />
                 </div>
+                <Skeleton className="h-3 w-20" />
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="py-16 text-center">
-            <svg className="h-12 w-12 mx-auto text-slate-700 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <p className="text-slate-500 text-sm">
-              {search ? `No leads match "${search}"` : 'No active leads. Add your first lead above.'}
+          <div className="flex flex-col items-center py-16 text-center">
+            <Zap className="h-10 w-10 text-text-tertiary mb-3" strokeWidth={1} />
+            <p className="text-label text-text-secondary">
+              {search ? `No leads match "${search}"` : 'No active leads'}
             </p>
+            <p className="text-caption text-text-tertiary mt-1">
+              {!search && 'Add your first lead to start building your pipeline'}
+            </p>
+            {!search && (
+              <Button variant="secondary" size="sm" onClick={() => setIsCreateOpen(true)} className="mt-4">
+                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
+                Add Lead
+              </Button>
+            )}
           </div>
         ) : (
-          <table className="w-full text-left text-sm text-slate-300">
-            <thead className="border-b border-slate-800 bg-slate-900/80 text-xs font-semibold uppercase text-slate-500">
-              <tr>
-                <th className="px-6 py-3.5">Name</th>
-                <th className="px-6 py-3.5">Company</th>
-                <th className="px-6 py-3.5">Email</th>
-                <th className="px-6 py-3.5">Est. Value</th>
-                <th className="px-6 py-3.5">Priority</th>
-                <th className="px-6 py-3.5 text-right">Actions</th>
+          <table className="w-full text-left">
+            <thead style={{ backgroundColor: 'var(--surface-overlay)' }}>
+              <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
+                {['Name', 'Company', 'Email', 'Est. Value', 'Priority', ''].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-micro font-medium text-text-tertiary">
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody>
               {filtered.map((lead) => (
                 <LeadRow
                   key={lead.id}
@@ -310,235 +427,142 @@ export default function LeadsPage(): React.JSX.Element {
 
       {/* ── Create Lead Modal ──────────────────────────────────────────────── */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-white">Create New Lead</h3>
-            {createError && (
-              <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">{createError}</div>
-            )}
-            <form onSubmit={handleCreate} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>First Name <span className="text-rose-400">*</span></label>
-                  <input required type="text" value={createForm.first_name} onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Last Name</label>
-                  <input type="text" value={createForm.last_name} onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Email</label>
-                  <input type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Phone</label>
-                  <input type="text" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Company</label>
-                  <input type="text" value={createForm.company_name} onChange={(e) => setCreateForm({ ...createForm, company_name: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Job Title</label>
-                  <input type="text" value={createForm.job_title} onChange={(e) => setCreateForm({ ...createForm, job_title: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Est. Value ($)</label>
-                  <input type="number" min={0} value={createForm.estimated_value} onChange={(e) => setCreateForm({ ...createForm, estimated_value: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Priority</label>
-                  <select value={createForm.priority} onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value })} className={inputCls}>
-                    {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Description</label>
-                <textarea rows={2} value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} className={inputCls} />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setIsCreateOpen(false)} className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
-                <button type="submit" disabled={isCreatingLead} className="rounded-lg bg-forge-500 px-4 py-2 text-xs font-semibold text-white hover:bg-forge-400 disabled:opacity-50">
-                  {isCreatingLead ? 'Saving…' : 'Save Lead'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal title="New Lead" onClose={() => setIsCreateOpen(false)}>
+          {createError && (
+            <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/8 px-3 py-2.5 text-label text-red-400">
+              {createError}
+            </div>
+          )}
+          <form onSubmit={handleCreate} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="First name" htmlFor="c_first_name" required>
+                <Input id="c_first_name" type="text" placeholder="Jane" required value={createForm.first_name} onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })} />
+              </FormField>
+              <FormField label="Last name" htmlFor="c_last_name">
+                <Input id="c_last_name" type="text" placeholder="Doe" value={createForm.last_name} onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })} />
+              </FormField>
+              <FormField label="Email" htmlFor="c_email">
+                <Input id="c_email" type="email" placeholder="jane@company.com" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+              </FormField>
+              <FormField label="Phone" htmlFor="c_phone">
+                <Input id="c_phone" type="text" placeholder="+1 (555) 000-0000" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} />
+              </FormField>
+              <FormField label="Company" htmlFor="c_company">
+                <Input id="c_company" type="text" placeholder="Acme Corp" value={createForm.company_name} onChange={(e) => setCreateForm({ ...createForm, company_name: e.target.value })} />
+              </FormField>
+              <FormField label="Job title" htmlFor="c_job_title">
+                <Input id="c_job_title" type="text" placeholder="VP Sales" value={createForm.job_title} onChange={(e) => setCreateForm({ ...createForm, job_title: e.target.value })} />
+              </FormField>
+              <FormField label="Est. value ($)" htmlFor="c_value">
+                <Input id="c_value" type="number" min={0} placeholder="0" value={createForm.estimated_value} onChange={(e) => setCreateForm({ ...createForm, estimated_value: e.target.value })} />
+              </FormField>
+              <FormField label="Priority" htmlFor="c_priority">
+                <Select id="c_priority" value={createForm.priority} onChange={(e) => setCreateForm({ ...createForm, priority: e.target.value })}>
+                  {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </Select>
+              </FormField>
+            </div>
+            <FormField label="Description" htmlFor="c_desc">
+              <Textarea id="c_desc" rows={2} placeholder="Additional context…" value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} />
+            </FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" size="md" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
+              <Button type="submit" size="md" loading={isCreatingLead}>Save Lead</Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* ── Edit Lead Modal ────────────────────────────────────────────────── */}
       {editTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-lg rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-bold text-white">Edit Lead</h3>
-            <form onSubmit={handleEdit} className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>First Name <span className="text-rose-400">*</span></label>
-                  <input required type="text" value={editForm.first_name} onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Last Name</label>
-                  <input type="text" value={editForm.last_name} onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Email</label>
-                  <input type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Company</label>
-                  <input type="text" value={editForm.company_name} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Est. Value ($)</label>
-                  <input type="number" min={0} value={editForm.estimated_value} onChange={(e) => setEditForm({ ...editForm, estimated_value: e.target.value })} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Priority</label>
-                  <select value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })} className={inputCls}>
-                    {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Description</label>
-                <textarea rows={2} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className={inputCls} />
-              </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setEditTarget(null)} className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
-                <button type="submit" disabled={isUpdatingLead} className="rounded-lg bg-forge-500 px-4 py-2 text-xs font-semibold text-white hover:bg-forge-400 disabled:opacity-50">
-                  {isUpdatingLead ? 'Saving…' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <Modal title="Edit Lead" onClose={() => setEditTarget(null)}>
+          <form onSubmit={handleEdit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="First name" htmlFor="e_first_name" required>
+                <Input id="e_first_name" required value={editForm.first_name} onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })} />
+              </FormField>
+              <FormField label="Last name" htmlFor="e_last_name">
+                <Input id="e_last_name" value={editForm.last_name} onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })} />
+              </FormField>
+              <FormField label="Email" htmlFor="e_email">
+                <Input id="e_email" type="email" value={editForm.email} onChange={(e) => setEditForm({ ...editForm, email: e.target.value })} />
+              </FormField>
+              <FormField label="Company" htmlFor="e_company">
+                <Input id="e_company" value={editForm.company_name} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} />
+              </FormField>
+              <FormField label="Est. value ($)" htmlFor="e_value">
+                <Input id="e_value" type="number" min={0} value={editForm.estimated_value} onChange={(e) => setEditForm({ ...editForm, estimated_value: e.target.value })} />
+              </FormField>
+              <FormField label="Priority" htmlFor="e_priority">
+                <Select id="e_priority" value={editForm.priority} onChange={(e) => setEditForm({ ...editForm, priority: e.target.value })}>
+                  {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+                </Select>
+              </FormField>
+            </div>
+            <FormField label="Description" htmlFor="e_desc">
+              <Textarea id="e_desc" rows={2} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
+            </FormField>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" size="md" onClick={() => setEditTarget(null)}>Cancel</Button>
+              <Button type="submit" size="md" loading={isUpdatingLead}>Save Changes</Button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       {/* ── Convert Lead Modal ─────────────────────────────────────────────── */}
       {convertTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
-            <div>
-              <h3 className="text-lg font-bold text-white">Convert Lead</h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Converting <span className="text-white font-medium">{convertTarget.first_name} {convertTarget.last_name}</span> will create a Company and Contact.
-              </p>
+        <Modal title="Convert Lead" onClose={() => setConvertTarget(null)}>
+          <p className="mb-4 text-label text-text-secondary">
+            Converting <span className="text-text-primary font-medium">{convertTarget.first_name} {convertTarget.last_name}</span> will create a Company and Contact.
+          </p>
+          {convertError && (
+            <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/8 px-3 py-2.5 text-label text-red-400">
+              {convertError}
             </div>
-            {convertError && <div className="rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">{convertError}</div>}
-            {convertSuccess ? (
-              <div className="space-y-4">
-                <div className="rounded-lg bg-emerald-500/10 border border-emerald-500/30 p-4 text-sm text-emerald-400">{convertSuccess}</div>
-                <div className="flex justify-end">
-                  <button onClick={() => setConvertTarget(null)} className="rounded-lg bg-forge-500 px-4 py-2 text-xs font-semibold text-white hover:bg-forge-400">Done</button>
-                </div>
+          )}
+          {convertSuccess ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-emerald-500/20 bg-emerald-500/8 px-3 py-3 text-label text-emerald-400">
+                {convertSuccess}
               </div>
-            ) : (
-              <form onSubmit={handleConvert} className="space-y-4">
-                <div className="flex items-center gap-3 rounded-lg border border-slate-700 bg-slate-800/60 p-3">
-                  <input id="create-deal-toggle" type="checkbox" checked={convertForm.create_deal} onChange={(e) => setConvertForm({ ...convertForm, create_deal: e.target.checked })} className="h-4 w-4 rounded border-slate-600 accent-forge-500" />
-                  <label htmlFor="create-deal-toggle" className="text-sm font-medium text-white cursor-pointer">Also create a Deal</label>
+              <div className="flex justify-end">
+                <Button size="md" onClick={() => setConvertTarget(null)}>Done</Button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleConvert} className="space-y-4">
+              <label className="flex items-center gap-3 rounded-md border px-3 py-2.5 cursor-pointer hover:bg-[rgba(255,255,255,0.03)] transition-colors"
+                style={{ borderColor: 'var(--border-default)' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={convertForm.create_deal}
+                  onChange={(e) => setConvertForm({ ...convertForm, create_deal: e.target.checked })}
+                  className="h-4 w-4 rounded accent-forge-500"
+                />
+                <span className="text-label text-text-primary">Also create a Deal</span>
+              </label>
+              {convertForm.create_deal && (
+                <div className="space-y-3">
+                  <FormField label="Deal name" htmlFor="conv_deal_name">
+                    <Input id="conv_deal_name" value={convertForm.deal_name} onChange={(e) => setConvertForm({ ...convertForm, deal_name: e.target.value })} />
+                  </FormField>
+                  <FormField label="Deal value ($)" htmlFor="conv_deal_value">
+                    <Input id="conv_deal_value" type="number" min={0} value={convertForm.deal_value} onChange={(e) => setConvertForm({ ...convertForm, deal_value: Number(e.target.value) })} />
+                  </FormField>
                 </div>
-                {convertForm.create_deal && (
-                  <div className="space-y-3 pl-1">
-                    <div>
-                      <label className={labelCls}>Deal Name</label>
-                      <input type="text" value={convertForm.deal_name} onChange={(e) => setConvertForm({ ...convertForm, deal_name: e.target.value })} className={inputCls} />
-                    </div>
-                    <div>
-                      <label className={labelCls}>Deal Value ($)</label>
-                      <input type="number" min={0} value={convertForm.deal_value} onChange={(e) => setConvertForm({ ...convertForm, deal_value: Number(e.target.value) })} className={inputCls} />
-                    </div>
-                  </div>
-                )}
-                <div className="flex justify-end gap-2 pt-2">
-                  <button type="button" onClick={() => setConvertTarget(null)} className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Cancel</button>
-                  <button type="submit" disabled={isConvertingLead} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50">
-                    {isConvertingLead ? 'Converting…' : 'Convert Lead'}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
+              )}
+              <div className="flex justify-end gap-2 pt-2">
+                <Button type="button" variant="ghost" size="md" onClick={() => setConvertTarget(null)}>Cancel</Button>
+                <Button type="submit" size="md" loading={isConvertingLead} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                  Convert Lead
+                </Button>
+              </div>
+            </form>
+          )}
+        </Modal>
       )}
     </div>
-  );
-}
-
-function LeadRow({
-  lead,
-  onConvert,
-  onEdit,
-  onDisqualify,
-  isDeletingLead,
-}: {
-  lead: LeadResponse;
-  onConvert: (lead: LeadResponse) => void;
-  onEdit: (lead: LeadResponse) => void;
-  onDisqualify: (id: string) => void;
-  isDeletingLead: boolean;
-}) {
-  const { formatCurrency } = useFormatters();
-  const isConverted = Boolean(lead.converted_at);
-  const isDisqualified = lead.priority === 'Disqualified';
-
-  return (
-    <tr className={`hover:bg-slate-800/40 transition-colors ${isConverted || isDisqualified ? 'opacity-60' : ''}`}>
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-xs font-bold text-slate-300 shrink-0">
-            {lead.first_name[0]}
-          </div>
-          <div>
-            <p className="font-medium text-white">{lead.first_name} {lead.last_name}</p>
-            {lead.job_title && <p className="text-xs text-slate-500">{lead.job_title}</p>}
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4 text-slate-400 text-sm">{lead.company_name || '—'}</td>
-      <td className="px-6 py-4 text-slate-400 text-xs">{lead.email || '—'}</td>
-      <td className="px-6 py-4 font-semibold text-emerald-400 text-sm">
-        {lead.estimated_value ? formatCurrency(lead.estimated_value) : '—'}
-      </td>
-      <td className="px-6 py-4">
-        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold border ${PRIORITY_COLORS[lead.priority] ?? PRIORITY_COLORS.Medium}`}>
-          {lead.priority}
-        </span>
-      </td>
-      <td className="px-6 py-4 text-right">
-        <div className="flex items-center justify-end gap-2">
-          {isConverted && (
-            <span className="text-xs text-emerald-400 font-semibold">✓ Converted</span>
-          )}
-          {!isConverted && !isDisqualified && (
-            <>
-              <button
-                onClick={() => onEdit(lead)}
-                className="rounded-md bg-slate-800 px-2 py-1 text-xs font-medium text-slate-400 hover:bg-slate-700 hover:text-white transition-colors"
-              >
-                Edit
-              </button>
-              <button
-                onClick={() => onConvert(lead)}
-                className="rounded-md bg-forge-500/20 px-2.5 py-1 text-xs font-medium text-forge-300 hover:bg-forge-500/30 border border-forge-500/30 transition-colors"
-              >
-                Convert
-              </button>
-              <button
-                onClick={() => onDisqualify(lead.id)}
-                disabled={isDeletingLead}
-                className="rounded-md px-2 py-1 text-xs text-slate-600 hover:text-rose-400 transition-colors disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </>
-          )}
-          {isDisqualified && <span className="text-xs text-slate-500">Disqualified</span>}
-        </div>
-      </td>
-    </tr>
   );
 }
