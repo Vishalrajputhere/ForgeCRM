@@ -100,16 +100,16 @@ export function AnalyticsDashboard(): React.JSX.Element {
       </div>
 
       {/* Pipeline Stage Distribution */}
-      {pipelines && pipelines.length > 0 && (
+      {pipelines && pipelines.length > 0 && pipelines[0]?.stages && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-xl">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">
             Pipeline Velocity & Stage Distribution
           </h2>
           <div className="space-y-4">
-            {pipelines[0]?.stages?.map((stage) => (
-              <div key={stage.id} className="space-y-1.5">
+            {pipelines[0].stages.map((stage) => (
+              <div key={stage.stage_id} className="space-y-1.5">
                 <div className="flex justify-between text-xs">
-                  <span className="font-medium text-slate-200">{stage.name}</span>
+                  <span className="font-medium text-slate-200">{stage.stage_name}</span>
                   <span className="font-semibold text-slate-400">
                     {formatCurrency(stage.total_value)} ({stage.deal_count} deals)
                   </span>

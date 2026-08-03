@@ -95,12 +95,12 @@ export default function WorkspacePage(): React.JSX.Element {
     if (!workspaceId) return;
     try {
       const payload: WorkspaceUpdate = {
-        name: overviewForm.name,
-        slug: overviewForm.slug || undefined,
-        industry: overviewForm.industry || undefined,
-        website: overviewForm.website || undefined,
-        logo_url: overviewForm.logo_url || undefined,
-        company_size: Number(overviewForm.company_size) || undefined,
+        ...(overviewForm.name ? { name: overviewForm.name } : {}),
+        ...(overviewForm.slug ? { slug: overviewForm.slug } : {}),
+        ...(overviewForm.industry ? { industry: overviewForm.industry } : {}),
+        ...(overviewForm.website ? { website: overviewForm.website } : {}),
+        ...(overviewForm.logo_url ? { logo_url: overviewForm.logo_url } : {}),
+        ...(overviewForm.company_size ? { company_size: Number(overviewForm.company_size) } : {}),
       };
       await updateWorkspace({ workspaceId, payload });
       toast('success', 'Workspace Updated', 'Workspace details saved successfully.');

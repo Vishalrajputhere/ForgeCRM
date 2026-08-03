@@ -634,6 +634,8 @@ export interface EmailDraftResponse {
 
 export interface WorkspaceUpdate {
   name?: string;
+  slug?: string;
+  logo_url?: string;
   industry?: string;
   website?: string;
   company_size?: number;

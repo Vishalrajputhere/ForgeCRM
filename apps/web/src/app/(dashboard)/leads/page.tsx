@@ -501,7 +501,7 @@ function LeadRow({
       <td className="px-6 py-4 text-slate-400 text-sm">{lead.company_name || '—'}</td>
       <td className="px-6 py-4 text-slate-400 text-xs">{lead.email || '—'}</td>
       <td className="px-6 py-4 font-semibold text-emerald-400 text-sm">
-        {lead.estimated_value ? `$${lead.estimated_value.toLocaleString()}` : '—'}
+        {lead.estimated_value ? formatCurrency(lead.estimated_value) : '—'}
       </td>
       <td className="px-6 py-4">
         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold border ${PRIORITY_COLORS[lead.priority] ?? PRIORITY_COLORS.Medium}`}>
