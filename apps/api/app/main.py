@@ -157,20 +157,10 @@ def create_application() -> FastAPI:
 def _register_middleware(app: FastAPI, settings: Any) -> None:
     """Register all HTTP middleware in the correct order."""
     # NOTE: Middleware is applied in LIFO order in Starlette/FastAPI.
-    # The last registered middleware runs FIRST on incoming requests.
+    # The last registered middleware runs FIRST on incoming requests and LAST on outgoing responses.
 
     # GZip compression (innermost — applied to response before sending)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
-
-    # CORS — must be registered before custom middleware
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
-        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allow_headers=["*"],
-        expose_headers=["X-Request-ID", "X-Correlation-ID"],
-    )
 
     # Request logging
     from app.middleware.logging import RequestLoggingMiddleware
@@ -180,9 +170,19 @@ def _register_middleware(app: FastAPI, settings: Any) -> None:
     from app.middleware.correlation import CorrelationIDMiddleware
     app.add_middleware(CorrelationIDMiddleware)
 
-    # Request ID — must run first (outermost) to generate the ID
+    # Request ID — generates unique request ID
     from app.middleware.request_id import RequestIDMiddleware
     app.add_middleware(RequestIDMiddleware)
+
+    # CORS — MUST BE REGISTERED LAST to be outermost on incoming requests and outgoing responses
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        expose_headers=["X-Request-ID", "X-Correlation-ID"],
+    )
 
 
 def _register_exception_handlers(app: FastAPI) -> None:

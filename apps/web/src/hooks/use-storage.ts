@@ -26,19 +26,17 @@ export function useStorage() {
   const currentWorkspace = useWorkspaceStore((state) => state.currentWorkspace);
   const workspaceId = currentWorkspace?.id;
 
-  const getOptions = () => (workspaceId ? { headers: { 'X-Workspace-ID': workspaceId } } : {});
-
   // ── Request Upload URL Mutation ──────────────────────────────────────────
   const requestUploadUrlMutation = useMutation({
     mutationFn: async (payload: RequestUploadUrlRequest) => {
-      return await apiPost<PresignedUploadResponse>('/storage/upload-url', payload, getOptions());
+      return await apiPost<PresignedUploadResponse>('/storage/upload-url', payload);
     },
   });
 
   // ── Confirm Upload Mutation ──────────────────────────────────────────────
   const confirmUploadMutation = useMutation({
     mutationFn: async (payload: ConfirmUploadRequest) => {
-      return await apiPost<DocumentAttachmentResponse>('/storage/confirm', payload, getOptions());
+      return await apiPost<DocumentAttachmentResponse>('/storage/confirm', payload);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
@@ -52,10 +50,9 @@ export function useStorage() {
     useQuery({
       queryKey: ['attachments', workspaceId, entityType, entityId],
       queryFn: async () => {
-        if (!workspaceId || !entityId) return [];
+        if (!entityId) return [];
         return await apiGet<DocumentAttachmentResponse[]>(
           `/storage/attachments?entity_type=${entityType}&entity_id=${entityId}`,
-          getOptions(),
         );
       },
       enabled: Boolean(workspaceId && entityId),
@@ -66,7 +63,6 @@ export function useStorage() {
     mutationFn: async (attachmentId: string) => {
       return await apiGet<PresignedDownloadResponse>(
         `/storage/attachments/${attachmentId}/download-url`,
-        getOptions(),
       );
     },
   });

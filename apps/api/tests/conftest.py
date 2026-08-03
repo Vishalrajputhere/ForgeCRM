@@ -43,38 +43,25 @@ def get_test_settings() -> Settings:
 # ── Pytest Configuration ──────────────────────────────────────────────────────
 
 
-@pytest.fixture(scope="session")
-def event_loop() -> Generator[asyncio.AbstractEventLoop]:
-    """Create a shared event loop for the test session."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
+@pytest.fixture
 def test_settings() -> Settings:
-    """Return test settings for the session."""
+    """Return test settings."""
     return get_test_settings()
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def app(test_settings: Settings) -> FastAPI:
     """
     Create a FastAPI test application with settings override.
-
-    The settings dependency is overridden to use test configuration.
     """
     from app.main import create_application
 
     test_app = create_application()
-
-    # Override the settings dependency for tests
     test_app.dependency_overrides[get_settings] = lambda: test_settings
-
     return test_app
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture
 async def test_engine(test_settings: Settings) -> AsyncGenerator[Any]:
     """
     Create and configure the test database engine.
@@ -91,12 +78,15 @@ async def test_engine(test_settings: Settings) -> AsyncGenerator[Any]:
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
+    # Seed system roles into test database
+    from app.modules.identity.repository import RoleRepository
+    session_factory = async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
+    async with session_factory() as session:
+        role_repo = RoleRepository(session)
+        await role_repo.seed_system_roles_and_permissions()
+        await session.commit()
+
     yield engine
-
-    # Drop all tables after test session
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-
     await engine.dispose()
 
 

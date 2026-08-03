@@ -54,17 +54,21 @@ from app.modules.crm.schemas import (
     CompanyUpdate,
     ContactCreate,
     ContactResponse,
+    ContactUpdate,
     DealCreate,
     DealResponse,
     DealStageMoveRequest,
+    DealUpdate,
     LeadConversionResponse,
     LeadConvertRequest,
     LeadCreate,
     LeadResponse,
+    LeadUpdate,
     PipelineCreate,
     PipelineResponse,
     TaskCreate,
     TaskResponse,
+    TaskUpdate,
 )
 
 logger = get_logger(__name__)
@@ -223,6 +227,50 @@ class CRMService:
             raise ContactNotFoundError()
         return ContactResponse.model_validate(contact)
 
+    async def update_contact(
+        self, workspace_id: UUID, member_id: UUID, contact_id: UUID, payload: ContactUpdate
+    ) -> ContactResponse:
+        """Update contact details."""
+        contact = await self.contact_repo.get_by_id(workspace_id, contact_id)
+        if contact is None:
+            raise ContactNotFoundError()
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(contact, field, value)
+
+        await self.db.flush()
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Contact",
+            entity_id=contact.id,
+            title="Contact Updated",
+            description=f"Updated contact '{contact.first_name} {contact.last_name}'",
+        )
+
+        return ContactResponse.model_validate(contact)
+
+    async def delete_contact(
+        self, workspace_id: UUID, member_id: UUID, contact_id: UUID
+    ) -> None:
+        """Soft-delete a contact by setting status to Inactive."""
+        contact = await self.contact_repo.get_by_id(workspace_id, contact_id)
+        if contact is None:
+            raise ContactNotFoundError()
+
+        contact.status = "Inactive"
+        await self.db.flush()
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Contact",
+            entity_id=contact.id,
+            title="Contact Deactivated",
+            description=f"Deactivated contact '{contact.first_name} {contact.last_name}'",
+        )
+
     # ── Leads & Conversion ─────────────────────────────────────────────────────
 
     async def create_lead(self, workspace_id: UUID, member_id: UUID, payload: LeadCreate) -> LeadResponse:
@@ -258,6 +306,61 @@ class CRMService:
         """List active leads in workspace."""
         leads = await self.lead_repo.list_workspace_leads(workspace_id)
         return [LeadResponse.model_validate(lead) for lead in leads]
+
+    async def get_lead(self, workspace_id: UUID, lead_id: UUID) -> LeadResponse:
+        """Get lead details."""
+        lead = await self.lead_repo.get_by_id(workspace_id, lead_id)
+        if lead is None:
+            raise LeadNotFoundError()
+        return LeadResponse.model_validate(lead)
+
+    async def update_lead(
+        self, workspace_id: UUID, member_id: UUID, lead_id: UUID, payload: LeadUpdate
+    ) -> LeadResponse:
+        """Update lead details."""
+        lead = await self.lead_repo.get_by_id(workspace_id, lead_id)
+        if lead is None:
+            raise LeadNotFoundError()
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(lead, field, value)
+
+        await self.db.flush()
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Lead",
+            entity_id=lead.id,
+            title="Lead Updated",
+            description=f"Updated lead '{lead.first_name} {lead.last_name or ''}'.",
+        )
+
+        return LeadResponse.model_validate(lead)
+
+    async def delete_lead(
+        self, workspace_id: UUID, member_id: UUID, lead_id: UUID
+    ) -> None:
+        """Soft-delete a lead by marking it as deleted."""
+        lead = await self.lead_repo.get_by_id(workspace_id, lead_id)
+        if lead is None:
+            raise LeadNotFoundError()
+
+        if lead.converted_at is not None:
+            raise LeadAlreadyConvertedError()
+
+        # Mark lead as disqualified/deleted
+        lead.priority = "Disqualified"
+        await self.db.flush()
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Lead",
+            entity_id=lead.id,
+            title="Lead Disqualified",
+            description=f"Disqualified lead '{lead.first_name} {lead.last_name or ''}'.",
+        )
 
     async def convert_lead(
         self,
@@ -357,10 +460,12 @@ class CRMService:
             description=f"Lead converted into Company '{company.name}' and Contact '{contact.first_name} {contact.last_name}'",
         )
 
+        full_deal = await self.deal_repo.get_by_id(workspace_id, deal.id) if deal else None
+
         return LeadConversionResponse(
             company=CompanyResponse.model_validate(company),
             contact=ContactResponse.model_validate(contact),
-            deal=DealResponse.model_validate(deal) if deal else None,
+            deal=DealResponse.model_validate(full_deal) if full_deal else None,
             converted_at=now,
         )
 
@@ -474,6 +579,52 @@ class CRMService:
             raise DealNotFoundError()
         return DealResponse.model_validate(deal)
 
+    async def update_deal(
+        self, workspace_id: UUID, member_id: UUID, deal_id: UUID, payload: DealUpdate
+    ) -> DealResponse:
+        """Update deal details."""
+        deal = await self.deal_repo.get_by_id(workspace_id, deal_id)
+        if deal is None:
+            raise DealNotFoundError()
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            if value is not None:
+                setattr(deal, field, value)
+
+        await self.db.flush()
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Deal",
+            entity_id=deal.id,
+            title="Deal Updated",
+            description=f"Updated deal '{deal.name}' — value ${deal.value:,.2f}, status {deal.status}.",
+        )
+
+        full_deal = await self.deal_repo.get_by_id(workspace_id, deal.id)
+        return DealResponse.model_validate(full_deal)
+
+    async def delete_deal(
+        self, workspace_id: UUID, member_id: UUID, deal_id: UUID
+    ) -> None:
+        """Soft-delete a deal by setting status to Cancelled."""
+        deal = await self.deal_repo.get_by_id(workspace_id, deal_id)
+        if deal is None:
+            raise DealNotFoundError()
+
+        deal.status = "Cancelled"
+        await self.db.flush()
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Deal",
+            entity_id=deal.id,
+            title="Deal Cancelled",
+            description=f"Cancelled deal '{deal.name}'.",
+        )
+
     async def move_deal_stage(
         self,
         workspace_id: UUID,
@@ -539,6 +690,38 @@ class CRMService:
         """List tasks in workspace."""
         tasks = await self.task_repo.list_workspace_tasks(workspace_id)
         return [TaskResponse.model_validate(t) for t in tasks]
+
+    async def get_task(self, workspace_id: UUID, task_id: UUID) -> TaskResponse:
+        """Get task details."""
+        task = await self.task_repo.get_by_id(workspace_id, task_id)
+        if task is None:
+            raise TaskNotFoundError()
+        return TaskResponse.model_validate(task)
+
+    async def update_task(
+        self, workspace_id: UUID, member_id: UUID, task_id: UUID, payload: TaskUpdate
+    ) -> TaskResponse:
+        """Update task details."""
+        task = await self.task_repo.get_by_id(workspace_id, task_id)
+        if task is None:
+            raise TaskNotFoundError()
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            setattr(task, field, value)
+
+        await self.db.flush()
+        return TaskResponse.model_validate(task)
+
+    async def delete_task(
+        self, workspace_id: UUID, member_id: UUID, task_id: UUID
+    ) -> None:
+        """Soft-delete a task by setting status to Cancelled."""
+        task = await self.task_repo.get_by_id(workspace_id, task_id)
+        if task is None:
+            raise TaskNotFoundError()
+
+        task.status = "Cancelled"
+        await self.db.flush()
 
     async def complete_task(self, workspace_id: UUID, member_id: UUID, task_id: UUID) -> TaskResponse:
         """Mark task as completed."""

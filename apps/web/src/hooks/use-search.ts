@@ -27,7 +27,6 @@ export function useSearch(query: string) {
       }
       return await apiGet<GlobalSearchResponse>(
         `/search?q=${encodeURIComponent(query.trim())}`,
-        { headers: { 'X-Workspace-ID': workspaceId } },
       );
     },
     enabled: Boolean(workspaceId && query.trim().length >= 2),

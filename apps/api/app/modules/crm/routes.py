@@ -28,17 +28,21 @@ from app.modules.crm.schemas import (
     CompanyUpdate,
     ContactCreate,
     ContactResponse,
+    ContactUpdate,
     DealCreate,
     DealResponse,
     DealStageMoveRequest,
+    DealUpdate,
     LeadConversionResponse,
     LeadConvertRequest,
     LeadCreate,
     LeadResponse,
+    LeadUpdate,
     PipelineCreate,
     PipelineResponse,
     TaskCreate,
     TaskResponse,
+    TaskUpdate,
 )
 from app.modules.crm.service import CRMService
 
@@ -175,6 +179,42 @@ async def get_contact(
     return await service.get_contact(workspace_id, contact_id)
 
 
+@router.patch(
+    "/contacts/{contact_id}",
+    response_model=ContactResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Contact",
+    description="Updates contact details.",
+)
+async def update_contact(
+    contact_id: UUID,
+    payload: ContactUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ContactResponse:
+    service = CRMService(db)
+    return await service.update_contact(workspace_id, member.id, contact_id, payload)
+
+
+@router.delete(
+    "/contacts/{contact_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Contact",
+    description="Soft-deletes a contact (sets status to Inactive).",
+)
+async def delete_contact(
+    contact_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_contact(workspace_id, member.id, contact_id)
+
+
 # ── Leads & Conversion ─────────────────────────────────────────────────────────
 
 
@@ -209,6 +249,59 @@ async def list_leads(
 ) -> list[LeadResponse]:
     service = CRMService(db)
     return await service.list_leads(workspace_id)
+
+
+@router.get(
+    "/leads/{lead_id}",
+    response_model=LeadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Lead Details",
+    description="Returns lead details.",
+)
+async def get_lead(
+    lead_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> LeadResponse:
+    service = CRMService(db)
+    return await service.get_lead(workspace_id, lead_id)
+
+
+@router.patch(
+    "/leads/{lead_id}",
+    response_model=LeadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Lead",
+    description="Updates lead details.",
+)
+async def update_lead(
+    lead_id: UUID,
+    payload: LeadUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> LeadResponse:
+    service = CRMService(db)
+    return await service.update_lead(workspace_id, member.id, lead_id, payload)
+
+
+@router.delete(
+    "/leads/{lead_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Lead",
+    description="Soft-deletes a lead (marks as disqualified).",
+)
+async def delete_lead(
+    lead_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_lead(workspace_id, member.id, lead_id)
 
 
 @router.post(
@@ -316,6 +409,42 @@ async def get_deal(
     return await service.get_deal(workspace_id, deal_id)
 
 
+@router.patch(
+    "/deals/{deal_id}",
+    response_model=DealResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Deal",
+    description="Updates deal details.",
+)
+async def update_deal(
+    deal_id: UUID,
+    payload: DealUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> DealResponse:
+    service = CRMService(db)
+    return await service.update_deal(workspace_id, member.id, deal_id, payload)
+
+
+@router.delete(
+    "/deals/{deal_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Deal",
+    description="Soft-deletes a deal (sets status to Cancelled).",
+)
+async def delete_deal(
+    deal_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_deal(workspace_id, member.id, deal_id)
+
+
 @router.post(
     "/deals/{deal_id}/move-stage",
     response_model=DealResponse,
@@ -368,6 +497,59 @@ async def list_tasks(
 ) -> list[TaskResponse]:
     service = CRMService(db)
     return await service.list_tasks(workspace_id)
+
+
+@router.get(
+    "/tasks/{task_id}",
+    response_model=TaskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Task Details",
+    description="Returns task details.",
+)
+async def get_task(
+    task_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> TaskResponse:
+    service = CRMService(db)
+    return await service.get_task(workspace_id, task_id)
+
+
+@router.patch(
+    "/tasks/{task_id}",
+    response_model=TaskResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Task",
+    description="Updates task details.",
+)
+async def update_task(
+    task_id: UUID,
+    payload: TaskUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> TaskResponse:
+    service = CRMService(db)
+    return await service.update_task(workspace_id, member.id, task_id, payload)
+
+
+@router.delete(
+    "/tasks/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Task",
+    description="Soft-deletes a task (sets status to Cancelled).",
+)
+async def delete_task(
+    task_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_task(workspace_id, member.id, task_id)
 
 
 @router.post(

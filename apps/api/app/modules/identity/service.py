@@ -114,7 +114,17 @@ class IdentityService:
         # Re-fetch user with roles
         user = await self.user_repo.get_by_id(user.id)  # type: ignore[assignment]
 
-        # 5. Create session & tokens
+        # 5. Create default workspace for new user
+        from app.modules.workspace.schemas import WorkspaceCreate
+        from app.modules.workspace.service import WorkspaceService
+        ws_service = WorkspaceService(self.db, settings=self.settings)
+        default_name = f"{user.first_name}'s Workspace" if user.first_name else "My Workspace"
+        await ws_service.create_workspace(
+            user_id=user.id,
+            payload=WorkspaceCreate(name=default_name),
+        )
+
+        # 6. Create session & tokens
         return await self._create_user_session_and_tokens(
             user=user,
             ip_address=ip_address,
@@ -420,5 +430,11 @@ class IdentityService:
             user=UserResponse.model_validate(user),
         )
 
+    async def list_roles(self) -> list[RoleResponse]:
+        """Fetch all system roles."""
+        roles = await self.role_repo.list_roles()
+        return [RoleResponse.model_validate(r) for r in roles]
+
 
 __all__ = ["IdentityService", "hash_token"]
+

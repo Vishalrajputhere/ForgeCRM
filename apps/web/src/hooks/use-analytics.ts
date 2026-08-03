@@ -24,14 +24,11 @@ export function useAnalytics() {
   const currentWorkspace = useWorkspaceStore((state) => state.currentWorkspace);
   const workspaceId = currentWorkspace?.id;
 
-  const getOptions = () => (workspaceId ? { headers: { 'X-Workspace-ID': workspaceId } } : {});
-
   // ── Executive Overview Query ──────────────────────────────────────────────
   const overviewQuery = useQuery({
     queryKey: ['analytics_overview', workspaceId],
     queryFn: async () => {
-      if (!workspaceId) return null;
-      return await apiGet<ExecutiveOverviewResponse>('/analytics/overview', getOptions());
+      return await apiGet<ExecutiveOverviewResponse>('/analytics/overview');
     },
     enabled: Boolean(workspaceId),
   });
@@ -40,8 +37,7 @@ export function useAnalytics() {
   const leadMetricsQuery = useQuery({
     queryKey: ['analytics_leads', workspaceId],
     queryFn: async () => {
-      if (!workspaceId) return null;
-      return await apiGet<LeadMetricsResponse>('/analytics/leads', getOptions());
+      return await apiGet<LeadMetricsResponse>('/analytics/leads');
     },
     enabled: Boolean(workspaceId),
   });
@@ -50,8 +46,7 @@ export function useAnalytics() {
   const dealMetricsQuery = useQuery({
     queryKey: ['analytics_deals', workspaceId],
     queryFn: async () => {
-      if (!workspaceId) return null;
-      return await apiGet<DealMetricsResponse>('/analytics/deals', getOptions());
+      return await apiGet<DealMetricsResponse>('/analytics/deals');
     },
     enabled: Boolean(workspaceId),
   });
@@ -60,8 +55,7 @@ export function useAnalytics() {
   const pipelineQuery = useQuery({
     queryKey: ['analytics_pipeline', workspaceId],
     queryFn: async () => {
-      if (!workspaceId) return [];
-      return await apiGet<PipelineAnalyticsResponse[]>('/analytics/pipeline', getOptions());
+      return await apiGet<PipelineAnalyticsResponse[]>('/analytics/pipeline');
     },
     enabled: Boolean(workspaceId),
   });

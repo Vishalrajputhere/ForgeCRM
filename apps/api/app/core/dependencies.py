@@ -146,10 +146,14 @@ async def get_current_workspace_id(
     request: Request,
     current_user: CurrentUser,
 ) -> UUID:
-    """Extract current active workspace ID from X-Workspace-ID header."""
+    """Extract current active workspace ID from X-Workspace-ID header or query parameter."""
     from app.modules.workspace.exceptions import WorkspaceAccessDeniedError
 
-    workspace_id_str = request.headers.get("X-Workspace-ID") or request.headers.get("x-workspace-id")
+    workspace_id_str = (
+        request.headers.get("X-Workspace-ID")
+        or request.headers.get("x-workspace-id")
+        or request.query_params.get("workspace_id")
+    )
     if not workspace_id_str:
         raise WorkspaceAccessDeniedError("X-Workspace-ID header is required for multi-tenant requests.")
 

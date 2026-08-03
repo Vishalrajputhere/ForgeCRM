@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google';
 
 import { QueryProvider } from '@/providers/query-provider';
 import { ThemeProvider } from '@/providers/theme-provider';
+import { ToastProvider } from '@/components/ui/toast';
 
 import './globals.css';
 
@@ -64,7 +65,9 @@ export default function RootLayout({ children }: RootLayoutProps): React.JSX.Ele
           enableSystem
           disableTransitionOnChange
         >
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </QueryProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -136,6 +136,7 @@ class WorkspaceService:
             is_default_workspace=True,
         )
         await self.member_repo.add_member(member)
+        await self.db.commit()
 
         logger.info("workspace_created", workspace_id=str(workspace.id), user_id=str(user_id))
 
@@ -154,8 +155,19 @@ class WorkspaceService:
         )
 
     async def list_user_workspaces(self, user_id: UUID) -> list[WorkspaceResponse]:
-        """List all workspaces that a user is an active member of."""
+        """List all workspaces that a user is an active member of. Auto-creates a default workspace if user has none."""
         rows = await self.workspace_repo.list_user_workspaces(user_id)
+        if not rows:
+            user = await self.user_repo.get_by_id(user_id)
+            if user:
+                default_name = f"{user.first_name}'s Workspace" if user.first_name else "My Workspace"
+                await self.create_workspace(
+                    user_id=user_id,
+                    payload=WorkspaceCreate(name=default_name),
+                )
+                await self.db.commit()
+                rows = await self.workspace_repo.list_user_workspaces(user_id)
+
         return [
             WorkspaceResponse(
                 id=ws.id,

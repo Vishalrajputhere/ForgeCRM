@@ -237,6 +237,19 @@ export interface CompanyCreate {
   annual_revenue?: number;
   employee_count?: number;
   description?: string;
+  owner_member_id?: string;
+}
+
+export interface CompanyUpdate {
+  name?: string;
+  legal_name?: string;
+  website?: string;
+  email?: string;
+  phone?: string;
+  annual_revenue?: number;
+  employee_count?: number;
+  description?: string;
+  status?: string;
 }
 
 export interface ContactResponse {
@@ -273,6 +286,20 @@ export interface ContactCreate {
   is_primary?: boolean;
 }
 
+export interface ContactUpdate {
+  first_name?: string;
+  last_name?: string;
+  job_title?: string;
+  department?: string;
+  email?: string;
+  phone?: string;
+  mobile?: string;
+  linkedin_url?: string;
+  birthday?: string;
+  is_primary?: boolean;
+  status?: string;
+}
+
 export interface LeadResponse {
   id: string;
   workspace_id: string;
@@ -306,6 +333,19 @@ export interface LeadCreate {
   description?: string;
   source_id?: string;
   status_id?: string;
+}
+
+export interface LeadUpdate {
+  first_name?: string;
+  last_name?: string;
+  company_name?: string;
+  job_title?: string;
+  email?: string;
+  phone?: string;
+  website?: string;
+  estimated_value?: number;
+  priority?: string;
+  description?: string;
 }
 
 export interface LeadConvertRequest {
@@ -376,6 +416,19 @@ export interface DealCreate {
   description?: string;
 }
 
+export interface DealUpdate {
+  name?: string;
+  company_id?: string;
+  stage_id?: string;
+  primary_contact_id?: string;
+  value?: number;
+  expected_close_date?: string;
+  probability?: number;
+  status?: string;
+  loss_reason?: string;
+  description?: string;
+}
+
 export interface DealStageMoveRequest {
   stage_id: string;
   loss_reason?: string;
@@ -405,6 +458,31 @@ export interface TaskCreate {
   assigned_member_id?: string;
   entity_type?: string;
   entity_id?: string;
+}
+
+export interface TaskUpdate {
+  title?: string;
+  description?: string;
+  priority?: string;
+  status?: string;
+  due_date?: string;
+  assigned_member_id?: string;
+}
+
+// ── Activity Timeline DTOs ───────────────────────────────────────────────────
+
+export interface ActivityResponse {
+  id: string;
+  workspace_id: string;
+  activity_type_id: string;
+  actor_member_id?: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  description?: string;
+  metadata_json?: Record<string, unknown>;
+  occurred_at: string;
+  created_at: string;
 }
 
 // ── Storage Domain DTOs ───────────────────────────────────────────────────────
@@ -552,4 +630,34 @@ export interface EmailDraftResponse {
 }
 
 
+// ── Workspace Update DTOs ──────────────────────────────────────────────────────
 
+export interface WorkspaceUpdate {
+  name?: string;
+  industry?: string;
+  website?: string;
+  company_size?: number;
+}
+
+export interface WorkspaceSettingsUpdate {
+  timezone?: string;
+  currency?: string;
+  language?: string;
+  date_format?: string;
+  time_format?: string;
+  week_start_day?: number;
+  branding_primary_color?: string;
+}
+
+// ── Workspace Invitation Response ──────────────────────────────────────────────
+
+export interface WorkspaceInvitationResponse {
+  id: string;
+  workspace_id: string;
+  email: string;
+  role: RoleResponse;
+  invited_by: string;
+  expires_at: string;
+  created_at: string;
+  raw_token?: string;
+}

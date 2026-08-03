@@ -231,8 +231,13 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins(self) -> list[str]:
-        """Return CORS origins as strings."""
-        return [str(origin) for origin in self.API_CORS_ORIGINS]
+        """Return CORS origins as strings normalized without trailing slashes."""
+        origins: set[str] = set()
+        for origin in self.API_CORS_ORIGINS:
+            o_str = str(origin).rstrip("/")
+            origins.add(o_str)
+            origins.add(f"{o_str}/")
+        return list(origins)
 
 
 @lru_cache

@@ -62,6 +62,7 @@ class WorkspaceRepository:
         """List all active workspaces that a user belongs to along with their role."""
         stmt = (
             select(Workspace, Role)
+            .options(selectinload(Role.permissions))
             .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
             .join(Role, Role.id == WorkspaceMember.role_id)
             .where(

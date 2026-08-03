@@ -1,11 +1,13 @@
 'use client';
 
 import { useAnalytics } from '@/hooks/use-analytics';
+import { useFormatters } from '@/hooks/use-formatters';
 import { useAnalyticsStore } from '@/stores/analytics-store';
 
 export function AnalyticsDashboard(): React.JSX.Element {
   const { overview, leadMetrics, dealMetrics, pipelines, isLoadingOverview } = useAnalytics();
   const { dateRange, setDateRange } = useAnalyticsStore();
+  const { formatCurrency } = useFormatters();
 
   if (isLoadingOverview) {
     return (
@@ -50,7 +52,7 @@ export function AnalyticsDashboard(): React.JSX.Element {
             Total Won Revenue
           </div>
           <div className="mt-2 text-3xl font-extrabold text-emerald-400">
-            ${dealMetrics?.total_won_revenue.toLocaleString() ?? '0'}
+            {formatCurrency(dealMetrics?.total_won_revenue ?? 0)}
           </div>
           <div className="mt-1 text-xs text-slate-500">
             {dealMetrics?.won_deals ?? 0} Closed-Won Deals
@@ -63,7 +65,7 @@ export function AnalyticsDashboard(): React.JSX.Element {
             Weighted Forecast
           </div>
           <div className="mt-2 text-3xl font-extrabold text-forge-400">
-            ${overview?.pipeline_forecast_value.toLocaleString() ?? '0'}
+            {formatCurrency(overview?.pipeline_forecast_value ?? 0)}
           </div>
           <div className="mt-1 text-xs text-slate-500">
             Probability Weighted Forecast
@@ -98,25 +100,30 @@ export function AnalyticsDashboard(): React.JSX.Element {
       </div>
 
       {/* Pipeline Stage Distribution */}
-      {pipelines.length > 0 && (
+      {pipelines && pipelines.length > 0 && (
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl backdrop-blur-xl">
-          <h2 className="text-lg font-semibold text-white">Pipeline Stage Breakdown</h2>
-          <p className="mb-4 text-xs text-slate-400">
-            Deal counts and probability-weighted value by stage
-          </p>
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-4">
+            Pipeline Velocity & Stage Distribution
+          </h2>
           <div className="space-y-4">
-            {pipelines[0]?.stages.map((st) => (
-              <div key={st.stage_id} className="space-y-1">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-200">{st.stage_name}</span>
-                  <span className="text-xs text-slate-400">
-                    {st.deal_count} deals · ${st.total_value.toLocaleString()} (${st.weighted_value.toLocaleString()} weighted)
+            {pipelines[0]?.stages?.map((stage) => (
+              <div key={stage.id} className="space-y-1.5">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-200">{stage.name}</span>
+                  <span className="font-semibold text-slate-400">
+                    {formatCurrency(stage.total_value)} ({stage.deal_count} deals)
                   </span>
                 </div>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-800">
+                <div className="h-2 w-full rounded-full bg-slate-800 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-forge-600 to-indigo-500 transition-all"
-                    style={{ width: `${Math.min(100, Math.max(8, (st.deal_count / (pipelines[0]?.total_deals || 1)) * 100))}%` }}
+                    style={{
+                      width: `${
+                        overview?.pipeline_total_value
+                          ? Math.min(100, (stage.total_value / overview.pipeline_total_value) * 100)
+                          : 0
+                      }%`,
+                    }}
                   />
                 </div>
               </div>

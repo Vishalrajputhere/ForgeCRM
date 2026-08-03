@@ -104,6 +104,13 @@ class RoleRepository:
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def list_roles(self) -> Sequence[Role]:
+        """Fetch all system roles."""
+        stmt = select(Role).options(selectinload(Role.permissions)).order_by(Role.name)
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+
     async def seed_system_roles_and_permissions(self) -> None:
         """Seed standard permissions and system roles into database."""
         # 1. Collect all permissions from DEFAULT_ROLE_PERMISSIONS

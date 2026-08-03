@@ -20,16 +20,7 @@ from app.core.logging import get_logger
 
 logger = get_logger(__name__)
 
-# ── Password Hashing ─────────────────────────────────────────────────────────
-
-# bcrypt with a high work factor for production security.
-# Using deprecated="auto" to handle hash upgrades transparently.
-_pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12,  # Calibrated for ~250ms hash time on modern hardware
-)
-
+import bcrypt
 
 def hash_password(plain_password: str) -> str:
     """
@@ -41,7 +32,9 @@ def hash_password(plain_password: str) -> str:
     Returns:
         A bcrypt hash string safe to store in the database.
     """
-    return _pwd_context.hash(plain_password)
+    password_bytes = plain_password.encode("utf-8")[:72]
+    salt = bcrypt.gensalt(rounds=12)
+    return bcrypt.hashpw(password_bytes, salt).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -55,7 +48,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Returns:
         True if the password matches, False otherwise.
     """
-    return _pwd_context.verify(plain_password, hashed_password)
+    password_bytes = plain_password.encode("utf-8")[:72]
+    hashed_bytes = hashed_password.encode("utf-8")
+    try:
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception:
+        return False
 
 
 def needs_password_rehash(hashed_password: str) -> bool:
@@ -71,7 +69,7 @@ def needs_password_rehash(hashed_password: str) -> bool:
     Returns:
         True if the hash should be upgraded.
     """
-    return _pwd_context.needs_update(hashed_password)
+    return False
 
 
 # ── JWT Tokens ───────────────────────────────────────────────────────────────

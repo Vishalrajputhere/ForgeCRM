@@ -98,7 +98,7 @@ class User(BaseModel):
     # Relationships
     sessions: Mapped[list[Session]] = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     oauth_accounts: Mapped[list[OAuthAccount]] = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
-    roles: Mapped[list[Role]] = relationship("Role", secondary="user_roles", back_populates="users")
+    roles: Mapped[list[Role]] = relationship("Role", secondary="user_roles", primaryjoin="User.id == UserRole.user_id", secondaryjoin="Role.id == UserRole.role_id", back_populates="users")
 
     __allow_unmapped__ = True
 
@@ -122,7 +122,7 @@ class Role(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 
     # Relationships
     permissions: Mapped[list[Permission]] = relationship("Permission", secondary=role_permissions, back_populates="roles")
-    users: Mapped[list[User]] = relationship("User", secondary="user_roles", back_populates="roles")
+    users: Mapped[list[User]] = relationship("User", secondary="user_roles", primaryjoin="Role.id == UserRole.role_id", secondaryjoin="User.id == UserRole.user_id", back_populates="roles")
 
 
 class Permission(Base, UUIDPrimaryKeyMixin, TimestampMixin):

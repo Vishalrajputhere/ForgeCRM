@@ -96,7 +96,8 @@ class WorkspaceMember(BaseModel):
 
     # Relationships
     workspace: Mapped[Workspace] = relationship("Workspace", back_populates="members")
-    user: Mapped[User] = relationship("User")
+    user: Mapped[User] = relationship("User", foreign_keys=[user_id])
+    inviter: Mapped[User | None] = relationship("User", foreign_keys=[invited_by])
     role: Mapped[Role] = relationship("Role")
     teams: Mapped[list[Team]] = relationship("Team", secondary="team_members", back_populates="members")
 

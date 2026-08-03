@@ -22,6 +22,7 @@ from app.modules.identity.schemas import (
     PasswordResetRequest,
     RefreshTokenRequest,
     RegisterRequest,
+    RoleResponse,
     SessionResponse,
     TokenResponse,
     UserProfileUpdate,
@@ -213,4 +214,20 @@ async def revoke_session(
 
     service = IdentityService(db)
     await service.logout_session(UUID(session_id))
+
+
+@router.get(
+    "/roles",
+    response_model=list[RoleResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List System Roles",
+    description="Returns all system roles available for assignment.",
+)
+async def list_system_roles(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[RoleResponse]:
+    service = IdentityService(db)
+    return await service.list_roles()
+
 
