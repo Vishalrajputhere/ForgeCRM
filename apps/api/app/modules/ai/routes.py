@@ -1,87 +1,76 @@
 """
-ForgeCRM API — AI Integration Routes
+ForgeCRM API — AI Routes
 
-FastAPI router for AI-assisted Lead Summarization, Deal Risk Assessment,
-and Sales Email Drafting.
+FastAPI REST endpoints for AI chat completions, SSE token streaming,
+provider capabilities listing, prompt templates, and token usage analytics.
 
-Documentation: docs/03_Backend/308_AI_INTEGRATION.md
+Documentation: docs/03_Backend/302_API_DESIGN.md
 """
 
 from __future__ import annotations
 
-from typing import Annotated, Any
-from uuid import UUID
+import json
+from typing import Any
 
 from fastapi import APIRouter, Depends, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import (
-    get_current_workspace_id,
-    get_current_workspace_member,
-)
-from app.db.session import get_db_session
-from app.modules.ai.schemas import (
-    DealRiskRequest,
-    DealRiskResponse,
-    EmailDraftRequest,
-    EmailDraftResponse,
-    LeadSummaryRequest,
-    LeadSummaryResponse,
-)
+from app.core.dependencies import get_current_user_and_workspace
+from app.db.engine import get_db
+from app.modules.ai.schemas import AIChatRequest, AIChatResponse, AIProviderCapability
 from app.modules.ai.service import AIService
+from app.modules.identity.models import User
+from app.modules.workspace.models import Workspace
 
-router = APIRouter(prefix="/ai", tags=["AI Productivity & Insights"])
+router = APIRouter(prefix="/ai", tags=["AI Copilot Subsystem"])
 
-WorkspaceIdDep = Annotated[UUID, Depends(get_current_workspace_id)]
-WorkspaceMemberDep = Annotated[Any, Depends(get_current_workspace_member)]
+
+@router.get(
+    "/providers",
+    response_model=list[AIProviderCapability],
+    status_code=status.HTTP_200_OK,
+    summary="List available AI LLM providers and models",
+)
+async def list_ai_providers(
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+) -> list[AIProviderCapability]:
+    service = AIService(db)
+    return service.list_capabilities()
 
 
 @router.post(
-    "/summarize-lead",
-    response_model=LeadSummaryResponse,
+    "/chat",
+    response_model=AIChatResponse,
     status_code=status.HTTP_200_OK,
-    summary="Summarize Lead with AI",
-    description="Generates a structured AI summary and recommended next action for a lead.",
+    summary="Execute synchronous AI chat completion",
 )
-async def summarize_lead(
-    payload: LeadSummaryRequest,
-    workspace_id: WorkspaceIdDep,
-    member: WorkspaceMemberDep,
-    db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> LeadSummaryResponse:
+async def chat_completion(
+    payload: AIChatRequest,
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+) -> AIChatResponse:
+    user, workspace = auth
     service = AIService(db)
-    return await service.summarize_lead(workspace_id, payload)
+    return await service.chat(payload, workspace_id=workspace.id, user_id=user.id)
 
 
 @router.post(
-    "/assess-deal-risk",
-    response_model=DealRiskResponse,
+    "/stream",
     status_code=status.HTTP_200_OK,
-    summary="Assess Deal Risk with AI",
-    description="Generates structured deal risk score, risk factors, and recommended remediation steps.",
+    summary="Execute streaming Server-Sent Events (SSE) chat completion",
 )
-async def assess_deal_risk(
-    payload: DealRiskRequest,
-    workspace_id: WorkspaceIdDep,
-    member: WorkspaceMemberDep,
-    db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> DealRiskResponse:
+async def stream_chat_completion(
+    payload: AIChatRequest,
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    user, workspace = auth
     service = AIService(db)
-    return await service.assess_deal_risk(workspace_id, payload)
 
+    async def event_generator():
+        async for chunk in service.stream(payload, workspace_id=workspace.id, user_id=user.id):
+            yield f"data: {json.dumps(chunk.model_dump(mode='json'))}\n\n"
 
-@router.post(
-    "/draft-email",
-    response_model=EmailDraftResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Draft Sales Email with AI",
-    description="Drafts a customized outreach sales email based on tone and purpose.",
-)
-async def draft_email(
-    payload: EmailDraftRequest,
-    workspace_id: WorkspaceIdDep,
-    member: WorkspaceMemberDep,
-    db: Annotated[AsyncSession, Depends(get_db_session)],
-) -> EmailDraftResponse:
-    service = AIService(db)
-    return await service.draft_email(workspace_id, payload)
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

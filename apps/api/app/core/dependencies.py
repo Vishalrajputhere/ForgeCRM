@@ -206,6 +206,34 @@ def require_workspace_permission(required_permission: str) -> Callable[..., Coro
     return _workspace_permission_checker
 
 
+async def get_current_user_and_workspace(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    request: Request,
+) -> tuple[User, Any]:
+    """Extract authenticated user and current active workspace."""
+    from app.modules.workspace.repository import WorkspaceRepository, WorkspaceMemberRepository
+    workspace_id_str = request.headers.get("X-Workspace-ID")
+    ws_repo = WorkspaceRepository(db)
+
+    if workspace_id_str:
+        try:
+            workspace = await ws_repo.get_by_id(UUID(workspace_id_str))
+            if workspace:
+                return user, workspace
+        except Exception:
+            pass
+
+    member_repo = WorkspaceMemberRepository(db)
+    memberships = await member_repo.list_for_user(user.id)
+    if memberships:
+        workspace = await ws_repo.get_by_id(memberships[0].workspace_id)
+        if workspace:
+            return user, workspace
+
+    return user, None
+
+
 HeaderWorkspaceId = Annotated[Any, Depends(get_current_user)]
 
 __all__ = [
@@ -213,6 +241,7 @@ __all__ = [
     "CurrentUser",
     "get_current_active_user",
     "get_current_user",
+    "get_current_user_and_workspace",
     "get_current_workspace_id",
     "get_current_workspace_member",
     "require_permission",

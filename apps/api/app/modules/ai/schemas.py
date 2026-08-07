@@ -1,74 +1,105 @@
 """
-ForgeCRM API — AI Integration Schemas
+ForgeCRM API — AI Subsystem Schemas
 
-Pydantic DTOs for AI Lead Summarization, Deal Risk Assessment,
-and Automated Email Drafting.
+Defines Pydantic V2 request & response schemas for chat completion,
+streaming SSE chunks, prompts, provider registry, and token usage.
 
-Documentation: docs/03_Backend/308_AI_INTEGRATION.md
+Documentation: docs/03_Backend/302_API_DESIGN.md
 """
 
 from __future__ import annotations
 
-from uuid import UUID
+import uuid
+from datetime import datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 
-class LeadSummaryRequest(BaseModel):
-    """Lead summarization request DTO."""
+class AIToolDefinition(BaseModel):
+    """JSON Schema definition for tool/function calling."""
 
-    lead_id: UUID
-
-
-class LeadSummaryResponse(BaseModel):
-    """Lead summary output DTO."""
-
-    lead_id: UUID
-    summary: str
-    key_insights: list[str]
-    suggested_priority: str
-    recommended_next_action: str
+    name: str = Field(..., description="Tool function name (e.g. create_lead)")
+    description: str = Field(..., description="Tool purpose and instructions")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="JSON Schema parameters object")
 
 
-class DealRiskRequest(BaseModel):
-    """Deal risk assessment request DTO."""
+class AIMessageTurn(BaseModel):
+    """Message payload for chat context."""
 
-    deal_id: UUID
-
-
-class DealRiskResponse(BaseModel):
-    """Deal risk assessment output DTO."""
-
-    deal_id: UUID
-    risk_level: str  # Low, Medium, High
-    risk_score: float  # 0.0 - 1.0
-    key_risks: list[str]
-    actionable_recommendations: list[str]
+    role: Literal["system", "user", "assistant", "tool"]
+    content: str
+    tool_calls: dict[str, Any] | None = None
 
 
-class EmailDraftRequest(BaseModel):
-    """Email drafting request DTO."""
+class AIChatRequest(BaseModel):
+    """Payload for POST /api/v1/ai/chat and /api/v1/ai/stream."""
 
-    entity_type: str = Field("Lead", description="Target entity type: Lead, Contact, or Deal")
-    entity_id: UUID
-    email_purpose: str = Field(..., description="Follow-up on product demo and discuss next steps")
-    tone: str = Field("Professional", description="Professional, Friendly, Persuasive")
-
-
-class EmailDraftResponse(BaseModel):
-    """Email draft output DTO."""
-
-    subject: str
-    body: str
-    recipient_email: str | None = None
-    suggested_follow_up_days: int = 3
+    conversation_id: uuid.UUID | None = None
+    messages: list[AIMessageTurn] = Field(..., min_length=1)
+    provider: str | None = None
+    model: str | None = None
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    max_tokens: int | None = Field(default=2048, ge=1)
+    stream: bool = False
+    entity_type: str | None = None
+    entity_id: uuid.UUID | None = None
 
 
-__all__ = [
-    "DealRiskRequest",
-    "DealRiskResponse",
-    "EmailDraftRequest",
-    "EmailDraftResponse",
-    "LeadSummaryRequest",
-    "LeadSummaryResponse",
-]
+class AIChatResponse(BaseModel):
+    """Response payload for synchronous chat completion."""
+
+    conversation_id: uuid.UUID
+    provider: str
+    model: str
+    message: AIMessageTurn
+    prompt_tokens: int
+    completion_tokens: int
+    estimated_cost_usd: float
+
+
+class AIStreamChunk(BaseModel):
+    """Server-Sent Event (SSE) payload chunk."""
+
+    type: Literal["content", "tool_call", "done", "error"]
+    content: str | None = None
+    tool_call: dict[str, Any] | None = None
+    conversation_id: uuid.UUID | None = None
+    error: str | None = None
+
+
+class AIProviderCapability(BaseModel):
+    """Capabilities metadata for LLM providers."""
+
+    provider: str
+    model: str
+    streaming: bool = True
+    vision: bool = False
+    tools: bool = True
+    json_mode: bool = True
+    max_context_tokens: int = 128000
+    cost_per_1k_input_usd: float = 0.0001
+    cost_per_1k_output_usd: float = 0.0003
+
+
+class AIConversationResponse(BaseModel):
+    """Conversation session summary."""
+
+    id: uuid.UUID
+    workspace_id: uuid.UUID
+    user_id: uuid.UUID
+    title: str
+    provider: str
+    model: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class AIUsageSummaryResponse(BaseModel):
+    """Usage meter summary."""
+
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_cost_usd: float
+    token_budget: int
+    remaining_tokens: int

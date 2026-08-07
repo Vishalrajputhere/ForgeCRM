@@ -43,8 +43,12 @@ async def get_db_session() -> AsyncGenerator[AsyncSession]:
             await session.close()
 
 
-# Type alias for dependency injection in route handlers
+# Alias for dependency injection
+get_db = get_db_session
+
+# Type alias for cleaner route annotations
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
+
 
 
 __all__ = ["DbSession", "get_db_session"]

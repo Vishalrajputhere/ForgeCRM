@@ -2,6 +2,22 @@
 
 All future implementations must append changes to this living log following this exact markdown structure:
 
+## [2.1.0-phase7.1] — 2026-08-07
+
+### Enterprise AI Subsystem & Sales Copilot Architecture
+- **Provider Abstraction Layer (`apps/api/app/modules/ai/providers/`)**: `BaseAIProvider` ABC with concrete implementations for Google Gemini 1.5 Flash/Pro (`gemini.py`) and OpenAI GPT-4o/mini (`openai.py`), with modular stubs for Anthropic Claude and local Ollama.
+- **Intelligent AI Router (`ai/router.py`)**: Cost-, latency-, and capability-aware routing engine selecting optimal LLM based on prompt intent and token budgets.
+- **AI Context Builder (`ai/context.py`)**: Centralized context assembler injecting tenant RBAC permissions, active entity details (Company, Deal, Lead), and vector RAG document snippets.
+- **SQLAlchemy 2 AI Models (`ai/models.py`)**: `AIConversation`, `AIMessage`, `AIPromptTemplate`, `AIProviderSetting`, `AIUsageMeter`.
+- **FastAPI Endpoints (`ai/routes.py`)**: `/api/v1/ai/providers`, `/api/v1/ai/chat`, `/api/v1/ai/stream` (SSE streaming token completions).
+- **Frontend AI Workspace (`/ai/page.tsx`)**: Enterprise AI Workspace layout with Model Selector (`model-selector.tsx`), Prompt Library templates, real-time streaming markdown chat (`ai-chat.tsx`), and `useAI` React hook (`use-ai.ts`).
+
+### Quality & Verification
+- **Backend Unit Tests (`apps/api/tests/test_ai.py`)**: 3/3 AI tests passing cleanly via `pytest`.
+- **Frontend Type Safety**: Executed `npx tsc --noEmit` — Exit code 0 (**0 compilation errors** across 100% of files).
+
+---
+
 ## [2.0.0-phase6] — 2026-08-07
 
 ### Motion, Micro-interactions & UX Polish System

@@ -182,11 +182,18 @@ def _json_serializer(obj: object) -> str:
     return orjson.dumps(obj).decode()
 
 
-def _json_deserializer(obj: str) -> object:
-    """Deserialize JSON strings using orjson for performance."""
-    import orjson
-
-    return orjson.loads(obj)
+async def get_db():
+    """Async generator yielding database session."""
+    factory = get_session_factory()
+    async with factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
 
 
 __all__ = [
@@ -196,4 +203,5 @@ __all__ = [
     "get_engine",
     "get_session_factory",
     "init_db",
+    "get_db",
 ]

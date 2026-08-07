@@ -128,24 +128,31 @@ class TestAIProductivity:
         )
         lead_id = lead_res.json()["id"]
 
-        # 1. AI Summarize Lead
+        # 1. AI Summarize Lead via /api/v1/ai/chat
         sum_res = await client.post(
-            "/api/v1/ai/summarize-lead",
-            json={"lead_id": lead_id},
+            "/api/v1/ai/chat",
+            json={
+                "messages": [{"role": "user", "content": "Summarize this lead account"}],
+                "entity_type": "Lead",
+                "entity_id": lead_id,
+            },
             headers=headers,
         )
         assert sum_res.status_code == 200
-        assert "recommended_next_action" in sum_res.json()
+        assert sum_res.json()["message"]["role"] == "assistant"
 
-        # 2. AI Email Draft
+        # 2. AI Email Draft via /api/v1/ai/chat
         draft_res = await client.post(
-            "/api/v1/ai/draft-email",
-            json={"entity_type": "Lead", "entity_id": lead_id, "email_purpose": "Product Demonstration"},
+            "/api/v1/ai/chat",
+            json={
+                "messages": [{"role": "user", "content": "Draft a follow-up email for a product demo"}],
+                "entity_type": "Lead",
+                "entity_id": lead_id,
+            },
             headers=headers,
         )
         assert draft_res.status_code == 200
-        assert "subject" in draft_res.json()
-        assert "body" in draft_res.json()
+        assert "message" in draft_res.json()
 
 
 class TestPrometheusMetrics:
