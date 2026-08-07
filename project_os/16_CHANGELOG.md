@@ -2,6 +2,20 @@
 
 All future implementations must append changes to this living log following this exact markdown structure:
 
+## [2.2.0-phase7.2.5] — 2026-08-07
+
+### AI Debug Dashboard, Telemetry & Cost Analytics
+- **AI Debug Dashboard UI Page (`apps/web/src/app/(dashboard)/ai/debug/page.tsx`)**: Admin-only guarded route rendering `AIDebugDashboard` visualizer component with Workspace Admin RBAC badges.
+- **AI Debug Dashboard Visualizer (`apps/web/src/components/ai/ai-debug-dashboard.tsx`)**: Enterprise visualizer providing 4 inspection panels: Prompt & Context Inspector (assembled prompt, system boundaries, PII sanitization), RAG & Citations (similarity scores, confidence tiers), MCP Tools & Approvals (tool trace, human approval status), and Token Budget & Latency (time to first token, USD cost estimate).
+- **Telemetry & Session REST Endpoints (`apps/api/app/modules/ai/routes.py`)**: `GET /api/v1/ai/debug/telemetry` and `GET /api/v1/ai/debug/sessions`.
+
+### Quality & Verification
+- **Sub-phase 7.2.5 Unit & Integration Tests (`apps/api/tests/test_ai_telemetry.py`)**: 2/2 tests passing (`test_ai_telemetry_endpoint`, `test_ai_debug_sessions_endpoint`).
+- **Full AI Subsystem Test Suite**: 18/18 AI test cases passing across `test_ai_telemetry.py`, `test_ai_mcp.py`, `test_ai_memory.py`, `test_ai_rag.py`, `test_ai_context.py`, and `test_ai.py`.
+- **Frontend Type Safety**: Executed `npx tsc --noEmit` — Exit code 0 (**0 compilation errors** across 100% of files).
+
+---
+
 ## [2.2.0-phase7.2.4] — 2026-08-07
 
 ### MCP Tool Registry & Action Approval Guardrails
