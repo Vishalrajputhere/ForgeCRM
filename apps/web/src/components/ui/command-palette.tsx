@@ -12,6 +12,7 @@ import {
   Settings2,
   Plus,
   Search,
+  HardDrive,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
@@ -57,6 +58,7 @@ export function CommandPalette({
     { id: 'contacts',  label: 'Contacts',  group: 'navigation', icon: <Users className="h-4 w-4" strokeWidth={1.5} />,           shortcut: 'G O', onSelect: () => navigate('/contacts') },
     { id: 'deals',     label: 'Deals',     group: 'navigation', icon: <TrendingUp className="h-4 w-4" strokeWidth={1.5} />,      shortcut: 'G E', onSelect: () => navigate('/deals') },
     { id: 'tasks',     label: 'Tasks',     group: 'navigation', icon: <CheckSquare2 className="h-4 w-4" strokeWidth={1.5} />,    shortcut: 'G T', onSelect: () => navigate('/tasks') },
+    { id: 'storage',   label: 'Storage Manager', group: 'navigation', icon: <HardDrive className="h-4 w-4" strokeWidth={1.5} />, shortcut: 'G S', onSelect: () => navigate('/storage') },
     { id: 'workspace', label: 'Workspace Settings', group: 'navigation', icon: <Settings2 className="h-4 w-4" strokeWidth={1.5} />, onSelect: () => navigate('/workspace') },
   ];
 

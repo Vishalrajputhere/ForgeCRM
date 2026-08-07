@@ -23,6 +23,15 @@ from app.core.dependencies import (
 from app.db.session import get_db_session
 from app.modules.crm.schemas import (
     ActivityResponse,
+    BulkArchiveRequest,
+    BulkAssignOwnerRequest,
+    BulkDeleteRequest,
+    BulkDeleteResponse,
+    BulkMoveStageRequest,
+    BulkRestoreRequest,
+    BulkUpdateStatusRequest,
+    CSVImportRequest,
+    CSVImportSummaryResponse,
     CompanyCreate,
     CompanyResponse,
     CompanyUpdate,
@@ -33,6 +42,9 @@ from app.modules.crm.schemas import (
     DealResponse,
     DealStageMoveRequest,
     DealUpdate,
+    ExportJobResponse,
+    ExportRequest,
+    ImportJobResponse,
     LeadConversionResponse,
     LeadConvertRequest,
     LeadCreate,
@@ -40,6 +52,11 @@ from app.modules.crm.schemas import (
     LeadUpdate,
     PipelineCreate,
     PipelineResponse,
+    PipelineUpdate,
+    StageCreate,
+    StageReorderRequest,
+    StageResponse,
+    StageUpdate,
     TaskCreate,
     TaskResponse,
     TaskUpdate,
@@ -339,7 +356,7 @@ async def create_pipeline(
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> PipelineResponse:
     service = CRMService(db)
-    return await service.create_pipeline(workspace_id, payload)
+    return await service.create_pipeline(workspace_id, member.id, payload)
 
 
 @router.get(
@@ -356,6 +373,129 @@ async def list_pipelines(
 ) -> list[PipelineResponse]:
     service = CRMService(db)
     return await service.list_pipelines(workspace_id)
+
+
+@router.patch(
+    "/pipelines/{pipeline_id}",
+    response_model=PipelineResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Pipeline",
+    description="Updates a sales pipeline name, description, or default status.",
+)
+async def update_pipeline(
+    pipeline_id: UUID,
+    payload: PipelineUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PipelineResponse:
+    service = CRMService(db)
+    return await service.update_pipeline(workspace_id, member.id, pipeline_id, payload)
+
+
+@router.delete(
+    "/pipelines/{pipeline_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Archive Pipeline",
+    description="Soft archives a sales pipeline if no active deals are assigned to it.",
+)
+async def delete_pipeline(
+    pipeline_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_pipeline(workspace_id, member.id, pipeline_id)
+
+
+@router.post(
+    "/pipelines/{pipeline_id}/duplicate",
+    response_model=PipelineResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Duplicate Pipeline",
+    description="Duplicates a sales pipeline along with all its stages.",
+)
+async def duplicate_pipeline(
+    pipeline_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PipelineResponse:
+    service = CRMService(db)
+    return await service.duplicate_pipeline(workspace_id, member.id, pipeline_id)
+
+
+@router.post(
+    "/pipelines/{pipeline_id}/stages",
+    response_model=StageResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Stage",
+    description="Adds a new stage to a sales pipeline.",
+)
+async def create_stage(
+    pipeline_id: UUID,
+    payload: StageCreate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> StageResponse:
+    service = CRMService(db)
+    return await service.create_stage(workspace_id, member.id, pipeline_id, payload)
+
+
+@router.patch(
+    "/pipelines/{pipeline_id}/stages/{stage_id}",
+    response_model=StageResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Stage",
+    description="Updates stage details (name, color, probability, flags).",
+)
+async def update_stage(
+    pipeline_id: UUID,
+    stage_id: UUID,
+    payload: StageUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> StageResponse:
+    service = CRMService(db)
+    return await service.update_stage(workspace_id, member.id, pipeline_id, stage_id, payload)
+
+
+@router.delete(
+    "/pipelines/{pipeline_id}/stages/{stage_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Stage",
+    description="Deletes a stage from a pipeline if no active deals are assigned.",
+)
+async def delete_stage(
+    pipeline_id: UUID,
+    stage_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_stage(workspace_id, member.id, pipeline_id, stage_id)
+
+
+@router.post(
+    "/pipelines/{pipeline_id}/stages/reorder",
+    response_model=PipelineResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Reorder Stages",
+    description="Batch reorders stages within a pipeline.",
+)
+async def reorder_stages(
+    pipeline_id: UUID,
+    payload: StageReorderRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> PipelineResponse:
+    service = CRMService(db)
+    return await service.reorder_stages(workspace_id, member.id, pipeline_id, payload)
 
 
 @router.post(
@@ -588,3 +728,176 @@ async def list_timeline(
 ) -> list[ActivityResponse]:
     service = CRMService(db)
     return await service.list_timeline(workspace_id, entity_type, entity_id)
+
+
+# ── Bulk Operations Engine Endpoints ──────────────────────────────────────────
+
+
+@router.post(
+    "/bulk/delete",
+    response_model=BulkDeleteResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Bulk Delete Records",
+    description="Batch deletes records with Protected Records dependency validation.",
+)
+async def bulk_delete(
+    payload: BulkDeleteRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> BulkDeleteResponse:
+    service = CRMService(db)
+    return await service.bulk_delete_service(workspace_id, member.id, payload)
+
+
+@router.post(
+    "/bulk/archive",
+    status_code=status.HTTP_200_OK,
+    summary="Bulk Archive Records",
+)
+async def bulk_archive(
+    payload: BulkArchiveRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> dict[str, int]:
+    service = CRMService(db)
+    count = await service.bulk_archive_service(workspace_id, member.id, payload)
+    return {"archived_count": count}
+
+
+@router.post(
+    "/bulk/restore",
+    status_code=status.HTTP_200_OK,
+    summary="Bulk Restore Records",
+)
+async def bulk_restore(
+    payload: BulkRestoreRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> dict[str, int]:
+    service = CRMService(db)
+    count = await service.bulk_restore_service(workspace_id, member.id, payload)
+    return {"restored_count": count}
+
+
+@router.post(
+    "/bulk/assign-owner",
+    status_code=status.HTTP_200_OK,
+    summary="Bulk Reassign Owner",
+)
+async def bulk_assign_owner(
+    payload: BulkAssignOwnerRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> dict[str, int]:
+    service = CRMService(db)
+    count = await service.bulk_reassign_owner_service(workspace_id, member.id, payload)
+    return {"reassigned_count": count}
+
+
+@router.post(
+    "/bulk/update-status",
+    status_code=status.HTTP_200_OK,
+    summary="Bulk Update Status",
+)
+async def bulk_update_status(
+    payload: BulkUpdateStatusRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> dict[str, int]:
+    service = CRMService(db)
+    count = await service.bulk_update_status_service(workspace_id, member.id, payload)
+    return {"updated_count": count}
+
+
+@router.post(
+    "/bulk/move-stage",
+    status_code=status.HTTP_200_OK,
+    summary="Bulk Move Deal Stage",
+)
+async def bulk_move_stage(
+    payload: BulkMoveStageRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> dict[str, int]:
+    service = CRMService(db)
+    count = await service.bulk_move_stage_service(workspace_id, member.id, payload)
+    return {"moved_count": count}
+
+
+# ── Import / Export Engine Endpoints ──────────────────────────────────────────
+
+
+@router.post(
+    "/import/csv",
+    response_model=CSVImportSummaryResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Process CSV Import",
+)
+async def import_csv(
+    payload: CSVImportRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> CSVImportSummaryResponse:
+    from app.modules.crm.csv_processor import process_csv_import
+    return await process_csv_import(db, workspace_id, member.id, payload)
+
+
+@router.post(
+    "/export/dataset",
+    status_code=status.HTTP_200_OK,
+    summary="Export Dataset",
+)
+async def export_dataset(
+    payload: ExportRequest,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    from fastapi.responses import Response
+    from app.modules.crm.export_service import generate_dataset_export
+
+    file_bytes, media_type, _ = await generate_dataset_export(db, workspace_id, member.id, payload)
+    filename = f"{payload.entity_type}_export.{payload.format}"
+
+    return Response(
+        content=file_bytes,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get(
+    "/import/history",
+    response_model=list[ImportJobResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List Import History",
+)
+async def list_import_history(
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[ImportJobResponse]:
+    service = CRMService(db)
+    return await service.list_import_jobs(workspace_id)
+
+
+@router.get(
+    "/export/history",
+    response_model=list[ExportJobResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List Export History",
+)
+async def list_export_history(
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[ExportJobResponse]:
+    service = CRMService(db)
+    return await service.list_export_jobs(workspace_id)

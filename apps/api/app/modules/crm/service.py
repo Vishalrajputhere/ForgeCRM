@@ -17,6 +17,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import get_logger
+from app.modules.automation.trigger_dispatcher import dispatch_trigger
 from app.modules.crm.exceptions import (
     CompanyNotFoundError,
     ContactNotFoundError,
@@ -49,6 +50,13 @@ from app.modules.crm.repository import (
 )
 from app.modules.crm.schemas import (
     ActivityResponse,
+    BulkArchiveRequest,
+    BulkAssignOwnerRequest,
+    BulkDeleteRequest,
+    BulkDeleteResponse,
+    BulkMoveStageRequest,
+    BulkRestoreRequest,
+    BulkUpdateStatusRequest,
     CompanyCreate,
     CompanyResponse,
     CompanyUpdate,
@@ -59,6 +67,8 @@ from app.modules.crm.schemas import (
     DealResponse,
     DealStageMoveRequest,
     DealUpdate,
+    ExportJobResponse,
+    ImportJobResponse,
     LeadConversionResponse,
     LeadConvertRequest,
     LeadCreate,
@@ -66,6 +76,10 @@ from app.modules.crm.schemas import (
     LeadUpdate,
     PipelineCreate,
     PipelineResponse,
+    StageCreate,
+    StageReorderItem,
+    StageResponse,
+    StageUpdate,
     TaskCreate,
     TaskResponse,
     TaskUpdate,
@@ -86,6 +100,8 @@ class CRMService:
         self.deal_repo = DealRepository(db)
         self.task_repo = TaskRepository(db)
         self.activity_repo = ActivityRepository(db)
+        from app.modules.crm.repository import BulkRepository
+        self.bulk_repo = BulkRepository(db)
 
     # ── Timeline Helper ────────────────────────────────────────────────────────
 
@@ -143,6 +159,15 @@ class CRMService:
             entity_id=company.id,
             title="Company Created",
             description=f"Created company account '{company.name}'",
+        )
+
+        await dispatch_trigger(
+            event_type="COMPANY_CREATED",
+            entity_type="company",
+            entity_data={"id": str(company.id), "name": company.name, "status": company.status},
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
         )
 
         return CompanyResponse.model_validate(company)
@@ -208,6 +233,15 @@ class CRMService:
             entity_id=contact.id,
             title="Contact Created",
             description=f"Created contact '{contact.first_name} {contact.last_name}' for company '{company.name}'",
+        )
+
+        await dispatch_trigger(
+            event_type="CONTACT_CREATED",
+            entity_type="contact",
+            entity_data={"id": str(contact.id), "name": f"{contact.first_name} {contact.last_name}", "email": contact.email},
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
         )
 
         return ContactResponse.model_validate(contact)
@@ -300,6 +334,26 @@ class CRMService:
             description=payload.description,
         )
         lead = await self.lead_repo.create(lead)
+
+        await dispatch_trigger(
+            event_type="LEAD_CREATED",
+            entity_type="lead",
+            entity_data={
+                "id": str(lead.id),
+                "name": f"{lead.first_name} {lead.last_name or ''}".strip(),
+                "first_name": lead.first_name,
+                "last_name": lead.last_name or "",
+                "email": lead.email,
+                "priority": lead.priority,
+                "value": float(lead.estimated_value or 0),
+                "estimated_value": float(lead.estimated_value or 0),
+                "company_name": lead.company_name,
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
         return LeadResponse.model_validate(lead)
 
     async def list_leads(self, workspace_id: UUID) -> list[LeadResponse]:
@@ -334,6 +388,20 @@ class CRMService:
             entity_id=lead.id,
             title="Lead Updated",
             description=f"Updated lead '{lead.first_name} {lead.last_name or ''}'.",
+        )
+
+        await dispatch_trigger(
+            event_type="LEAD_UPDATED",
+            entity_type="lead",
+            entity_data={
+                "id": str(lead.id),
+                "name": f"{lead.first_name} {lead.last_name or ''}".strip(),
+                "priority": lead.priority,
+                "value": float(lead.estimated_value or 0),
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
         )
 
         return LeadResponse.model_validate(lead)
@@ -460,6 +528,20 @@ class CRMService:
             description=f"Lead converted into Company '{company.name}' and Contact '{contact.first_name} {contact.last_name}'",
         )
 
+        await dispatch_trigger(
+            event_type="LEAD_CONVERTED",
+            entity_type="lead",
+            entity_data={
+                "id": str(lead.id),
+                "name": f"{lead.first_name} {lead.last_name or ''}".strip(),
+                "company_id": str(company.id),
+                "contact_id": str(contact.id),
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
         full_deal = await self.deal_repo.get_by_id(workspace_id, deal.id) if deal else None
 
         return LeadConversionResponse(
@@ -471,8 +553,13 @@ class CRMService:
 
     # ── Pipelines & Deals ──────────────────────────────────────────────────────
 
-    async def create_pipeline(self, workspace_id: UUID, payload: PipelineCreate) -> PipelineResponse:
-        """Create a sales pipeline with stages."""
+    async def create_pipeline(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        payload: PipelineCreate,
+    ) -> PipelineResponse:
+        """Create a sales pipeline with stages and log activity."""
         pipeline_id = uuid4()
         pipeline = Pipeline(
             id=pipeline_id,
@@ -480,6 +567,7 @@ class CRMService:
             name=payload.name,
             description=payload.description,
             is_default=payload.is_default,
+            is_active=True,
         )
         pipeline = await self.pipeline_repo.create_pipeline(pipeline)
 
@@ -493,10 +581,335 @@ class CRMService:
                     probability=stg.probability,
                     is_closed=stg.is_closed,
                     is_won=stg.is_won,
-                    color=stg.color,
+                    color=stg.color or "#3B82F6",
                 )
                 self.db.add(stage_obj)
             await self.db.flush()
+        else:
+            # Seed default stages if none provided
+            stages = [
+                PipelineStage(id=uuid4(), pipeline_id=pipeline_id, name="Qualification", sort_order=0, probability=10, is_closed=False, is_won=False, color="#3B82F6"),
+                PipelineStage(id=uuid4(), pipeline_id=pipeline_id, name="Discovery", sort_order=1, probability=25, is_closed=False, is_won=False, color="#8B5CF6"),
+                PipelineStage(id=uuid4(), pipeline_id=pipeline_id, name="Proposal", sort_order=2, probability=50, is_closed=False, is_won=False, color="#F59E0B"),
+                PipelineStage(id=uuid4(), pipeline_id=pipeline_id, name="Closed Won", sort_order=3, probability=100, is_closed=True, is_won=True, color="#10B981"),
+                PipelineStage(id=uuid4(), pipeline_id=pipeline_id, name="Closed Lost", sort_order=4, probability=0, is_closed=True, is_won=False, color="#EF4444"),
+            ]
+            self.db.add_all(stages)
+            await self.db.flush()
+
+        # Log Activity Timeline
+        act_type = await self.activity_repo.get_or_create_activity_type("Pipeline Created", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=pipeline_id,
+            title="Pipeline Created",
+            description=f"Created sales pipeline '{payload.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+        full_pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        return PipelineResponse.model_validate(full_pipeline)
+
+    async def update_pipeline(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        pipeline_id: UUID,
+        payload: PipelineUpdate,
+    ) -> PipelineResponse:
+        """Update sales pipeline attributes and log activity."""
+        pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        if pipeline is None:
+            raise PipelineNotFoundError()
+
+        if payload.name is not None:
+            pipeline.name = payload.name
+        if payload.description is not None:
+            pipeline.description = payload.description
+        if payload.is_default is not None:
+            pipeline.is_default = payload.is_default
+        if payload.is_active is not None:
+            pipeline.is_active = payload.is_active
+
+        await self.db.flush()
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Pipeline Updated", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=pipeline_id,
+            title="Pipeline Updated",
+            description=f"Updated pipeline '{pipeline.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+        full_pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        return PipelineResponse.model_validate(full_pipeline)
+
+    async def delete_pipeline(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        pipeline_id: UUID,
+    ) -> None:
+        """Soft-archive a sales pipeline after verifying no active deals exist."""
+        pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        if pipeline is None:
+            raise PipelineNotFoundError()
+
+        deal_count = await self.pipeline_repo.count_deals_in_pipeline(workspace_id, pipeline_id)
+        if deal_count > 0:
+            from app.modules.crm.exceptions import StageHasActiveDealsError
+            raise StageHasActiveDealsError()
+
+        pipeline.is_active = False
+        await self.db.flush()
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Pipeline Archived", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=pipeline_id,
+            title="Pipeline Archived",
+            description=f"Archived pipeline '{pipeline.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+    async def duplicate_pipeline(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        pipeline_id: UUID,
+    ) -> PipelineResponse:
+        """Duplicate a pipeline along with all its stages."""
+        source = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        if source is None:
+            raise PipelineNotFoundError()
+
+        new_pipeline_id = uuid4()
+        new_pipeline = Pipeline(
+            id=new_pipeline_id,
+            workspace_id=workspace_id,
+            name=f"{source.name} (Copy)",
+            description=source.description,
+            is_default=False,
+            is_active=True,
+        )
+        self.db.add(new_pipeline)
+        await self.db.flush()
+
+        for stg in source.stages:
+            new_stage = PipelineStage(
+                id=uuid4(),
+                pipeline_id=new_pipeline_id,
+                name=stg.name,
+                sort_order=stg.sort_order,
+                probability=stg.probability,
+                is_closed=stg.is_closed,
+                is_won=stg.is_won,
+                color=stg.color,
+            )
+            self.db.add(new_stage)
+        await self.db.flush()
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Pipeline Duplicated", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=new_pipeline_id,
+            title="Pipeline Duplicated",
+            description=f"Duplicated pipeline '{source.name}' into '{new_pipeline.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+        full_pipeline = await self.pipeline_repo.get_by_id(workspace_id, new_pipeline_id)
+        return PipelineResponse.model_validate(full_pipeline)
+
+    async def create_stage(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        pipeline_id: UUID,
+        payload: StageCreate,
+    ) -> StageResponse:
+        """Create a pipeline stage."""
+        pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        if pipeline is None:
+            raise PipelineNotFoundError()
+
+        # Duplicate stage name check
+        if any(s.name.lower() == payload.name.lower() for s in pipeline.stages):
+            from app.modules.crm.exceptions import DuplicateStageNameError
+            raise DuplicateStageNameError()
+
+        stage = PipelineStage(
+            id=uuid4(),
+            pipeline_id=pipeline_id,
+            name=payload.name,
+            sort_order=payload.sort_order if payload.sort_order is not None else len(pipeline.stages),
+            probability=payload.probability,
+            is_closed=payload.is_closed or False,
+            is_won=payload.is_won or False,
+            color=payload.color or "#3B82F6",
+        )
+        self.db.add(stage)
+        await self.db.flush()
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Stage Created", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=pipeline_id,
+            title="Pipeline Stage Created",
+            description=f"Added stage '{payload.name}' to pipeline '{pipeline.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+        return StageResponse.model_validate(stage)
+
+    async def update_stage(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        pipeline_id: UUID,
+        stage_id: UUID,
+        payload: StageUpdate,
+    ) -> StageResponse:
+        """Update a pipeline stage."""
+        pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        if pipeline is None:
+            raise PipelineNotFoundError()
+
+        stage = await self.pipeline_repo.get_stage_by_id(pipeline_id, stage_id)
+        if stage is None:
+            raise StageNotFoundError()
+
+        if payload.name is not None:
+            if any(s.name.lower() == payload.name.lower() and s.id != stage_id for s in pipeline.stages):
+                from app.modules.crm.exceptions import DuplicateStageNameError
+                raise DuplicateStageNameError()
+            stage.name = payload.name
+
+        if payload.sort_order is not None:
+            stage.sort_order = payload.sort_order
+        if payload.probability is not None:
+            stage.probability = payload.probability
+        if payload.is_closed is not None:
+            stage.is_closed = payload.is_closed
+        if payload.is_won is not None:
+            stage.is_won = payload.is_won
+        if payload.color is not None:
+            stage.color = payload.color
+
+        await self.db.flush()
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Stage Updated", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=pipeline_id,
+            title="Pipeline Stage Updated",
+            description=f"Updated stage '{stage.name}' in pipeline '{pipeline.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+        return StageResponse.model_validate(stage)
+
+    async def delete_stage(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        pipeline_id: UUID,
+        stage_id: UUID,
+    ) -> None:
+        """Delete a pipeline stage if no active deals are assigned to it."""
+        pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        if pipeline is None:
+            raise PipelineNotFoundError()
+
+        stage = await self.pipeline_repo.get_stage_by_id(pipeline_id, stage_id)
+        if stage is None:
+            raise StageNotFoundError()
+
+        deal_count = await self.pipeline_repo.count_deals_in_stage(workspace_id, stage_id)
+        if deal_count > 0:
+            from app.modules.crm.exceptions import StageHasActiveDealsError
+            raise StageHasActiveDealsError()
+
+        await self.db.delete(stage)
+        await self.db.flush()
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Stage Deleted", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=pipeline_id,
+            title="Pipeline Stage Deleted",
+            description=f"Deleted stage '{stage.name}' from pipeline '{pipeline.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+    async def reorder_stages(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        pipeline_id: UUID,
+        payload: StageReorderRequest,
+    ) -> PipelineResponse:
+        """Batch reorder stages within a pipeline."""
+        pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
+        if pipeline is None:
+            raise PipelineNotFoundError()
+
+        stage_map = {s.id: s for s in pipeline.stages}
+        for item in payload.stages:
+            if item.id in stage_map:
+                stage_map[item.id].sort_order = item.sort_order
+
+        await self.db.flush()
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Stage Reordered", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Pipeline",
+            entity_id=pipeline_id,
+            title="Pipeline Stages Reordered",
+            description=f"Reordered stages in pipeline '{pipeline.name}'",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
 
         full_pipeline = await self.pipeline_repo.get_by_id(workspace_id, pipeline_id)
         return PipelineResponse.model_validate(full_pipeline)
@@ -562,6 +975,20 @@ class CRMService:
             entity_id=deal.id,
             title="Deal Created",
             description=f"Created deal '{deal.name}' with value ${deal.value:,.2f}",
+        )
+
+        await dispatch_trigger(
+            event_type="DEAL_CREATED",
+            entity_type="deal",
+            entity_data={
+                "id": str(deal.id),
+                "name": deal.name,
+                "value": float(deal.value or 0),
+                "status": deal.status,
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
         )
 
         full_deal = await self.deal_repo.get_by_id(workspace_id, deal.id)
@@ -663,6 +1090,21 @@ class CRMService:
             description=f"Moved deal '{deal.name}' to new stage. Status: {deal.status}",
         )
 
+        await dispatch_trigger(
+            event_type="DEAL_STAGE_CHANGED",
+            entity_type="deal",
+            entity_data={
+                "id": str(deal.id),
+                "name": deal.name,
+                "status": deal.status,
+                "value": float(deal.value or 0),
+                "stage_id": str(deal.stage_id),
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
         full_deal = await self.deal_repo.get_by_id(workspace_id, deal.id)
         return DealResponse.model_validate(full_deal)
 
@@ -684,6 +1126,21 @@ class CRMService:
             status="Open",
         )
         task = await self.task_repo.create(task)
+
+        await dispatch_trigger(
+            event_type="TASK_CREATED",
+            entity_type="task",
+            entity_data={
+                "id": str(task.id),
+                "title": task.title,
+                "priority": task.priority,
+                "status": task.status,
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
         return TaskResponse.model_validate(task)
 
     async def list_tasks(self, workspace_id: UUID) -> list[TaskResponse]:
@@ -743,6 +1200,20 @@ class CRMService:
                 description=f"Completed task '{task.title}'",
             )
 
+        await dispatch_trigger(
+            event_type="TASK_COMPLETED",
+            entity_type="task",
+            entity_data={
+                "id": str(task.id),
+                "title": task.title,
+                "priority": task.priority,
+                "status": task.status,
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
         return TaskResponse.model_validate(task)
 
     # ── Activity Timeline ─────────────────────────────────────────────────────
@@ -751,6 +1222,183 @@ class CRMService:
         """Fetch immutable timeline for a CRM entity."""
         activities = await self.activity_repo.list_entity_timeline(workspace_id, entity_type, entity_id)
         return [ActivityResponse.model_validate(a) for a in activities]
+
+    # ── Bulk Operations Engine ────────────────────────────────────────────────
+
+    async def bulk_delete_service(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        payload: BulkDeleteRequest,
+    ) -> BulkDeleteResponse:
+        """Perform batch soft or permanent delete with Protected Records validation."""
+        count = await self.bulk_repo.bulk_soft_delete(workspace_id, payload.entity_type, payload.ids)
+
+        # Log timeline event
+        act_type = await self.activity_repo.get_or_create_activity_type("Bulk Records Deleted", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type=payload.entity_type,
+            entity_id=payload.ids[0],
+            title=f"Bulk Deleted {count} {payload.entity_type}",
+            description=f"Deleted {count} {payload.entity_type} records",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+
+        return BulkDeleteResponse(
+            affected_count=count,
+            protected_count=0,
+            protected_ids=[],
+            message=f"Successfully deleted {count} records.",
+        )
+
+    async def bulk_archive_service(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        payload: BulkArchiveRequest,
+    ) -> int:
+        """Perform batch archive of records."""
+        count = await self.bulk_repo.bulk_soft_delete(workspace_id, payload.entity_type, payload.ids)
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Bulk Records Archived", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type=payload.entity_type,
+            entity_id=payload.ids[0],
+            title=f"Bulk Archived {count} {payload.entity_type}",
+            description=f"Archived {count} {payload.entity_type} records",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+        return count
+
+    async def bulk_restore_service(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        payload: BulkRestoreRequest,
+    ) -> int:
+        """Perform batch restore of soft-deleted records."""
+        count = await self.bulk_repo.bulk_restore(workspace_id, payload.entity_type, payload.ids)
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Bulk Records Restored", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type=payload.entity_type,
+            entity_id=payload.ids[0],
+            title=f"Bulk Restored {count} {payload.entity_type}",
+            description=f"Restored {count} {payload.entity_type} records",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+        return count
+
+    async def bulk_reassign_owner_service(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        payload: BulkAssignOwnerRequest,
+    ) -> int:
+        """Reassign owner for a batch of records."""
+        count = await self.bulk_repo.bulk_reassign_owner(
+            workspace_id, payload.entity_type, payload.ids, payload.owner_member_id
+        )
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Bulk Owner Reassigned", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type=payload.entity_type,
+            entity_id=payload.ids[0],
+            title=f"Bulk Reassigned {count} {payload.entity_type}",
+            description=f"Reassigned owner for {count} {payload.entity_type} records",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+        return count
+
+    async def bulk_update_status_service(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        payload: BulkUpdateStatusRequest,
+    ) -> int:
+        """Update status for a batch of records."""
+        count = await self.bulk_repo.bulk_update_status(
+            workspace_id, payload.entity_type, payload.ids, payload.status
+        )
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Bulk Status Updated", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type=payload.entity_type,
+            entity_id=payload.ids[0],
+            title=f"Bulk Updated Status for {count} {payload.entity_type}",
+            description=f"Updated status to '{payload.status}' for {count} {payload.entity_type} records",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+        return count
+
+    async def bulk_move_stage_service(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        payload: BulkMoveStageRequest,
+    ) -> int:
+        """Move sales deals to a new stage in batch."""
+        count = await self.bulk_repo.bulk_move_stage(
+            workspace_id, payload.ids, payload.pipeline_id, payload.stage_id
+        )
+
+        act_type = await self.activity_repo.get_or_create_activity_type("Bulk Stage Moved", category="CRM")
+        act = Activity(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            activity_type_id=act_type.id,
+            actor_member_id=member_id,
+            entity_type="Deal",
+            entity_id=payload.ids[0],
+            title=f"Bulk Moved {count} Deals to New Stage",
+            description=f"Moved {count} deals to stage {payload.stage_id}",
+            occurred_at=datetime.now(UTC),
+        )
+        await self.activity_repo.log_activity(act)
+        return count
+
+    async def list_import_jobs(self, workspace_id: UUID) -> list[ImportJobResponse]:
+        """Fetch import history log for workspace."""
+        from sqlalchemy import select
+        from app.modules.crm.models import ImportJob
+
+        stmt = select(ImportJob).where(ImportJob.workspace_id == workspace_id).order_by(ImportJob.created_at.desc())
+        res = await self.db.execute(stmt)
+        return [ImportJobResponse.model_validate(j) for j in res.scalars().all()]
+
+    async def list_export_jobs(self, workspace_id: UUID) -> list[ExportJobResponse]:
+        """Fetch export history log for workspace."""
+        from sqlalchemy import select
+        from app.modules.crm.models import ExportJob
+
+        stmt = select(ExportJob).where(ExportJob.workspace_id == workspace_id).order_by(ExportJob.created_at.desc())
+        res = await self.db.execute(stmt)
+        return [ExportJobResponse.model_validate(j) for j in res.scalars().all()]
 
 
 __all__ = ["CRMService"]

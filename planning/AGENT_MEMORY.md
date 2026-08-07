@@ -30,7 +30,7 @@
 ### Milestone 02 — Authentication & Identity (100%)
 - Identity domain SQLAlchemy models (`User`, `Role`, `Permission`, `role_permissions`, `UserRole`, `Session`, `RefreshToken`, `OAuthAccount`, `PasswordResetToken`, `EmailVerificationToken`)
 - Alembic database migration (`001_initial_identity_schema.py`)
-- Password policy validator (min 12 chars), exceptions, Pydantic schemas, permissions registry & default roles
+- Password policy validator (min 6 chars), exceptions, Pydantic schemas, permissions registry & default roles
 - Repository & Service layers with JWT access token generation, refresh token rotation, session tracking, password hashing & rehashing
 - FastAPI dependencies (`get_current_user`, `require_permission`) with session invalidation checks
 - API routes (`/register`, `/login`, `/logout`, `/refresh`, `/me`, `/password/change`, `/password-reset/request`, `/password-reset/confirm`, `/sessions`)

@@ -6,7 +6,7 @@ Execute each test step in a fresh browser session (or automated E2E script) and 
 ---
 
 ## 1. Authentication & Session Security
-- [ ] **TC-AUTH-01**: Access `http://localhost:3000/register`. Register a new account with password shorter than 12 characters. Verify validation error appears.
+- [ ] **TC-AUTH-01**: Access `http://localhost:3000/register`. Register a new account with password shorter than 6 characters. Verify validation error appears.
 - [ ] **TC-AUTH-02**: Register a valid account (`testuser@example.com` / `SecurePass123!`). Verify user is automatically logged in and redirected to `/dashboard`.
 - [ ] **TC-AUTH-03**: Verify default workspace organization was created automatically and selected.
 - [ ] **TC-AUTH-04**: Log out. Access protected page `/dashboard`. Verify automatic redirect to `/login`.
@@ -78,3 +78,17 @@ Execute each test step in a fresh browser session (or automated E2E script) and 
 - [ ] **TC-BI-01**: Navigate to `/dashboard`. Verify 4 primary KPI cards (Open Deals, Pipeline Value, Won Revenue, Win Rate) display active workspace data.
 - [ ] **TC-BI-02**: Verify Pipeline by Stage progress bars reflect current stage deal distribution.
 - [ ] **TC-BI-03**: Verify Recent Deals and Priority Tasks sections update in real-time.
+
+---
+
+## 9. Storage Manager (Cloudinary Engine)
+- [x] **TC-STOR-01**: Navigate to `/storage` via Sidebar or Command Palette (`⌘K` shortcut `G S`).
+- [x] **TC-STOR-02**: Verify Virtual Folders (All Files, Companies, Contacts, Deals, Leads, Tasks) render with correct record count badges.
+- [x] **TC-STOR-03**: Click "+ Upload File". Select JPG/PNG/PDF/DOCX/ZIP files. Verify Cloudinary multi-file upload queue progress indicators.
+- [x] **TC-STOR-04**: Click "Eye" icon on an Image attachment. Verify Cloudinary CDN image renders in preview modal.
+- [x] **TC-STOR-05**: Click "Eye" icon on a PDF attachment. Verify Cloudinary PDF iframe renders correctly.
+- [x] **TC-STOR-06**: Click "Download" icon. Verify presigned Cloudinary download link opens file directly.
+- [x] **TC-STOR-07**: Type file name into search input. Verify instant client/server filtering.
+- [x] **TC-STOR-08**: Select "Images" or "PDFs" from file type dropdown. Verify filtering.
+- [x] **TC-STOR-09**: Click "Trash" icon on a file attachment. Confirm delete in modal. Verify file soft-deletion and list refresh.
+

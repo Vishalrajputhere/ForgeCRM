@@ -325,6 +325,38 @@ class Task(BaseModel):
     assigned_member: Mapped[WorkspaceMember] = relationship("WorkspaceMember", foreign_keys=[assigned_member_id])
 
 
+class ImportJob(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Tracks asynchronous or synchronous CSV/Excel data import operations."""
+
+    __tablename__ = "import_jobs"
+
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_member_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspace_members.id", ondelete="CASCADE"), nullable=False)
+    entity_type: Mapped[str] = mapped_column(VARCHAR(50), nullable=False, index=True)
+    filename: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
+    status: Mapped[str] = mapped_column(VARCHAR(30), default="Completed", server_default="Completed", nullable=False)
+    total_rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    imported_rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    skipped_rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    error_rows: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    duration_seconds: Mapped[float] = mapped_column(NUMERIC(10, 2), default=0.0, nullable=False)
+    error_log: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
+class ExportJob(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Tracks CSV and Excel dataset export operations."""
+
+    __tablename__ = "export_jobs"
+
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_member_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspace_members.id", ondelete="CASCADE"), nullable=False)
+    entity_type: Mapped[str] = mapped_column(VARCHAR(50), nullable=False, index=True)
+    export_format: Mapped[str] = mapped_column(VARCHAR(20), default="csv", nullable=False)
+    filter_scope: Mapped[str] = mapped_column(VARCHAR(30), default="selected", nullable=False)
+    total_records: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    download_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+
 __all__ = [
     "Activity",
     "ActivityType",
@@ -333,6 +365,8 @@ __all__ = [
     "Contact",
     "Deal",
     "DealProduct",
+    "ExportJob",
+    "ImportJob",
     "Lead",
     "LeadConversion",
     "LeadSource",

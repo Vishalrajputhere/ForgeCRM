@@ -43,6 +43,5 @@ This document identifies UI features that are missing, partial, or slated for en
   - ⚠️ **Calendar View**: Tasks are rendered in a clean list view. A monthly/weekly calendar grid view is slated for Phase 2.
 
 ### 7. File Storage & Attachments
-- **Existing**: Presigned upload URL flow in API & `useStorage` hook.
-- **Missing / Gaps**:
-  - ⚠️ **Dedicated File Manager Page**: Attachments can be uploaded via entity detail pages, but a standalone `/storage` file explorer page is a Phase 2 UI addition.
+- **Existing**: Presigned upload URL flow in API, `useStorage` hook, and dedicated Standalone `/dashboard/storage` File Explorer page with virtual folders, drag-and-drop dropzone, upload progress, file search/filters, image/PDF preview modals, download presigned URL triggers, and soft-delete confirmation modal.
+- **Missing / Gaps**: None. Fully operational.

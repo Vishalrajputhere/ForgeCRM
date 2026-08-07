@@ -17,6 +17,15 @@ import { apiDelete, apiGet, apiPatch, apiPost } from '@/lib/api-client';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import type {
   ActivityResponse,
+  BulkArchiveRequest,
+  BulkAssignOwnerRequest,
+  BulkDeleteRequest,
+  BulkDeleteResponse,
+  BulkMoveStageRequest,
+  BulkRestoreRequest,
+  BulkUpdateStatusRequest,
+  CSVImportRequest,
+  CSVImportSummaryResponse,
   CompanyCreate,
   CompanyResponse,
   CompanyUpdate,
@@ -27,11 +36,20 @@ import type {
   DealResponse,
   DealStageMoveRequest,
   DealUpdate,
+  ExportJobResponse,
+  ExportRequest,
+  ImportJobResponse,
   LeadConvertRequest,
   LeadCreate,
   LeadResponse,
   LeadUpdate,
+  PipelineCreate,
   PipelineResponse,
+  PipelineUpdate,
+  StageCreate,
+  StageReorderRequest,
+  StageResponse,
+  StageUpdate,
   TaskCreate,
   TaskResponse,
   TaskUpdate,
@@ -257,6 +275,88 @@ export function useCRM() {
     enabled: Boolean(workspaceId),
   });
 
+  const createPipelineMutation = useMutation({
+    mutationFn: async (payload: PipelineCreate) => {
+      requireWorkspace();
+      return await apiPost<PipelineResponse>('/pipelines', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+    },
+  });
+
+  const updatePipelineMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: PipelineUpdate }) => {
+      requireWorkspace();
+      return await apiPatch<PipelineResponse>(`/pipelines/${id}`, payload as Record<string, unknown>);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+    },
+  });
+
+  const deletePipelineMutation = useMutation({
+    mutationFn: async (id: string) => {
+      requireWorkspace();
+      return await apiDelete<void>(`/pipelines/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+    },
+  });
+
+  const duplicatePipelineMutation = useMutation({
+    mutationFn: async (id: string) => {
+      requireWorkspace();
+      return await apiPost<PipelineResponse>(`/pipelines/${id}/duplicate`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+    },
+  });
+
+  const createStageMutation = useMutation({
+    mutationFn: async ({ pipelineId, payload }: { pipelineId: string; payload: StageCreate }) => {
+      requireWorkspace();
+      return await apiPost<StageResponse>(`/pipelines/${pipelineId}/stages`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+    },
+  });
+
+  const updateStageMutation = useMutation({
+    mutationFn: async ({ pipelineId, stageId, payload }: { pipelineId: string; stageId: string; payload: StageUpdate }) => {
+      requireWorkspace();
+      return await apiPatch<StageResponse>(`/pipelines/${pipelineId}/stages/${stageId}`, payload as Record<string, unknown>);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+    },
+  });
+
+  const deleteStageMutation = useMutation({
+    mutationFn: async ({ pipelineId, stageId }: { pipelineId: string; stageId: string }) => {
+      requireWorkspace();
+      return await apiDelete<void>(`/pipelines/${pipelineId}/stages/${stageId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+    },
+  });
+
+  const reorderStagesMutation = useMutation({
+    mutationFn: async ({ pipelineId, payload }: { pipelineId: string; payload: StageReorderRequest }) => {
+      requireWorkspace();
+      return await apiPost<PipelineResponse>(`/pipelines/${pipelineId}/stages/reorder`, payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pipelines', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+    },
+  });
+
   const dealsQuery = useQuery({
     queryKey: ['deals', workspaceId],
     queryFn: async () => apiGet<DealResponse[]>('/deals'),
@@ -377,6 +477,124 @@ export function useCRM() {
       enabled: Boolean(workspaceId) && Boolean(entityId),
     });
 
+  // ── Bulk Operations & Import/Export Hooks ─────────────────────────────────
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (payload: BulkDeleteRequest) => {
+      requireWorkspace();
+      return await apiPost<BulkDeleteResponse>('/bulk/delete', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['leads', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+    },
+  });
+
+  const bulkArchiveMutation = useMutation({
+    mutationFn: async (payload: BulkArchiveRequest) => {
+      requireWorkspace();
+      return await apiPost<{ archived_count: number }>('/bulk/archive', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['leads', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+    },
+  });
+
+  const bulkRestoreMutation = useMutation({
+    mutationFn: async (payload: BulkRestoreRequest) => {
+      requireWorkspace();
+      return await apiPost<{ restored_count: number }>('/bulk/restore', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['leads', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+    },
+  });
+
+  const bulkAssignOwnerMutation = useMutation({
+    mutationFn: async (payload: BulkAssignOwnerRequest) => {
+      requireWorkspace();
+      return await apiPost<{ reassigned_count: number }>('/bulk/assign-owner', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['leads', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+    },
+  });
+
+  const bulkUpdateStatusMutation = useMutation({
+    mutationFn: async (payload: BulkUpdateStatusRequest) => {
+      requireWorkspace();
+      return await apiPost<{ updated_count: number }>('/bulk/update-status', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['leads', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', workspaceId] });
+    },
+  });
+
+  const bulkMoveStageMutation = useMutation({
+    mutationFn: async (payload: BulkMoveStageRequest) => {
+      requireWorkspace();
+      return await apiPost<{ moved_count: number }>('/bulk/move-stage', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+    },
+  });
+
+  const importCSVMutation = useMutation({
+    mutationFn: async (payload: CSVImportRequest) => {
+      requireWorkspace();
+      return await apiPost<CSVImportSummaryResponse>('/import/csv', payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['contacts', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['leads', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+      queryClient.invalidateQueries({ queryKey: ['import-history', workspaceId] });
+    },
+  });
+
+  const exportDatasetMutation = useMutation({
+    mutationFn: async (payload: ExportRequest) => {
+      requireWorkspace();
+      return await apiPost<Blob>('/export/dataset', payload, { responseType: 'blob' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['export-history', workspaceId] });
+    },
+  });
+
+  const importHistoryQuery = useQuery({
+    queryKey: ['import-history', workspaceId],
+    queryFn: async () => apiGet<ImportJobResponse[]>('/import/history'),
+    enabled: Boolean(workspaceId),
+  });
+
+  const exportHistoryQuery = useQuery({
+    queryKey: ['export-history', workspaceId],
+    queryFn: async () => apiGet<ExportJobResponse[]>('/export/history'),
+    enabled: Boolean(workspaceId),
+  });
+
   return {
     // Companies
     companies: companiesQuery.data ?? [],
@@ -416,6 +634,23 @@ export function useCRM() {
 
     // Pipelines & Deals
     pipelines: pipelinesQuery.data ?? [],
+    isLoadingPipelines: pipelinesQuery.isLoading,
+    createPipeline: createPipelineMutation.mutateAsync,
+    isCreatingPipeline: createPipelineMutation.isPending,
+    updatePipeline: updatePipelineMutation.mutateAsync,
+    isUpdatingPipeline: updatePipelineMutation.isPending,
+    deletePipeline: deletePipelineMutation.mutateAsync,
+    isDeletingPipeline: deletePipelineMutation.isPending,
+    duplicatePipeline: duplicatePipelineMutation.mutateAsync,
+    isDuplicatingPipeline: duplicatePipelineMutation.isPending,
+    createStage: createStageMutation.mutateAsync,
+    isCreatingStage: createStageMutation.isPending,
+    updateStage: updateStageMutation.mutateAsync,
+    isUpdatingStage: updateStageMutation.isPending,
+    deleteStage: deleteStageMutation.mutateAsync,
+    isDeletingStage: deleteStageMutation.isPending,
+    reorderStages: reorderStagesMutation.mutateAsync,
+    isReorderingStages: reorderStagesMutation.isPending,
     deals: dealsQuery.data ?? [],
     isLoadingDeals: dealsQuery.isLoading,
     useDeal,
@@ -441,5 +676,19 @@ export function useCRM() {
 
     // Timeline
     useTimeline,
+
+    // Bulk Operations & Import/Export
+    bulkDelete: bulkDeleteMutation.mutateAsync,
+    bulkArchive: bulkArchiveMutation.mutateAsync,
+    bulkRestore: bulkRestoreMutation.mutateAsync,
+    bulkAssignOwner: bulkAssignOwnerMutation.mutateAsync,
+    bulkUpdateStatus: bulkUpdateStatusMutation.mutateAsync,
+    bulkMoveStage: bulkMoveStageMutation.mutateAsync,
+    importCSV: importCSVMutation.mutateAsync,
+    exportDataset: exportDatasetMutation.mutateAsync,
+    importHistory: importHistoryQuery.data ?? [],
+    isLoadingImportHistory: importHistoryQuery.isLoading,
+    exportHistory: exportHistoryQuery.data ?? [],
+    isLoadingExportHistory: exportHistoryQuery.isLoading,
   };
 }

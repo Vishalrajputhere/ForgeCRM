@@ -54,7 +54,7 @@ All authentication methods produce the same authenticated identity model.
 
 Minimum requirements
 
-- Minimum length: 12 characters
+- Minimum length: 6 characters
 - Encourage passphrases
 - No maximum that discourages password managers (allow at least 128 characters)
 

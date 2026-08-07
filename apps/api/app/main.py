@@ -74,6 +74,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     logger.info("database_initialized")
 
+    # Auto-create tables in development/testing mode if needed
+    try:
+        from app.db.base import Base
+        async with _engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as exc:
+        logger.warning("auto_create_tables_failed", error=str(exc))
+
     # Seed default system roles & permissions
     try:
         from app.modules.identity.seed import seed_identity_defaults
@@ -81,6 +89,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
         await seed_identity_defaults()
     except Exception as exc:
         logger.warning("seed_identity_defaults_failed", error=str(exc))
+
+    # Seed built-in automation templates
+    try:
+        from app.db.engine import get_session_factory
+        from app.modules.automation.service import AutomationService
+
+        factory = get_session_factory()
+        async with factory() as db:
+            svc = AutomationService(db)
+            await svc.ensure_templates_seeded()
+    except Exception as exc:
+        logger.warning("automation_templates_seed_failed", error=str(exc))
 
     # Ensure MinIO bucket exists in development
     if settings.is_development or settings.STORAGE_PROVIDER == "minio":

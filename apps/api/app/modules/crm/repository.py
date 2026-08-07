@@ -288,6 +288,41 @@ class PipelineRepository:
         result = await self.db.execute(stmt)
         return result.scalars().all()
 
+    async def get_stage_by_id(self, pipeline_id: UUID, stage_id: UUID) -> PipelineStage | None:
+        """Fetch PipelineStage by stage_id and pipeline_id."""
+        stmt = select(PipelineStage).where(
+            PipelineStage.id == stage_id,
+            PipelineStage.pipeline_id == pipeline_id,
+        )
+        res = await self.db.execute(stmt)
+        return res.scalar_one_or_none()
+
+    async def count_deals_in_stage(self, workspace_id: UUID, stage_id: UUID) -> int:
+        """Count active deals assigned to a pipeline stage."""
+        from sqlalchemy import func
+        from app.modules.crm.models import Deal
+
+        stmt = select(func.count(Deal.id)).where(
+            Deal.workspace_id == workspace_id,
+            Deal.stage_id == stage_id,
+            Deal.deleted_at.is_(None),
+        )
+        res = await self.db.execute(stmt)
+        return res.scalar() or 0
+
+    async def count_deals_in_pipeline(self, workspace_id: UUID, pipeline_id: UUID) -> int:
+        """Count active deals assigned to a pipeline."""
+        from sqlalchemy import func
+        from app.modules.crm.models import Deal
+
+        stmt = select(func.count(Deal.id)).where(
+            Deal.workspace_id == workspace_id,
+            Deal.pipeline_id == pipeline_id,
+            Deal.deleted_at.is_(None),
+        )
+        res = await self.db.execute(stmt)
+        return res.scalar() or 0
+
 
 class DealRepository:
     """Repository for Deal operations."""
@@ -421,8 +456,111 @@ class ActivityRepository:
         return type_rec
 
 
+class BulkRepository:
+    """High-performance batch SQL operations repository."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    def _get_model(self, entity_type: str):
+        from app.modules.crm.models import Company, Contact, Lead, Deal, Task
+        from app.modules.storage.models import DocumentAttachment
+
+        mapping = {
+            "company": Company,
+            "companies": Company,
+            "contact": Contact,
+            "contacts": Contact,
+            "lead": Lead,
+            "leads": Lead,
+            "deal": Deal,
+            "deals": Deal,
+            "task": Task,
+            "tasks": Task,
+            "storage": DocumentAttachment,
+            "attachments": DocumentAttachment,
+        }
+        model = mapping.get(entity_type.lower())
+        if model is None:
+            raise ValueError(f"Unsupported entity type '{entity_type}'")
+        return model
+
+    async def bulk_soft_delete(self, workspace_id: UUID, entity_type: str, ids: list[UUID]) -> int:
+        from datetime import datetime, UTC
+        from sqlalchemy import update
+
+        model = self._get_model(entity_type)
+        stmt = (
+            update(model)
+            .where(model.id.in_(ids), model.workspace_id == workspace_id)
+            .values(deleted_at=datetime.now(UTC))
+        )
+        res = await self.db.execute(stmt)
+        await self.db.flush()
+        return res.rowcount
+
+    async def bulk_restore(self, workspace_id: UUID, entity_type: str, ids: list[UUID]) -> int:
+        from sqlalchemy import update
+
+        model = self._get_model(entity_type)
+        stmt = (
+            update(model)
+            .where(model.id.in_(ids), model.workspace_id == workspace_id)
+            .values(deleted_at=None)
+        )
+        res = await self.db.execute(stmt)
+        await self.db.flush()
+        return res.rowcount
+
+    async def bulk_reassign_owner(self, workspace_id: UUID, entity_type: str, ids: list[UUID], owner_member_id: UUID) -> int:
+        from sqlalchemy import update
+
+        model = self._get_model(entity_type)
+        if not hasattr(model, "owner_member_id"):
+            return 0
+
+        stmt = (
+            update(model)
+            .where(model.id.in_(ids), model.workspace_id == workspace_id)
+            .values(owner_member_id=owner_member_id)
+        )
+        res = await self.db.execute(stmt)
+        await self.db.flush()
+        return res.rowcount
+
+    async def bulk_update_status(self, workspace_id: UUID, entity_type: str, ids: list[UUID], status: str) -> int:
+        from sqlalchemy import update
+
+        model = self._get_model(entity_type)
+        if not hasattr(model, "status"):
+            return 0
+
+        stmt = (
+            update(model)
+            .where(model.id.in_(ids), model.workspace_id == workspace_id)
+            .values(status=status)
+        )
+        res = await self.db.execute(stmt)
+        await self.db.flush()
+        return res.rowcount
+
+    async def bulk_move_stage(self, workspace_id: UUID, ids: list[UUID], pipeline_id: UUID, stage_id: UUID) -> int:
+        from sqlalchemy import update
+        from app.modules.crm.models import Deal
+
+        stmt = (
+            update(Deal)
+            .where(Deal.id.in_(ids), Deal.workspace_id == workspace_id)
+            .values(pipeline_id=pipeline_id, stage_id=stage_id)
+        )
+        res = await self.db.execute(stmt)
+        await self.db.flush()
+        return res.rowcount
+
+
 __all__ = [
     "ActivityRepository",
+    "BulkRepository",
     "CompanyRepository",
     "ContactRepository",
     "DealRepository",

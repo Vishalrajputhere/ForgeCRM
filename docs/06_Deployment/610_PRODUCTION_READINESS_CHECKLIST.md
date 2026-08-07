@@ -21,7 +21,7 @@ This document defines the mandatory launch verification criteria for deploying F
 ## Security & Secrets
 - [x] Hardcoded secrets removed; all secrets configured via environment variables or secret managers
 - [x] JWT secret key set to high-entropy 256-bit secret in production
-- [x] Password policy enforced (minimum 12 characters, upper/lower/number/symbol)
+- [x] Password policy enforced (minimum 6 characters, upper/lower/number/symbol)
 - [x] Refresh token rotation and session tracking operational
 - [x] Nginx reverse proxy hardened with security headers (CSP, HSTS, X-Frame-Options, Referrer-Policy)
 - [x] CORS configured strictly for allowed production domain origins

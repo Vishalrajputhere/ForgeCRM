@@ -47,18 +47,27 @@ def create_engine(
     Returns:
         Configured AsyncEngine instance.
     """
-    engine = create_async_engine(
-        database_url,
-        pool_size=pool_size,
-        max_overflow=max_overflow,
-        pool_timeout=pool_timeout,
-        pool_recycle=pool_recycle,
-        pool_pre_ping=True,  # Verify connections before use
-        echo=echo,
-        # JSON serialization via orjson for performance
-        json_serializer=_json_serializer,
-        json_deserializer=_json_deserializer,
-    )
+    if database_url.startswith("sqlite"):
+        engine = create_async_engine(
+            database_url,
+            connect_args={"check_same_thread": False},
+            echo=echo,
+            json_serializer=_json_serializer,
+            json_deserializer=_json_deserializer,
+        )
+    else:
+        engine = create_async_engine(
+            database_url,
+            pool_size=pool_size,
+            max_overflow=max_overflow,
+            pool_timeout=pool_timeout,
+            pool_recycle=pool_recycle,
+            pool_pre_ping=True,  # Verify connections before use
+            echo=echo,
+            # JSON serialization via orjson for performance
+            json_serializer=_json_serializer,
+            json_deserializer=_json_deserializer,
+        )
 
     logger.info(
         "database_engine_created",

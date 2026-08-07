@@ -4,14 +4,14 @@
  * ForgeCRM — useStorage Hook
  *
  * Custom React hook for requesting presigned upload URLs, confirming uploads,
- * querying entity attachments, and generating presigned download links.
+ * querying workspace or entity attachments, deleting attachments, and downloading presigned files.
  *
  * Documentation: docs/04_Frontend/401_FRONTEND_OVERVIEW.md
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { apiGet, apiPost } from '@/lib/api-client';
+import { apiDelete, apiGet, apiPost } from '@/lib/api-client';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import type {
   ConfirmUploadRequest,
@@ -38,12 +38,31 @@ export function useStorage() {
     mutationFn: async (payload: ConfirmUploadRequest) => {
       return await apiPost<DocumentAttachmentResponse>('/storage/confirm', payload);
     },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({
-        queryKey: ['attachments', workspaceId, variables.entity_type, variables.entity_id],
-      });
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attachments', workspaceId] });
     },
   });
+
+  // ── List All Workspace Attachments Query ──────────────────────────────────
+  const useAllAttachments = (params?: { entityType?: string | undefined; search?: string | undefined }) =>
+    useQuery({
+      queryKey: ['attachments', workspaceId, params?.entityType ?? 'all', params?.search ?? ''],
+      queryFn: async () => {
+        let url = '/storage/attachments';
+        const qp = new URLSearchParams();
+        if (params?.entityType && params.entityType !== 'all') {
+          qp.append('entity_type', params.entityType);
+        }
+        if (params?.search) {
+          qp.append('search', params.search);
+        }
+        if (qp.toString()) {
+          url += `?${qp.toString()}`;
+        }
+        return await apiGet<DocumentAttachmentResponse[]>(url);
+      },
+      enabled: Boolean(workspaceId),
+    });
 
   // ── List Entity Attachments Query ─────────────────────────────────────────
   const useEntityAttachments = (entityType: string, entityId: string | undefined) =>
@@ -67,10 +86,23 @@ export function useStorage() {
     },
   });
 
+  // ── Delete Attachment Mutation ────────────────────────────────────────────
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId: string) => {
+      await apiDelete(`/storage/attachments/${attachmentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['attachments', workspaceId] });
+    },
+  });
+
   return {
     requestUploadUrl: requestUploadUrlMutation.mutateAsync,
     confirmUpload: confirmUploadMutation.mutateAsync,
     getDownloadUrl: getDownloadUrlMutation.mutateAsync,
+    deleteAttachment: deleteAttachmentMutation.mutateAsync,
+    isDeletingAttachment: deleteAttachmentMutation.isPending,
+    useAllAttachments,
     useEntityAttachments,
   };
 }

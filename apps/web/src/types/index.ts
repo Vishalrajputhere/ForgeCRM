@@ -364,6 +364,7 @@ export interface StageResponse {
   probability: number;
   is_closed: boolean;
   is_won: boolean;
+  is_lost?: boolean;
   color?: string;
 }
 
@@ -427,6 +428,49 @@ export interface DealUpdate {
   status?: string;
   loss_reason?: string;
   description?: string;
+}
+
+export interface StageCreate {
+  name: string;
+  sort_order?: number | undefined;
+  probability?: number | undefined;
+  is_closed?: boolean | undefined;
+  is_won?: boolean | undefined;
+  is_lost?: boolean | undefined;
+  color?: string | undefined;
+}
+
+export interface StageUpdate {
+  name?: string | undefined;
+  sort_order?: number | undefined;
+  probability?: number | undefined;
+  is_closed?: boolean | undefined;
+  is_won?: boolean | undefined;
+  is_lost?: boolean | undefined;
+  color?: string | undefined;
+}
+
+export interface StageReorderItem {
+  id: string;
+  sort_order: number;
+}
+
+export interface StageReorderRequest {
+  stages: StageReorderItem[];
+}
+
+export interface PipelineCreate {
+  name: string;
+  description?: string | undefined;
+  is_default?: boolean | undefined;
+  stages?: StageCreate[] | undefined;
+}
+
+export interface PipelineUpdate {
+  name?: string | undefined;
+  description?: string | undefined;
+  is_default?: boolean | undefined;
+  is_active?: boolean | undefined;
 }
 
 export interface DealStageMoveRequest {
@@ -505,6 +549,12 @@ export interface PresignedUploadResponse {
   storage_key: string;
   upload_url: string;
   expires_in_seconds: number;
+  cloud_name?: string;
+  api_key?: string;
+  timestamp?: number;
+  signature?: string;
+  folder?: string;
+  public_id?: string;
 }
 
 export interface PresignedDownloadResponse {
@@ -662,4 +712,284 @@ export interface WorkspaceInvitationResponse {
   expires_at: string;
   created_at: string;
   raw_token?: string;
+}
+
+// ── Bulk Operations Engine DTOs ───────────────────────────────────────────────
+
+export interface BulkDeleteRequest {
+  entity_type: string;
+  ids: string[];
+  permanent?: boolean | undefined;
+}
+
+export interface BulkDeleteResponse {
+  affected_count: number;
+  protected_count: number;
+  protected_ids: string[];
+  message: string;
+}
+
+export interface BulkArchiveRequest {
+  entity_type: string;
+  ids: string[];
+}
+
+export interface BulkRestoreRequest {
+  entity_type: string;
+  ids: string[];
+}
+
+export interface BulkAssignOwnerRequest {
+  entity_type: string;
+  ids: string[];
+  owner_member_id: string;
+}
+
+export interface BulkUpdateStatusRequest {
+  entity_type: string;
+  ids: string[];
+  status: string;
+}
+
+export interface BulkMoveStageRequest {
+  ids: string[];
+  pipeline_id: string;
+  stage_id: string;
+}
+
+export interface CSVImportRequest {
+  entity_type: string;
+  rows: { row_index: number; data: Record<string, any> }[];
+  duplicate_resolution?: 'skip' | 'update' | 'merge' | 'create' | undefined;
+  dry_run?: boolean | undefined;
+}
+
+export interface CSVImportSummaryResponse {
+  job_id?: string | undefined;
+  imported_rows: number;
+  skipped_rows: number;
+  error_rows: number;
+  total_rows: number;
+  duration_seconds: number;
+  error_details: Record<string, any>[];
+}
+
+export interface ExportRequest {
+  entity_type: string;
+  format?: 'csv' | 'xlsx' | undefined;
+  scope?: 'selected' | 'filtered' | 'workspace' | undefined;
+  selected_ids?: string[] | undefined;
+  search_query?: string | undefined;
+  status_filter?: string | undefined;
+}
+
+export interface ImportJobResponse {
+  id: string;
+  workspace_id: string;
+  created_by_member_id: string;
+  entity_type: string;
+  filename: string;
+  status: string;
+  total_rows: number;
+  imported_rows: number;
+  skipped_rows: number;
+  error_rows: number;
+  duration_seconds: number;
+  created_at: string;
+}
+
+export interface ExportJobResponse {
+  id: string;
+  workspace_id: string;
+  created_by_member_id: string;
+  entity_type: string;
+  export_format: string;
+  filter_scope: string;
+  total_records: number;
+  download_url?: string | undefined;
+  created_at: string;
+}
+
+// ── Workflow Automation Types ─────────────────────────────────────────────────
+
+export type TriggerEvent =
+  | 'LEAD_CREATED' | 'LEAD_UPDATED' | 'LEAD_CONVERTED'
+  | 'DEAL_CREATED' | 'DEAL_UPDATED' | 'DEAL_STAGE_CHANGED'
+  | 'TASK_CREATED' | 'TASK_COMPLETED'
+  | 'CONTACT_CREATED' | 'CONTACT_UPDATED'
+  | 'COMPANY_CREATED' | 'COMPANY_UPDATED'
+  | 'PIPELINE_CHANGED' | 'MEMBER_JOINED' | 'FILE_UPLOADED'
+  | 'MANUAL' | 'SCHEDULED';
+
+export type ConditionOperator =
+  | 'EQUALS' | 'NOT_EQUALS'
+  | 'CONTAINS' | 'NOT_CONTAINS'
+  | 'STARTS_WITH' | 'ENDS_WITH'
+  | 'GREATER_THAN' | 'LESS_THAN'
+  | 'GREATER_OR_EQUAL' | 'LESS_OR_EQUAL'
+  | 'EMPTY' | 'NOT_EMPTY';
+
+export type ActionType =
+  | 'CREATE_TASK' | 'CREATE_FOLLOWUP_TASK'
+  | 'UPDATE_LEAD' | 'UPDATE_COMPANY' | 'UPDATE_CONTACT' | 'UPDATE_DEAL'
+  | 'MOVE_DEAL_STAGE' | 'ASSIGN_OWNER'
+  | 'SEND_EMAIL' | 'SEND_NOTIFICATION'
+  | 'CREATE_ACTIVITY'
+  | 'ADD_TAG' | 'REMOVE_TAG'
+  | 'ARCHIVE_RECORD' | 'WEBHOOK';
+
+export type ConditionLogic = 'AND' | 'OR';
+export type RunStatus = 'running' | 'success' | 'failed' | 'skipped';
+
+export interface AutomationCondition {
+  readonly id: UUID;
+  readonly rule_id: UUID;
+  readonly group_index: number;
+  readonly field_path: string;
+  readonly operator: string;
+  readonly value: string | null;
+  readonly value_type: string;
+  readonly created_at: string;
+}
+
+export interface AutomationAction {
+  readonly id: UUID;
+  readonly rule_id: UUID;
+  readonly position: number;
+  readonly action_type: string;
+  readonly config: Record<string, unknown>;
+  readonly created_at: string;
+}
+
+export interface AutomationRuleSummary {
+  readonly id: UUID;
+  readonly name: string;
+  readonly description: string | null;
+  readonly is_active: boolean;
+  readonly trigger_event: string;
+  readonly trigger_entity_type: string | null;
+  readonly total_runs: number;
+  readonly successful_runs: number;
+  readonly failed_runs: number;
+  readonly last_run_at: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+}
+
+export interface AutomationRuleDetail extends AutomationRuleSummary {
+  readonly workspace_id: UUID;
+  readonly condition_logic: string;
+  readonly conditions: readonly AutomationCondition[];
+  readonly actions: readonly AutomationAction[];
+  readonly deleted_at: string | null;
+}
+
+export interface AutomationLog {
+  readonly id: UUID;
+  readonly run_id: UUID;
+  readonly action_id: UUID | null;
+  readonly action_type: string;
+  readonly position: number;
+  readonly status: string;
+  readonly message: string | null;
+  readonly result_data: Record<string, unknown> | null;
+  readonly duration_ms: number | null;
+  readonly created_at: string;
+}
+
+export interface AutomationRun {
+  readonly id: UUID;
+  readonly rule_id: UUID;
+  readonly workspace_id: UUID;
+  readonly triggered_by_member_id: UUID | null;
+  readonly trigger_entity_type: string | null;
+  readonly trigger_entity_id: UUID | null;
+  readonly status: string;
+  readonly error_message: string | null;
+  readonly actions_executed: number;
+  readonly actions_failed: number;
+  readonly duration_ms: number | null;
+  readonly started_at: string;
+  readonly finished_at: string | null;
+  readonly logs: readonly AutomationLog[];
+}
+
+export interface AutomationTemplate {
+  readonly id: UUID;
+  readonly name: string;
+  readonly description: string | null;
+  readonly category: string;
+  readonly trigger_event: string;
+  readonly trigger_entity_type: string | null;
+  readonly template_config: Record<string, unknown>;
+  readonly is_featured: boolean;
+  readonly use_count: number;
+  readonly created_at: string;
+}
+
+export interface AutomationConditionCreate {
+  group_index?: number;
+  field_path: string;
+  operator: ConditionOperator;
+  value?: string | null;
+  value_type?: string;
+}
+
+export interface AutomationActionCreate {
+  position?: number;
+  action_type: ActionType;
+  config: Record<string, unknown>;
+}
+
+export interface AutomationRuleCreate {
+  name: string;
+  description?: string | null;
+  trigger_event: TriggerEvent;
+  trigger_entity_type?: string | null;
+  condition_logic?: ConditionLogic;
+  conditions?: AutomationConditionCreate[];
+  actions: AutomationActionCreate[];
+}
+
+export interface AutomationRuleUpdate {
+  name?: string;
+  description?: string | null;
+  trigger_event?: TriggerEvent;
+  trigger_entity_type?: string | null;
+  condition_logic?: ConditionLogic;
+  conditions?: AutomationConditionCreate[];
+  actions?: AutomationActionCreate[];
+}
+
+export interface TestAutomationRequest {
+  trigger_data: Record<string, unknown>;
+}
+
+export interface TestAutomationResponse {
+  readonly rule_id: UUID;
+  readonly run_id: UUID;
+  readonly status: string;
+  readonly conditions_passed: boolean;
+  readonly actions_executed: number;
+  readonly actions_failed: number;
+  readonly duration_ms: number | null;
+  readonly logs: readonly AutomationLog[];
+}
+
+export interface ToggleResponse {
+  readonly id: UUID;
+  readonly is_active: boolean;
+  readonly message: string;
+}
+
+export interface UseTemplateRequest {
+  name?: string;
+}
+
+export interface AutomationListResponse {
+  readonly items: readonly AutomationRuleSummary[];
+  readonly total: number;
+  readonly page: number;
+  readonly page_size: number;
+  readonly pages: number;
 }

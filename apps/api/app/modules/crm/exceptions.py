@@ -74,14 +74,30 @@ class TaskNotFoundError(NotFoundError):
     message = "The requested task was not found."
 
 
+class StageHasActiveDealsError(ConflictError):
+    """Raised when trying to delete a stage or pipeline with active deals attached."""
+
+    error_code = "STAGE_HAS_ACTIVE_DEALS"
+    message = "Cannot delete stage or pipeline because active deals are assigned to it. Reassign or delete deals first."
+
+
+class DuplicateStageNameError(ConflictError):
+    """Raised when creating or updating a stage with a duplicate name within a pipeline."""
+
+    error_code = "DUPLICATE_STAGE_NAME"
+    message = "A stage with this name already exists in the pipeline."
+
+
 __all__ = [
     "CompanyNameAlreadyExistsError",
     "CompanyNotFoundError",
     "ContactNotFoundError",
     "DealNotFoundError",
+    "DuplicateStageNameError",
     "LeadAlreadyConvertedError",
     "LeadNotFoundError",
     "PipelineNotFoundError",
+    "StageHasActiveDealsError",
     "StageNotFoundError",
     "TaskNotFoundError",
 ]

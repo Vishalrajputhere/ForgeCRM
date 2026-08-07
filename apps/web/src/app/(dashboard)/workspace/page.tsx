@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 
+import { Heading, Text, Caption } from '@/components/ui/typography';
+import { Container, Stack, PageHeader } from '@/components/ui/layout-primitives';
 import { useToast } from '@/components/ui/toast';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
@@ -13,7 +15,9 @@ import {
 } from '@/lib/formatters';
 import type { WorkspaceSettingsUpdate, WorkspaceUpdate } from '@/types';
 
-type Tab = 'overview' | 'settings' | 'members';
+import { PipelineBuilder } from '@/components/crm/pipeline-builder';
+
+type Tab = 'overview' | 'settings' | 'members' | 'pipelines';
 
 const INDUSTRY_OPTIONS = [
   'Software & SaaS',
@@ -239,30 +243,36 @@ export default function WorkspacePage(): React.JSX.Element {
       label: 'Members & Invites',
       icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
     },
+    {
+      id: 'pipelines',
+      label: 'Sales Pipelines',
+      icon: 'M4 4v16h16 M8 16l4-8 4 4 4-6',
+    },
   ];
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">Workspace Management</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Configure customer organization settings, regional localization, and team access.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-2.5 shadow-lg backdrop-blur-xl">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-forge-600 to-indigo-500 text-sm font-bold text-white shadow-md">
-            {currentWorkspace?.name[0]?.toUpperCase()}
-          </div>
+    <Container size="xl" className="py-6">
+      <Stack gap={6}>
+        {/* Page Header */}
+        <PageHeader>
           <div>
-            <div className="text-sm font-semibold text-white">{currentWorkspace?.name}</div>
-            <div className="text-[11px] text-forge-400 font-mono">
-              slug: {currentWorkspace?.slug}
+            <Heading level="h1">Workspace Management</Heading>
+            <Text variant="body-m" color="secondary" className="mt-1">
+              Configure customer organization settings, regional localization, and team access.
+            </Text>
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-border-default bg-surface px-4 py-2.5 shadow-sm">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent text-accent-foreground font-bold text-sm shadow-xs">
+              {currentWorkspace?.name[0]?.toUpperCase()}
+            </div>
+            <div>
+              <Text variant="body-s" className="font-semibold text-primary">{currentWorkspace?.name}</Text>
+              <Caption tabular color="accent" className="font-mono block">
+                slug: {currentWorkspace?.slug}
+              </Caption>
             </div>
           </div>
-        </div>
-      </div>
+        </PageHeader>
 
       {/* Navigation Tabs */}
       <div className="flex gap-1.5 rounded-xl border border-slate-800 bg-slate-900/60 p-1.5 w-fit">
@@ -809,6 +819,9 @@ export default function WorkspacePage(): React.JSX.Element {
           </div>
         </div>
       )}
-    </div>
+      {/* ── Pipelines Tab ───────────────────────────────────────────────────── */}
+      {activeTab === 'pipelines' && <PipelineBuilder />}
+      </Stack>
+    </Container>
   );
 }

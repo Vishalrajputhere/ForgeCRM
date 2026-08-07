@@ -195,7 +195,7 @@ This document presents the factual, repository-driven architectural audit for **
 - **Repositories:** `UserRepository`, `RoleRepository`, `SessionRepository`, `RefreshTokenRepository`, `PasswordResetTokenRepository`
 - **Services:** `AuthService` handling registration, login, JWT issuance, refresh rotation, session revocation, and password resets
 - **Routes:** `POST /register`, `POST /login`, `POST /logout`, `POST /refresh`, `GET /me`, `POST /password/change`, `POST /password-reset/request`, `POST /password-reset/confirm`, `GET /sessions`, `DELETE /sessions/{id}`
-- **Validators:** `PasswordValidator` enforcing minimum 12 characters, uppercase, lowercase, numeric, and special characters.
+- **Validators:** `PasswordValidator` enforcing minimum 6 characters, uppercase, lowercase, numeric, and special characters.
 - **Permissions:** System roles (`System Admin`, `Workspace Admin`, `Workspace Member`, `Workspace Viewer`) registered in `permissions.py`.
 - **Tests:** `apps/api/tests/test_auth.py` (15 test cases covering full auth flow, token refresh rotation, password policy, and session termination).
 - **Status:** ✅ Complete (100%)

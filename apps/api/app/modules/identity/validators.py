@@ -2,7 +2,7 @@
 ForgeCRM API — Identity Domain Validators
 
 Validation rules for user input in the identity domain.
-Password policy: Minimum 12 characters, max 128 characters (no unnecessary complexity rules).
+Password policy: Minimum 6 characters, max 128 characters (no unnecessary complexity rules).
 
 Documentation: docs/05_Security/504_IDENTITY_AND_AUTHENTICATION.md §4
 """
@@ -15,7 +15,7 @@ from typing import Annotated
 from pydantic import AfterValidator
 
 # Password policy parameters per docs/05_Security/504_IDENTITY_AND_AUTHENTICATION.md
-MIN_PASSWORD_LENGTH = 12
+MIN_PASSWORD_LENGTH = 6
 MAX_PASSWORD_LENGTH = 128
 
 # Basic email regex for strict formatting
@@ -26,7 +26,7 @@ def validate_password_strength(password: str) -> str:
     """
     Validate password strength according to security policy.
 
-    Rule: Minimum 12 characters, max 128.
+    Rule: Minimum 6 characters, max 128.
     Encourages passphrases and password managers.
     """
     if len(password) < MIN_PASSWORD_LENGTH:

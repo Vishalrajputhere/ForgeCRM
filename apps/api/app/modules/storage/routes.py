@@ -73,18 +73,21 @@ async def confirm_upload(
     "/attachments",
     response_model=list[DocumentAttachmentResponse],
     status_code=status.HTTP_200_OK,
-    summary="List Entity Attachments",
-    description="Lists active document attachments linked to a CRM entity.",
+    summary="List Document Attachments",
+    description="Lists active document attachments for a workspace, with optional entity or search filters.",
 )
 async def list_attachments(
     workspace_id: WorkspaceIdDep,
     member: WorkspaceMemberDep,
     db: Annotated[AsyncSession, Depends(get_db_session)],
-    entity_type: str = Query(..., description="Target CRM entity type (e.g. Company, Contact, Lead, Deal, Task)"),
-    entity_id: UUID = Query(..., description="Target CRM record ID"),
+    entity_type: Annotated[str | None, Query(description="Optional filter by target CRM entity type (e.g. Company, Contact, Lead, Deal, Task)")] = None,
+    entity_id: Annotated[UUID | None, Query(description="Optional filter by target CRM record ID")] = None,
+    search: Annotated[str | None, Query(description="Optional search string by file name")] = None,
 ) -> list[DocumentAttachmentResponse]:
     service = StorageService(db)
-    return await service.list_entity_attachments(workspace_id, entity_type, entity_id)
+    return await service.list_entity_attachments(
+        workspace_id, entity_type=entity_type, entity_id=entity_id, search=search
+    )
 
 
 @router.get(

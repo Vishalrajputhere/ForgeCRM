@@ -235,3 +235,100 @@ class TestCRMMultiTenantIsolation:
         access_res = await client.get(f"/api/v1/companies/{comp_id}", headers=headers_b)
         assert access_res.status_code == 404
         assert access_res.json()["error_code"] == "COMPANY_NOT_FOUND"
+
+
+class TestPipelineAndStageWorkflows:
+    """Tests for Pipeline and Stage CRUD and ordering operations."""
+
+    @pytest.mark.asyncio
+    async def test_pipeline_crud_and_duplicate(self, client: AsyncClient) -> None:
+        """Create custom pipeline, duplicate it, and verify stages."""
+        headers, _ = await _setup_workspace_and_headers(client, USER_ALICE, "Pipelines Workspace")
+
+        # 1. List default pipeline
+        res = await client.get("/api/v1/pipelines", headers=headers)
+        assert res.status_code == 200
+        pipelines = res.json()
+        assert len(pipelines) >= 1
+        default_pipe_id = pipelines[0]["id"]
+
+        # 2. Create custom pipeline
+        create_res = await client.post(
+            "/api/v1/pipelines",
+            json={"name": "Enterprise Pipeline", "description": "High value deals"},
+            headers=headers,
+        )
+        assert create_res.status_code == 201
+        custom_p_id = create_res.json()["id"]
+
+        # 3. Duplicate pipeline
+        dup_res = await client.post(f"/api/v1/pipelines/{custom_p_id}/duplicate", headers=headers)
+        assert dup_res.status_code == 201
+        assert dup_res.json()["name"] == "Enterprise Pipeline (Copy)"
+
+        # 4. Add Stage
+        stage_res = await client.post(
+            f"/api/v1/pipelines/{custom_p_id}/stages",
+            json={"name": "Executive Evaluation", "probability": 80, "color": "#10B981"},
+            headers=headers,
+        )
+        assert stage_res.status_code == 201
+        assert stage_res.json()["name"] == "Executive Evaluation"
+
+
+class TestImportAndExportEngine:
+    """Tests for CSV/Excel data import and dataset export endpoints."""
+
+    @pytest.mark.asyncio
+    async def test_import_and_export_workflows(self, client: AsyncClient) -> None:
+        """Test CSV data import and dataset export for CSV and Excel formats."""
+        headers, _ = await _setup_workspace_and_headers(client, USER_ALICE, "Import Export Workspace")
+
+        # 1. Import Companies CSV
+        import_payload = {
+            "entity_type": "Company",
+            "rows": [
+                {"row_index": 1, "data": {"Company Name": "Acme Global", "Website": "acmeglobal.com", "Email": "info@acmeglobal.com"}},
+                {"row_index": 2, "data": {"Company Name": "Wayne Industries", "Website": "wayne.com", "Email": "contact@wayne.com"}},
+            ],
+            "duplicate_resolution": "skip",
+            "dry_run": False,
+        }
+        import_res = await client.post("/api/v1/import/csv", json=import_payload, headers=headers)
+        assert import_res.status_code == 200
+        summary = import_res.json()
+        assert summary["imported_rows"] == 2
+        assert summary["error_rows"] == 0
+
+        # 2. Check Import History Log
+        hist_res = await client.get("/api/v1/import/history", headers=headers)
+        assert hist_res.status_code == 200
+        history = hist_res.json()
+        assert len(history) >= 1
+        assert history[0]["entity_type"] == "Company"
+
+        # 3. Export CSV Dataset
+        export_csv_res = await client.post(
+            "/api/v1/export/dataset",
+            json={"entity_type": "Company", "format": "csv", "scope": "workspace"},
+            headers=headers,
+        )
+        assert export_csv_res.status_code == 200
+        assert "text/csv" in export_csv_res.headers["content-type"]
+        assert "Acme Global" in export_csv_res.text
+
+        # 4. Export Excel (.xlsx) Dataset
+        export_xlsx_res = await client.post(
+            "/api/v1/export/dataset",
+            json={"entity_type": "Company", "format": "xlsx", "scope": "workspace"},
+            headers=headers,
+        )
+        assert export_xlsx_res.status_code == 200
+        assert "openxmlformats-officedocument" in export_xlsx_res.headers["content-type"]
+        assert len(export_xlsx_res.content) > 100
+
+        # 5. Check Export History Log
+        exp_hist_res = await client.get("/api/v1/export/history", headers=headers)
+        assert exp_hist_res.status_code == 200
+        exp_history = exp_hist_res.json()
+        assert len(exp_history) >= 2

@@ -14,7 +14,7 @@ Scores are calculated strictly based on empirical evidence from repository code,
 | **Companies Directory** | 8% | **100%** | Full CRUD, instant search, active/inactive filter, company detail page (`/companies/[id]`), timeline widget operational. |
 | **Contacts Directory** | 8% | **100%** | Full CRUD, primary contact badges, company relationship link, soft-deactivation, detail page (`/contacts/[id]`), timeline widget operational. |
 | **Leads & Lead Conversion** | 8% | **100%** | Priority filters, search, disqualification action, atomic lead conversion (Company + Contact + Deal) operational. |
-| **Deals & Sales Kanban** | 10% | **100%** | Visual Kanban board, drag-and-drop stage movement with probability, summary metrics, detail page (`/deals/[id]`) operational. |
+| **Deals & Sales Kanban** | 10% | **100%** | Visual Kanban board, drag-and-drop stage movement with probability, summary metrics, detail page (`/deals/[id]`), and interactive Visual Pipeline Builder (`/workspace?tab=pipelines`) operational. |
 | **Tasks & Activity Tracking** | 8% | **100%** | Priority filters, due date datepicker, overdue warning badges (`⚠`), one-click completion checkbox, edit/delete operational. |
 | **Activity Timeline Audit** | 6% | **100%** | Reusable `TimelineWidget` renders immutable audit trail logs for all entities with action icons and timestamps. |
 | **Executive Analytics & BI** | 6% | **95%** | Real-time KPI overview grid, pipeline stage breakdown progress bars, recent deals, urgent tasks operational. |

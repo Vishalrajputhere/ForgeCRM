@@ -9,16 +9,16 @@ This document guides future engineering sessions. Every proposed task is priorit
 
 ### Phase 1: High Priority / Technical Debt Refactoring
 
-#### Task 1: Standalone S3 File Manager UI (`/storage`)
+#### Task 1: Standalone S3 File Manager UI (`/storage`) [COMPLETE]
 - **Priority**: High
-- **Difficulty**: Medium
+- **Status**: **COMPLETE (100%)**
 - **Dependencies**: MinIO Presigned S3 API (`app/modules/storage`)
-- **Estimated Effort**: 4 hours
-- **Files Affected**:
-  - `apps/web/src/app/(dashboard)/storage/page.tsx` [NEW]
-  - `apps/web/src/components/storage/file-uploader.tsx` [NEW]
+- **Files Created / Modified**:
+  - `apps/web/src/app/(dashboard)/storage/page.tsx`
   - `apps/web/src/hooks/use-storage.ts`
-- **Reason**: The backend storage service and presigned URL flows are 100% complete, but a dedicated file explorer page will improve document attachment management.
+  - `apps/api/app/modules/storage/routes.py`
+  - `apps/api/app/modules/storage/service.py`
+- **Reason**: Full document management explorer with virtual folders, drag & drop uploads, file type filters, search, previews, and download links.
 
 #### Task 2: Advanced CSV Bulk Export & Import Tools
 - **Priority**: Medium

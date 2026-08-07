@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { Zap, Plus, Search, X, Check } from 'lucide-react';
 
+import { Heading, Text } from '@/components/ui/typography';
+import { Container, Stack, PageHeader, PageActions } from '@/components/ui/layout-primitives';
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
 import { useFormatters } from '@/hooks/use-formatters';
@@ -26,13 +28,9 @@ const PRIORITY_BADGE: Record<string, 'neutral' | 'warning' | 'danger' | 'default
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg overflow-y-auto rounded-xl border bg-surface-overlay shadow-xl max-h-[90vh]"
-        style={{ borderColor: 'var(--border-strong)' }}
-      >
-        <div className="flex items-center justify-between border-b px-5 py-4"
-          style={{ borderColor: 'var(--border-subtle)' }}
-        >
-          <h2 className="text-h3 text-text-primary">{title}</h2>
+      <div className="w-full max-w-lg overflow-y-auto rounded-xl border border-border-strong bg-overlay shadow-xl max-h-[90vh]">
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+          <Heading level="h3">{title}</Heading>
           <button
             type="button"
             onClick={onClose}
@@ -316,20 +314,23 @@ export default function LeadsPage(): React.JSX.Element {
   };
 
   return (
-    <div className="space-y-5 p-6 max-w-7xl mx-auto">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-h1 text-text-primary">Leads</h1>
-          <p className="text-label text-text-tertiary mt-0.5">
-            {activeLeads.length} active · {totalValue > 0 ? `$${totalValue.toLocaleString()} pipeline · ` : ''}{convertedCount} converted
-          </p>
-        </div>
-        <Button onClick={() => setIsCreateOpen(true)} size="md">
-          <Plus className="h-4 w-4" strokeWidth={2} />
-          Add Lead
-        </Button>
-      </div>
+    <Container size="xl" className="py-6">
+      <Stack gap={5}>
+        {/* ── Header ─────────────────────────────────────────────────────────── */}
+        <PageHeader>
+          <div>
+            <Heading level="h1">Leads</Heading>
+            <Text variant="body-m" color="secondary" tabular className="mt-0.5">
+              {activeLeads.length} active · {totalValue > 0 ? `$${totalValue.toLocaleString()} pipeline · ` : ''}{convertedCount} converted
+            </Text>
+          </div>
+          <PageActions>
+            <Button onClick={() => setIsCreateOpen(true)} size="md">
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              Add Lead
+            </Button>
+          </PageActions>
+        </PageHeader>
 
       {/* ── Filters ────────────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -563,6 +564,7 @@ export default function LeadsPage(): React.JSX.Element {
           )}
         </Modal>
       )}
-    </div>
+      </Stack>
+    </Container>
   );
 }

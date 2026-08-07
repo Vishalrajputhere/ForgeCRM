@@ -23,6 +23,12 @@ class PresignedUploadResponse(BaseModel):
     storage_key: str
     upload_url: str
     expires_in_seconds: int = 900  # 15 minutes
+    cloud_name: str | None = None
+    api_key: str | None = None
+    timestamp: int | None = None
+    signature: str | None = None
+    folder: str | None = None
+    public_id: str | None = None
 
 
 class DocumentAttachmentResponse(BaseModel):

@@ -2,120 +2,39 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Users, Plus, Search, X } from 'lucide-react';
+import { Users, Plus, Building2, Mail, Phone } from 'lucide-react';
 
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
-import { Button, Input, Select, Skeleton, Badge, FormField } from '@/components/ui/primitives';
-import { cn } from '@/lib/cn';
+import { Button, Input, Select, Badge, FormField, Modal, EnterpriseDataTable } from '@/components/ui/primitives';
+import { Container, Stack, PageHeader, PageActions } from '@/components/ui/layout-primitives';
+import { Heading, Text, Caption } from '@/components/ui/typography';
 import type { ContactResponse } from '@/types';
-
-// ── Modal Shell ───────────────────────────────────────────────────────────────
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg overflow-y-auto rounded-xl border bg-surface-overlay shadow-xl max-h-[90vh]"
-        style={{ borderColor: 'var(--border-strong)' }}
-      >
-        <div className="flex items-center justify-between border-b px-5 py-4"
-          style={{ borderColor: 'var(--border-subtle)' }}
-        >
-          <h2 className="text-h3 text-text-primary">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1 text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors"
-          >
-            <X className="h-4 w-4" strokeWidth={1.5} />
-          </button>
-        </div>
-        <div className="p-5">{children}</div>
-      </div>
-    </div>
-  );
-}
-
-// ── Contact Row ───────────────────────────────────────────────────────────────
-
-function ContactRow({ contact, companies }: { contact: ContactResponse; companies: { id: string; name: string }[] }) {
-  const company = companies.find((c) => c.id === contact.company_id);
-  return (
-    <tr className="group border-b transition-colors duration-100 hover:bg-[rgba(255,255,255,0.02)]"
-      style={{ borderColor: 'var(--border-subtle)' }}
-    >
-      <td className="px-4 py-3">
-        <Link href={`/contacts/${contact.id}`} className="flex items-center gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 text-micro font-semibold text-indigo-400 ring-1 ring-indigo-500/20">
-            {contact.first_name[0]?.toUpperCase()}
-          </div>
-          <div className="min-w-0">
-            <p className="text-label text-text-primary truncate group-hover:text-forge-400 transition-colors duration-100">
-              {contact.first_name} {contact.last_name}
-            </p>
-            {contact.is_primary && (
-              <span className="text-caption text-forge-400">Primary</span>
-            )}
-          </div>
-        </Link>
-      </td>
-      <td className="px-4 py-3">
-        <p className="text-label text-text-secondary">{contact.job_title ?? '—'}</p>
-        {company && (
-          <Link href={`/companies/${contact.company_id}`} className="text-caption text-text-tertiary hover:text-forge-400 transition-colors duration-100">
-            {company.name}
-          </Link>
-        )}
-      </td>
-      <td className="px-4 py-3 text-caption text-text-tertiary">{contact.email ?? '—'}</td>
-      <td className="px-4 py-3 text-caption text-text-tertiary">{contact.phone ?? '—'}</td>
-      <td className="px-4 py-3">
-        <Badge variant={contact.status === 'Active' ? 'success' : 'neutral'}>
-          {contact.status}
-        </Badge>
-      </td>
-      <td className="px-4 py-3 text-right">
-        <Link
-          href={`/contacts/${contact.id}`}
-          className="text-caption text-text-tertiary hover:text-forge-400 transition-colors duration-100"
-        >
-          View →
-        </Link>
-      </td>
-    </tr>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+import type { Column } from '@/components/ui/data-table';
 
 export default function ContactsPage(): React.JSX.Element {
-  const { contacts, isLoadingContacts, companies, createContact, isCreatingContact } = useCRM();
+  const { contacts, companies, isLoadingContacts, createContact } = useCRM();
   const { toast } = useToast();
 
-  const [search, setSearch] = useState('');
-  const filtered = contacts.filter((c) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      c.first_name.toLowerCase().includes(q) ||
-      c.last_name.toLowerCase().includes(q) ||
-      (c.email?.toLowerCase().includes(q) ?? false) ||
-      (c.job_title?.toLowerCase().includes(q) ?? false)
-    );
-  });
-
-  // ── Create Modal ──────────────────────────────────────────────────────────
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
-    first_name: '', last_name: '', email: '', phone: '',
-    job_title: '', department: '', company_id: '', is_primary: false,
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    job_title: '',
+    department: '',
+    company_id: '',
+    is_primary: false,
   });
   const [formError, setFormError] = useState<string | null>(null);
-  const isFormValid = formData.company_id.trim().length > 0 && formData.first_name.trim().length > 0 && formData.last_name.trim().length > 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isFormValid) return;
+    if (!formData.first_name || !formData.last_name) {
+      setFormError('First and last name are required.');
+      return;
+    }
     setFormError(null);
     try {
       await createContact({
@@ -136,145 +55,154 @@ export default function ContactsPage(): React.JSX.Element {
     }
   };
 
-  const companiesList = companies.map((c) => ({ id: c.id, name: c.name }));
+  const columns: Column<ContactResponse>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      sortable: true,
+      render: (contact) => (
+        <Link href={`/contacts/${contact.id}`} className="flex items-center gap-3 group">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent ring-1 ring-accent/20">
+            {contact.first_name[0]?.toUpperCase()}
+          </div>
+          <div>
+            <Text variant="body-s" className="font-semibold group-hover:text-accent transition-colors">
+              {contact.first_name} {contact.last_name}
+            </Text>
+            {contact.job_title && <Caption color="muted" className="block">{contact.job_title}</Caption>}
+          </div>
+        </Link>
+      ),
+    },
+    {
+      key: 'company',
+      header: 'Company',
+      sortable: true,
+      render: (contact) => {
+        const company = companies.find((c) => c.id === contact.company_id);
+        return company ? (
+          <Link href={`/companies/${company.id}`} className="inline-flex items-center gap-1.5 text-secondary hover:text-primary transition-colors">
+            <Building2 className="h-3.5 w-3.5 text-muted" />
+            <Text variant="body-s">{company.name}</Text>
+          </Link>
+        ) : (
+          <Caption color="muted">—</Caption>
+        );
+      },
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      sortable: true,
+      render: (contact) => contact.email ? (
+        <a href={`mailto:${contact.email}`} className="inline-flex items-center gap-1.5 text-secondary hover:text-accent transition-colors">
+          <Mail className="h-3.5 w-3.5 text-muted" />
+          <Caption>{contact.email}</Caption>
+        </a>
+      ) : <Caption color="muted">—</Caption>,
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      render: (contact) => contact.phone ? (
+        <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1.5 text-secondary hover:text-primary transition-colors">
+          <Phone className="h-3.5 w-3.5 text-muted" />
+          <Caption tabular>{contact.phone}</Caption>
+        </a>
+      ) : <Caption color="muted">—</Caption>,
+    },
+    {
+      key: 'is_primary',
+      header: 'Role Tag',
+      render: (contact) => contact.is_primary ? (
+        <Badge variant="success" dot>Primary Contact</Badge>
+      ) : (
+        <Badge variant="neutral">Contact</Badge>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-5 p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-h1 text-text-primary">Contacts</h1>
-          <p className="text-label text-text-tertiary mt-0.5">
-            {isLoadingContacts ? 'Loading…' : `${contacts.length} contacts across ${companies.length} companies`}
-          </p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} size="md">
-          <Plus className="h-4 w-4" strokeWidth={2} />
-          Add Contact
-        </Button>
-      </div>
+    <Container size="xl" className="py-6">
+      <Stack gap={5}>
+        {/* Header */}
+        <PageHeader>
+          <div>
+            <Heading level="h1" className="flex items-center gap-2.5">
+              <Users className="h-6 w-6 text-accent" /> Contacts
+            </Heading>
+            <Text variant="body-m" color="secondary" tabular className="mt-0.5">
+              {isLoadingContacts ? 'Loading…' : `${contacts.length} contacts across ${companies.length} companies`}
+            </Text>
+          </div>
+          <PageActions>
+            <Button onClick={() => setIsModalOpen(true)} size="md">
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              Add Contact
+            </Button>
+          </PageActions>
+        </PageHeader>
 
-      {/* Search */}
-      <div className="relative max-w-xs">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary" strokeWidth={1.5} />
-        <input
-          type="text"
-          placeholder="Search contacts…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-md border bg-surface-sunken py-2 pl-9 pr-3 text-label text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-2 focus:ring-forge-500 transition-colors duration-100"
-          style={{ borderColor: 'var(--border-default)' }}
+        {/* Flagship Enterprise Data Table */}
+        <EnterpriseDataTable
+          data={contacts}
+          columns={columns}
+          keyExtractor={(c) => c.id}
+          searchable
+          searchPlaceholder="Search contacts by name, email, company…"
+          loading={isLoadingContacts}
+          emptyTitle="No contacts found"
+          emptyDescription="Click 'Add Contact' to add key decision makers."
+          pageSize={12}
         />
-      </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border-default)' }}>
-        {isLoadingContacts ? (
-          <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="flex items-center gap-4 px-4 py-3">
-                <Skeleton className="h-7 w-7 rounded-full" />
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-3 w-40" />
-                  <Skeleton className="h-2.5 w-28" />
-                </div>
-                <Skeleton className="h-3 w-24" />
-              </div>
-            ))}
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center py-16 text-center">
-            <Users className="h-10 w-10 text-text-tertiary mb-3" strokeWidth={1} />
-            <p className="text-label text-text-secondary">
-              {search ? `No contacts match "${search}"` : 'No contacts yet'}
-            </p>
-            <p className="text-caption text-text-tertiary mt-1">Add contacts linked to companies</p>
-            {!search && (
-              <Button variant="secondary" size="sm" onClick={() => setIsModalOpen(true)} className="mt-4">
-                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-                Add Contact
-              </Button>
-            )}
-          </div>
-        ) : (
-          <table className="w-full text-left">
-            <thead style={{ backgroundColor: 'var(--surface-overlay)' }}>
-              <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                {['Name', 'Title / Company', 'Email', 'Phone', 'Status', ''].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-micro font-medium text-text-tertiary">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((contact) => (
-                <ContactRow key={contact.id} contact={contact} companies={companiesList} />
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Create Modal */}
-      {isModalOpen && (
-        <Modal title="New Contact" onClose={() => setIsModalOpen(false)}>
-          {formError && (
-            <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/8 px-3 py-2.5 text-label text-red-400">
-              {formError}
-            </div>
-          )}
+        {/* Create Modal */}
+        <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)} title="Create New Contact" size="md">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {formError && <div className="rounded border border-status-danger/30 bg-status-danger-bg p-3 text-xs text-status-danger-fg">{formError}</div>}
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="First name" htmlFor="cf_first" required>
-                <Input id="cf_first" required value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} />
+              <FormField label="First name" htmlFor="first_name" required>
+                <Input id="first_name" value={formData.first_name} onChange={(e) => setFormData({ ...formData, first_name: e.target.value })} required />
               </FormField>
-              <FormField label="Last name" htmlFor="cf_last" required>
-                <Input id="cf_last" required value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} />
+              <FormField label="Last name" htmlFor="last_name" required>
+                <Input id="last_name" value={formData.last_name} onChange={(e) => setFormData({ ...formData, last_name: e.target.value })} required />
               </FormField>
             </div>
-            <FormField label="Company" htmlFor="cf_company" required>
-              {companies.length === 0 ? (
-                <p className="text-label text-amber-400 py-1">You must create a Company first.</p>
-              ) : (
-                <Select id="cf_company" required value={formData.company_id} onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}>
-                  <option value="">Select company…</option>
-                  {companies.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </Select>
-              )}
+            <FormField label="Company" htmlFor="company_id">
+              <Select id="company_id" value={formData.company_id} onChange={(e) => setFormData({ ...formData, company_id: e.target.value })}>
+                <option value="">No company selected</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </Select>
             </FormField>
             <div className="grid grid-cols-2 gap-3">
-              <FormField label="Job title" htmlFor="cf_job">
-                <Input id="cf_job" value={formData.job_title} onChange={(e) => setFormData({ ...formData, job_title: e.target.value })} />
+              <FormField label="Email address" htmlFor="email">
+                <Input id="email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
               </FormField>
-              <FormField label="Department" htmlFor="cf_dept">
-                <Input id="cf_dept" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} />
-              </FormField>
-              <FormField label="Email" htmlFor="cf_email">
-                <Input id="cf_email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
-              </FormField>
-              <FormField label="Phone" htmlFor="cf_phone">
-                <Input id="cf_phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+              <FormField label="Phone number" htmlFor="phone">
+                <Input id="phone" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </FormField>
             </div>
-            <label className={cn(
-              'flex items-center gap-3 rounded-md border px-3 py-2.5 cursor-pointer transition-colors hover:bg-[rgba(255,255,255,0.03)]',
-            )}
-              style={{ borderColor: 'var(--border-default)' }}
-            >
-              <input
-                type="checkbox"
-                checked={formData.is_primary}
-                onChange={(e) => setFormData({ ...formData, is_primary: e.target.checked })}
-                className="h-4 w-4 rounded accent-forge-500"
-              />
-              <span className="text-label text-text-primary">Primary contact for this company</span>
+            <div className="grid grid-cols-2 gap-3">
+              <FormField label="Job title" htmlFor="job_title">
+                <Input id="job_title" value={formData.job_title} onChange={(e) => setFormData({ ...formData, job_title: e.target.value })} />
+              </FormField>
+              <FormField label="Department" htmlFor="department">
+                <Input id="department" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} />
+              </FormField>
+            </div>
+            <label className="flex items-center gap-2 pt-1 cursor-pointer">
+              <input type="checkbox" checked={formData.is_primary} onChange={(e) => setFormData({ ...formData, is_primary: e.target.checked })} className="h-4 w-4 rounded accent-accent" />
+              <Text variant="body-s">Primary Contact for company</Text>
             </label>
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" size="md" onClick={() => setIsModalOpen(false)}>Cancel</Button>
-              <Button type="submit" size="md" loading={isCreatingContact} disabled={!isFormValid}>Save Contact</Button>
+            <div className="flex justify-end gap-2 pt-3 border-t border-border-subtle">
+              <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)}>Cancel</Button>
+              <Button type="submit" variant="primary">Create Contact</Button>
             </div>
           </form>
         </Modal>
-      )}
-    </div>
+      </Stack>
+    </Container>
   );
 }

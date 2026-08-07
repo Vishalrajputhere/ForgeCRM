@@ -61,6 +61,11 @@ from app.modules.ai import routes as ai_routes  # noqa: E402
 
 api_v1_router.include_router(ai_routes.router)
 
+# Workflow Automation Engine
+from app.modules.automation import routes as automation_routes  # noqa: E402
+
+api_v1_router.include_router(automation_routes.router)
+
 
 
 

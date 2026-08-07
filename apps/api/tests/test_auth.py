@@ -2,7 +2,7 @@
 ForgeCRM API — Authentication & Identity Test Suite
 
 Comprehensive automated tests covering:
-  - User registration & validation (min 12 char password policy)
+  - User registration & validation (min 6 char password policy)
   - User login & credential verification
   - JWT token decoding, claims, and Bearer authentication
   - Refresh token rotation
@@ -33,7 +33,14 @@ WEAK_PASSWORD_DATA = {
     "first_name": "Short",
     "last_name": "Password",
     "email": "short@forgecrm.io",
-    "password": "short",  # Under 12 chars
+    "password": "short",  # Under 6 chars (5 chars)
+}
+
+SIX_CHAR_PASSWORD_DATA = {
+    "first_name": "SixChar",
+    "last_name": "User",
+    "email": "sixchar@forgecrm.io",
+    "password": "Pass1!",  # Exactly 6 chars
 }
 
 
@@ -55,6 +62,13 @@ class TestUserRegistration:
         assert body["user"]["first_name"] == REGISTER_DATA["first_name"]
 
     @pytest.mark.asyncio
+    async def test_6_char_password_registration_succeeds(self, client: AsyncClient) -> None:
+        """Registration with exactly 6 characters should succeed (201)."""
+        response = await client.post("/api/v1/auth/register", json=SIX_CHAR_PASSWORD_DATA)
+        assert response.status_code == 201
+        assert "access_token" in response.json()
+
+    @pytest.mark.asyncio
     async def test_duplicate_email_registration_fails(self, client: AsyncClient) -> None:
         """Registering an existing email address should return 409 Conflict."""
         # First registration
@@ -69,7 +83,7 @@ class TestUserRegistration:
 
     @pytest.mark.asyncio
     async def test_weak_password_registration_fails(self, client: AsyncClient) -> None:
-        """Password under 12 characters should fail schema validation (422)."""
+        """Password under 6 characters should fail schema validation (422)."""
         response = await client.post("/api/v1/auth/register", json=WEAK_PASSWORD_DATA)
         assert response.status_code == 422
 

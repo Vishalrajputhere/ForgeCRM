@@ -24,7 +24,8 @@
 | **Leads Directory & Filters** | ✅ Docs | ✅ `GET /leads` | ✅ `/leads` page | ✅ `leads` table | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Priority filters, search, show/hide converted toggle |
 | **Lead Create, Edit & Disqualify**| ✅ Docs | ✅ `POST/PATCH/DELETE` | ✅ `/leads` modals | ✅ `leads` table | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Priority levels, est. value, disqualification action |
 | **Transactional Lead Conversion** | ✅ Docs | ✅ `POST /leads/{id}/convert`| ✅ `/leads` (Convert) | ✅ `companies/contacts`| ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Atomic creation of Company, Primary Contact, optional Deal |
-| **Sales Pipelines & Stages** | ✅ Docs | ✅ `GET /pipelines` | ✅ `/deals` page | ✅ `pipelines/stages` | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Stage configurations with sort orders & color coding |
+| **Sales Pipelines & Stages** | ✅ Docs | ✅ `GET/POST/PATCH/DELETE /pipelines` | ✅ `/deals` & `/workspace` | ✅ `pipelines/stages` | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Stage configurations with sort orders, win probabilities (0-100%), color swatches |
+| **Visual Pipeline Builder** | ✅ Docs | ✅ `POST /pipelines/*` & `/stages/*` | ✅ `PipelineBuilder` comp | ✅ `pipelines/stages` | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Full interactive Pipeline & Stage editor with Live Kanban Preview, sort reordering, duplication & soft-archive validation |
 | **Visual Sales Kanban Board** | ✅ Docs | ✅ `GET /deals` | ✅ `KanbanBoard` comp | ✅ `deals` table | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Pipeline total value summary, open deal counts |
 | **Kanban Drag-and-Drop Move** | ✅ Docs | ✅ `POST /deals/{id}/move` | ✅ `KanbanBoard` drag | ✅ `deals` table | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Drag deal between stage columns with dropzone highlight |
 | **Deal Creation, Edit & Delete** | ✅ Docs | ✅ `POST/PATCH/DELETE` | ✅ `/deals` modals | ✅ `deals` table | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Company & contact bindings, close date, probability |
@@ -36,7 +37,14 @@
 | **Activity Timeline Audit Log** | ✅ Docs | ✅ `GET /timeline` | ✅ `TimelineWidget` | ✅ `activities` table | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Immutable activity feed with action icons & timestamps |
 | **Executive Analytics Dashboard** | ✅ Docs | ✅ `GET /analytics/*` | ✅ `/dashboard` page | ✅ Aggregations | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | KPI metrics, pipeline breakdown, recent deals, urgent tasks |
 | **Global Full-Text Search** | ✅ Docs | ✅ `GET /search` | ✅ `GlobalSearchBar` | ✅ FTS Indexes | ✅ Operational | ✅ Pytest | **COMPLETE** | 95% | FTS across companies, contacts, leads, deals |
-| **File Storage & Uploads** | ✅ Docs | ✅ `POST /storage/*` | ✅ Presigned flow | ✅ `attachments` table | ✅ Operational | ✅ Pytest | **OPERATIONAL** | 80% | S3/MinIO presigned upload URL flow & file list |
+| **File Storage & Uploads** | ✅ Docs | ✅ `POST /storage/*` | ✅ `/dashboard/storage` | ✅ `attachments` table | ✅ Verified | ✅ Pytest | **COMPLETE** | 100% | Standalone S3/MinIO file manager with virtual folders, drag & drop, previews & download presigned URLs |
 | **AI Scoring & Summarization** | ✅ Docs | ✅ `POST /ai/*` | ✅ Internal client | ✅ Rule engine | ✅ Operational | ✅ Pytest | **OPERATIONAL** | 75% | Deterministic lead scoring engine & LLM abstraction |
 | **Background Celery Worker** | ✅ Docs | ✅ `POST /jobs/trigger` | ✅ Celery dispatcher | ✅ Redis queue | ✅ Operational | ✅ Pytest | **OPERATIONAL** | 85% | Redis background queue task execution |
 | **Notifications & Email Sync** | ⚠️ Partial | ⚠️ Partial API | ❌ Minimal UI | ⚠️ Partial Schema | ❌ Not Tested | ⚠️ Partial | **PLANNED** | 40% | Phase 2 scheduled feature |
+| **V2 UI/UX Design Tokens** | ✅ Docs | N/A (Frontend) | ✅ `globals.css` / Tailwind | N/A | ✅ Verified | ✅ `tsc` | **COMPLETE** | 100% | Multi-theme (Light/Dark/System) semantic CSS variable tokens |
+| **V2 UI/UX Typography System** | ✅ Docs | N/A (Frontend) | ✅ `typography.tsx` | N/A | ✅ Verified | ✅ `tsc` | **COMPLETE** | 100% | 15-tier Geist typography hierarchy with `tabular-nums` numeric primitives |
+| **V2 UI/UX Enterprise Layout System**| ✅ Docs | N/A (Frontend) | ✅ `layout-primitives.tsx` | N/A | ✅ Verified | ✅ `tsc` | **COMPLETE** | 100% | Enterprise Layout Primitives (`Container`, `Stack`, `Flex`, `Grid`, `PageHeader`) & 8px spacing scale |
+| **V2 UI/UX Enterprise Component Library**| ✅ Docs | N/A (Frontend) | ✅ `components/ui/*` | N/A | ✅ Verified | ✅ `tsc` | **COMPLETE** | 100% | Single-responsibility enterprise components (`button`, `input`, `select`, `card`, `badge`, `navigation`, `feedback`, `overlay`, `data-table`, `form`) |
+
+
+

@@ -2,26 +2,27 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Building2, Plus, Search, X, ExternalLink } from 'lucide-react';
+import { Building2, Plus, Search, X, ExternalLink, Upload, Download } from 'lucide-react';
 
+import { Heading, Text } from '@/components/ui/typography';
+import { Container, Stack, PageHeader, PageActions } from '@/components/ui/layout-primitives';
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
-import { Button, Input, Skeleton, Badge, FormField, Textarea } from '@/components/ui/primitives';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
+import { BulkActionsBar } from '@/components/crm/bulk-actions-bar';
+import { CSVImportModal } from '@/components/crm/csv-import-modal';
+import { ExportModal } from '@/components/crm/export-modal';
+import { Button, Input, Skeleton, Badge, FormField } from '@/components/ui/primitives';
 import { cn } from '@/lib/cn';
-import type { CompanyResponse } from '@/types';
 
 // ── Modal Shell ───────────────────────────────────────────────────────────────
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg overflow-y-auto rounded-xl border bg-surface-overlay shadow-xl max-h-[90vh]"
-        style={{ borderColor: 'var(--border-strong)' }}
-      >
-        <div className="flex items-center justify-between border-b px-5 py-4"
-          style={{ borderColor: 'var(--border-subtle)' }}
-        >
-          <h2 className="text-h3 text-text-primary">{title}</h2>
+      <div className="w-full max-w-lg overflow-y-auto rounded-xl border border-border-strong bg-overlay shadow-xl max-h-[90vh]">
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+          <Heading level="h3">{title}</Heading>
           <button
             type="button"
             onClick={onClose}
@@ -36,61 +37,13 @@ function Modal({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-// ── Company Row ───────────────────────────────────────────────────────────────
-
-function CompanyRow({ company }: { company: CompanyResponse }) {
-  return (
-    <tr className="group border-b transition-colors duration-100 hover:bg-[rgba(255,255,255,0.02)]"
-      style={{ borderColor: 'var(--border-subtle)' }}
-    >
-      <td className="px-4 py-3">
-        <Link href={`/companies/${company.id}`} className="flex items-center gap-3">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-forge-500/15 text-micro font-semibold text-forge-400 ring-1 ring-forge-500/20">
-            {company.name[0]?.toUpperCase()}
-          </div>
-          <span className="text-label text-text-primary group-hover:text-forge-400 transition-colors duration-100 font-medium">
-            {company.name}
-          </span>
-        </Link>
-      </td>
-      <td className="px-4 py-3 text-caption text-text-secondary">
-        {company.website ? (
-          <a
-            href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 hover:text-forge-400 transition-colors duration-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {company.website.replace(/^https?:\/\//, '')}
-            <ExternalLink className="h-3 w-3 opacity-60" strokeWidth={1.5} />
-          </a>
-        ) : (
-          <span className="text-text-tertiary">—</span>
-        )}
-      </td>
-      <td className="px-4 py-3 text-caption text-text-tertiary">{company.email ?? '—'}</td>
-      <td className="px-4 py-3">
-        <Badge variant={company.status === 'Active' ? 'success' : 'neutral'}>
-          {company.status}
-        </Badge>
-      </td>
-      <td className="px-4 py-3 text-right">
-        <Link
-          href={`/companies/${company.id}`}
-          className="text-caption text-text-tertiary hover:text-forge-400 transition-colors duration-100"
-        >
-          View →
-        </Link>
-      </td>
-    </tr>
-  );
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function CompaniesPage(): React.JSX.Element {
-  const { companies, isLoadingCompanies, createCompany, isCreatingCompany } = useCRM();
+  const {
+    companies, isLoadingCompanies, createCompany, isCreatingCompany,
+    bulkDelete, bulkArchive, bulkUpdateStatus
+  } = useCRM();
   const { toast } = useToast();
 
   const [search, setSearch] = useState('');
@@ -106,7 +59,17 @@ export default function CompaniesPage(): React.JSX.Element {
     return matchSearch && matchStatus;
   });
 
+  const filteredIds = filtered.map((c) => c.id);
+  const {
+    selectedIds, selectedCount, isPageSelected, isSomePageSelected,
+    toggleRow, toggleAllPage, clearSelection, isSelected, handleShiftClick
+  } = useBulkSelection(filteredIds);
+
+  // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isImportOpen, setIsImportOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
+
   const [createForm, setCreateForm] = useState({
     name: '', website: '', email: '', phone: '', description: '',
     annual_revenue: '', employee_count: '',
@@ -134,21 +97,69 @@ export default function CompaniesPage(): React.JSX.Element {
     }
   };
 
+  // Bulk Handlers
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      await bulkDelete({ entity_type: 'Company', ids });
+      toast('success', 'Companies deleted', `Deleted ${ids.length} company records.`);
+      clearSelection();
+    } catch {
+      toast('error', 'Bulk Delete Failed', 'Could not delete selected companies.');
+    }
+  };
+
+  const handleBulkArchive = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      await bulkArchive({ entity_type: 'Company', ids });
+      toast('success', 'Companies archived', `Archived ${ids.length} company records.`);
+      clearSelection();
+    } catch {
+      toast('error', 'Bulk Archive Failed', 'Could not archive selected companies.');
+    }
+  };
+
+  const handleBulkUpdateStatus = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      const ids = Array.from(selectedIds);
+      await bulkUpdateStatus({ entity_type: 'Company', ids, status: 'Active' });
+      toast('success', 'Status updated', `Updated status to Active for ${ids.length} companies.`);
+      clearSelection();
+    } catch {
+      toast('error', 'Update Failed', 'Could not update company statuses.');
+    }
+  };
+
   return (
-    <div className="space-y-5 p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-h1 text-text-primary">Companies</h1>
-          <p className="text-label text-text-tertiary mt-0.5">
-            {isLoadingCompanies ? 'Loading…' : `${companies.length} company accounts in this workspace`}
-          </p>
-        </div>
-        <Button onClick={() => setIsCreateOpen(true)} size="md">
-          <Plus className="h-4 w-4" strokeWidth={2} />
-          Add Company
-        </Button>
-      </div>
+    <Container size="xl" className="py-6">
+      <Stack gap={5}>
+        {/* Header */}
+        <PageHeader>
+          <div>
+            <Heading level="h1" className="flex items-center gap-2.5">
+              <Building2 className="h-6 w-6 text-accent" /> Companies
+            </Heading>
+            <Text variant="body-m" color="secondary" tabular className="mt-0.5">
+              {isLoadingCompanies ? 'Loading…' : `${companies.length} company accounts in this workspace`}
+            </Text>
+          </div>
+          <PageActions>
+            <Button variant="secondary" size="md" onClick={() => setIsImportOpen(true)}>
+              <Upload className="h-4 w-4" /> Import CSV
+            </Button>
+            <Button variant="secondary" size="md" onClick={() => setIsExportOpen(true)}>
+              <Download className="h-4 w-4" /> Export
+            </Button>
+            <Button onClick={() => setIsCreateOpen(true)} size="md">
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              Add Company
+            </Button>
+          </PageActions>
+        </PageHeader>
 
       {/* Filters */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -171,7 +182,7 @@ export default function CompaniesPage(): React.JSX.Element {
               className={cn(
                 'rounded-md border px-3 py-1.5 text-label transition-colors duration-100',
                 statusFilter === s
-                  ? 'border-forge-500/30 bg-forge-500/10 text-forge-400'
+                  ? 'border-forge-500/30 bg-forge-500/10 text-forge-400 font-semibold'
                   : 'text-text-tertiary hover:text-text-primary',
               )}
               style={statusFilter === s ? {} : { borderColor: 'var(--border-default)' }}
@@ -183,7 +194,7 @@ export default function CompaniesPage(): React.JSX.Element {
       </div>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-lg border" style={{ borderColor: 'var(--border-default)' }}>
+      <div className="overflow-hidden rounded-xl border shadow-xs" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--surface-raised)' }}>
         {isLoadingCompanies ? (
           <div className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
             {[1, 2, 3, 4, 5].map((i) => (
@@ -198,75 +209,172 @@ export default function CompaniesPage(): React.JSX.Element {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center py-16 text-center">
-            <Building2 className="h-10 w-10 text-text-tertiary mb-3" strokeWidth={1} />
-            <p className="text-label text-text-secondary">
-              {search ? `No companies match "${search}"` : 'No companies yet'}
-            </p>
-            <p className="text-caption text-text-tertiary mt-1">Register companies to link contacts and deals</p>
-            {!search && (
-              <Button variant="secondary" size="sm" onClick={() => setIsCreateOpen(true)} className="mt-4">
-                <Plus className="h-3.5 w-3.5" strokeWidth={2} />
-                Add Company
-              </Button>
-            )}
+            <Building2 className="h-10 w-10 text-text-tertiary opacity-40 mb-3" />
+            <p className="text-h3 font-semibold text-text-primary">No companies found</p>
+            <p className="text-caption text-text-tertiary mt-1">Try refining your search terms or filters.</p>
           </div>
         ) : (
-          <table className="w-full text-left">
-            <thead style={{ backgroundColor: 'var(--surface-overlay)' }}>
-              <tr className="border-b" style={{ borderColor: 'var(--border-subtle)' }}>
-                {['Company', 'Website', 'Email', 'Status', ''].map((h) => (
-                  <th key={h} className="px-4 py-2.5 text-micro font-medium text-text-tertiary">{h}</th>
-                ))}
+          <table className="w-full text-left text-label">
+            <thead className="bg-surface-sunken border-b text-caption font-semibold text-text-secondary" style={{ borderColor: 'var(--border-subtle)' }}>
+              <tr>
+                <th className="p-3.5 w-10 text-center">
+                  <input
+                    type="checkbox"
+                    checked={isPageSelected}
+                    ref={(input) => {
+                      if (input) input.indeterminate = isSomePageSelected;
+                    }}
+                    onChange={toggleAllPage}
+                    className="rounded accent-forge-500 h-4 w-4 cursor-pointer"
+                  />
+                </th>
+                <th className="p-3.5">Company Name</th>
+                <th className="p-3.5">Website</th>
+                <th className="p-3.5">Email</th>
+                <th className="p-3.5">Status</th>
+                <th className="p-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {filtered.map((company) => (
-                <CompanyRow key={company.id} company={company} />
-              ))}
+            <tbody className="divide-y" style={{ borderColor: 'var(--border-subtle)' }}>
+              {filtered.map((company, idx) => {
+                const selected = isSelected(company.id);
+                return (
+                  <tr
+                    key={company.id}
+                    className={cn(
+                      'group transition-colors duration-100 hover:bg-surface-sunken/60',
+                      selected ? 'bg-forge-500/10' : '',
+                    )}
+                  >
+                    <td className="p-3.5 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={(e) => {
+                          const nativeEvent = e.nativeEvent as MouseEvent;
+                          if (nativeEvent.shiftKey) {
+                            handleShiftClick(company.id, idx);
+                          } else {
+                            toggleRow(company.id, idx);
+                          }
+                        }}
+                        className="rounded accent-forge-500 h-4 w-4 cursor-pointer"
+                      />
+                    </td>
+                    <td className="p-3.5">
+                      <Link href={`/companies/${company.id}`} className="flex items-center gap-3">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-forge-500/15 text-micro font-semibold text-forge-400 ring-1 ring-forge-500/20">
+                          {company.name[0]?.toUpperCase()}
+                        </div>
+                        <span className="text-label text-text-primary group-hover:text-forge-400 font-semibold transition-colors">
+                          {company.name}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="p-3.5 text-caption text-text-secondary">
+                      {company.website ? (
+                        <a
+                          href={company.website.startsWith('http') ? company.website : `https://${company.website}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 hover:text-forge-400 transition-colors"
+                        >
+                          {company.website.replace(/^https?:\/\//, '')}
+                          <ExternalLink className="h-3 w-3 opacity-60" />
+                        </a>
+                      ) : (
+                        <span className="text-text-tertiary">—</span>
+                      )}
+                    </td>
+                    <td className="p-3.5 text-caption text-text-tertiary">{company.email ?? '—'}</td>
+                    <td className="p-3.5">
+                      <Badge variant={company.status === 'Active' ? 'success' : 'neutral'}>
+                        {company.status}
+                      </Badge>
+                    </td>
+                    <td className="p-3.5 text-right">
+                      <Link
+                        href={`/companies/${company.id}`}
+                        className="text-caption text-text-tertiary hover:text-forge-400 font-medium transition-colors"
+                      >
+                        View →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* Create Modal */}
+      {/* Floating Sticky Bulk Actions Bar */}
+      <BulkActionsBar
+        entityType="Company"
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        onBulkDelete={handleBulkDelete}
+        onBulkArchive={handleBulkArchive}
+        onBulkUpdateStatus={handleBulkUpdateStatus}
+        onBulkExport={() => setIsExportOpen(true)}
+      />
+
+      {/* Modals */}
       {isCreateOpen && (
-        <Modal title="New Company" onClose={() => setIsCreateOpen(false)}>
-          {createError && (
-            <div className="mb-4 rounded-md border border-red-500/20 bg-red-500/8 px-3 py-2.5 text-label text-red-400">
-              {createError}
-            </div>
-          )}
+        <Modal title="Add New Company" onClose={() => setIsCreateOpen(false)}>
           <form onSubmit={handleCreate} className="space-y-4">
-            <FormField label="Company name" htmlFor="co_name" required>
-              <Input id="co_name" required placeholder="Acme Corporation" value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })} />
+            {createError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 p-3 text-caption text-red-400">
+                {createError}
+              </div>
+            )}
+            <FormField label="Company Name *" htmlFor="name">
+              <Input
+                id="name"
+                required
+                placeholder="e.g. Acme Corp"
+                value={createForm.name}
+                onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
+              />
             </FormField>
-            <div className="grid grid-cols-2 gap-3">
-              <FormField label="Website" htmlFor="co_web">
-                <Input id="co_web" placeholder="https://acme.com" value={createForm.website} onChange={(e) => setCreateForm({ ...createForm, website: e.target.value })} />
-              </FormField>
-              <FormField label="Email" htmlFor="co_email">
-                <Input id="co_email" type="email" value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
-              </FormField>
-              <FormField label="Phone" htmlFor="co_phone">
-                <Input id="co_phone" value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} />
-              </FormField>
-              <FormField label="Employee count" htmlFor="co_emp">
-                <Input id="co_emp" type="number" min={0} value={createForm.employee_count} onChange={(e) => setCreateForm({ ...createForm, employee_count: e.target.value })} />
-              </FormField>
-            </div>
-            <FormField label="Annual revenue ($)" htmlFor="co_rev">
-              <Input id="co_rev" type="number" min={0} value={createForm.annual_revenue} onChange={(e) => setCreateForm({ ...createForm, annual_revenue: e.target.value })} />
+
+            <FormField label="Website" htmlFor="website">
+              <Input
+                id="website"
+                placeholder="acme.com"
+                value={createForm.website}
+                onChange={(e) => setCreateForm({ ...createForm, website: e.target.value })}
+              />
             </FormField>
-            <FormField label="Description" htmlFor="co_desc">
-              <Textarea id="co_desc" rows={2} value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })} />
+
+            <FormField label="Email" htmlFor="email">
+              <Input
+                id="email"
+                type="email"
+                placeholder="contact@acme.com"
+                value={createForm.email}
+                onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+              />
             </FormField>
-            <div className="flex justify-end gap-2 pt-2">
+
+            <div className="flex justify-end gap-2 pt-3 border-t" style={{ borderColor: 'var(--border-subtle)' }}>
               <Button type="button" variant="ghost" size="md" onClick={() => setIsCreateOpen(false)}>Cancel</Button>
-              <Button type="submit" size="md" loading={isCreatingCompany}>Save Company</Button>
+              <Button type="submit" size="md" disabled={isCreatingCompany}>
+                {isCreatingCompany ? 'Creating...' : 'Create Company'}
+              </Button>
             </div>
           </form>
         </Modal>
       )}
-    </div>
+
+      {isImportOpen && (
+        <CSVImportModal entityType="Company" onClose={() => setIsImportOpen(false)} />
+      )}
+
+      {isExportOpen && (
+        <ExportModal entityType="Company" selectedIds={Array.from(selectedIds)} onClose={() => setIsExportOpen(false)} />
+      )}
+      </Stack>
+    </Container>
   );
 }

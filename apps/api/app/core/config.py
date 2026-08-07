@@ -80,16 +80,19 @@ class Settings(BaseSettings):
     API_PORT: int = Field(default=8000, ge=1, le=65535, description="API port")
     API_PREFIX: str = Field(default="/api/v1", description="API route prefix")
     API_CORS_ORIGINS: list[AnyHttpUrl] = Field(
-        default=[AnyHttpUrl("http://localhost:3000")],
+        default=[
+            AnyHttpUrl("http://localhost:3000"),
+            AnyHttpUrl("http://127.0.0.1:3000"),
+        ],
         description="Allowed CORS origins",
     )
 
     # ── Database (PostgreSQL 17) ──────────────────────────────────────────────
-    DATABASE_URL: PostgresDsn = Field(
+    DATABASE_URL: PostgresDsn | str = Field(
         ...,
         description="PostgreSQL async connection URL (asyncpg driver)",
     )
-    TEST_DATABASE_URL: PostgresDsn | None = Field(
+    TEST_DATABASE_URL: PostgresDsn | str | None = Field(
         default=None,
         description="PostgreSQL test database URL",
     )
@@ -150,6 +153,12 @@ class Settings(BaseSettings):
     AWS_SECRET_ACCESS_KEY: SecretStr | None = Field(default=None)
     AWS_S3_BUCKET: str | None = Field(default=None)
     AWS_S3_REGION: str = Field(default="us-east-1")
+
+    # Cloudinary Object Storage
+    CLOUDINARY_URL: SecretStr | None = Field(default=None, description="Cloudinary connection URL")
+    CLOUDINARY_CLOUD_NAME: str = Field(default="dgvpkop35", description="Cloudinary cloud name")
+    CLOUDINARY_API_KEY: SecretStr | None = Field(default=None, description="Cloudinary API key")
+    CLOUDINARY_API_SECRET: SecretStr | None = Field(default=None, description="Cloudinary API secret")
 
     # ── Email ─────────────────────────────────────────────────────────────────
     SMTP_HOST: str | None = Field(default=None, description="SMTP server host")

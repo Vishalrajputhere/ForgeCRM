@@ -14,7 +14,7 @@ import os
 # Set test environment variables BEFORE importing app modules
 os.environ["APP_ENV"] = "testing"
 os.environ["APP_SECRET_KEY"] = "test_secret_key_that_is_at_least_32_characters_long"
-os.environ["DATABASE_URL"] = "postgresql+asyncpg://forgecrm:forgecrm_dev_password@localhost:5432/forgecrm_test"
+os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///./test.db")
 os.environ["REDIS_URL"] = "redis://:forgecrm_dev_password@localhost:6379/1"
 os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_that_is_at_least_32_characters_long"
 
@@ -69,10 +69,11 @@ async def test_engine(test_settings: Settings) -> AsyncGenerator[Any]:
     Creates all tables before the test session and drops them after.
     Uses the test database to avoid polluting development data.
     """
-    engine = create_async_engine(
-        str(test_settings.DATABASE_URL),
-        echo=False,
-    )
+    db_url = str(test_settings.DATABASE_URL)
+    kw: dict[str, Any] = {"echo": False}
+    if db_url.startswith("sqlite"):
+        kw["connect_args"] = {"check_same_thread": False}
+    engine = create_async_engine(db_url, **kw)
 
     # Drop and recreate all tables for a clean test database state
     async with engine.begin() as conn:

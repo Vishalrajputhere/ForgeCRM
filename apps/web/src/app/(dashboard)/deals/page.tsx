@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { TrendingUp, Plus, X } from 'lucide-react';
+import { TrendingUp, Plus, X, GitBranch } from 'lucide-react';
 
+import { Heading, Text, Metric, Caption } from '@/components/ui/typography';
+import { Container, Stack, PageHeader, PageActions, Grid } from '@/components/ui/layout-primitives';
 import { KanbanBoard } from '@/components/crm/kanban-board';
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
@@ -14,13 +16,9 @@ import { Button, Input, Select, Skeleton, FormField, Textarea } from '@/componen
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-      <div className="w-full max-w-lg overflow-y-auto rounded-xl border bg-surface-overlay shadow-xl max-h-[90vh]"
-        style={{ borderColor: 'var(--border-strong)' }}
-      >
-        <div className="flex items-center justify-between border-b px-5 py-4"
-          style={{ borderColor: 'var(--border-subtle)' }}
-        >
-          <h2 className="text-h3 text-text-primary">{title}</h2>
+      <div className="w-full max-w-lg overflow-y-auto rounded-xl border border-border-strong bg-overlay shadow-xl max-h-[90vh]">
+        <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4">
+          <Heading level="h3">{title}</Heading>
           <button type="button" onClick={onClose} className="rounded-md p-1 text-text-tertiary hover:text-text-primary hover:bg-[rgba(255,255,255,0.06)] transition-colors">
             <X className="h-4 w-4" strokeWidth={1.5} />
           </button>
@@ -84,33 +82,42 @@ export default function DealsPage(): React.JSX.Element {
   };
 
   return (
-    <div className="space-y-5 p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-h1 text-text-primary">Deals</h1>
-          <p className="text-label text-text-tertiary mt-0.5">Manage your sales pipeline and close revenue</p>
-        </div>
-        <Button onClick={() => setIsModalOpen(true)} size="md">
-          <Plus className="h-4 w-4" strokeWidth={2} />
-          Add Deal
-        </Button>
-      </div>
-
-      {/* KPI Bar */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: 'Open deals',     value: String(openDeals.length),         color: 'text-text-primary' },
-          { label: 'Pipeline value', value: formatCurrency(totalPipeline),     color: 'text-forge-400' },
-          { label: 'Won this period',value: String(wonDeals.length),           color: 'text-emerald-400' },
-          { label: 'Revenue won',    value: formatCurrency(totalWon),          color: 'text-emerald-400' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="rounded-lg border p-4" style={{ borderColor: 'var(--border-default)', backgroundColor: 'var(--surface-raised)' }}>
-            <p className="text-caption text-text-tertiary">{label}</p>
-            <p className={`text-h2 tabular mt-1 ${color}`}>{value}</p>
+    <Container size="xl" className="py-6">
+      <Stack gap={5}>
+        {/* Header */}
+        <PageHeader>
+          <div>
+            <Heading level="h1">Deals</Heading>
+            <Text variant="body-m" color="secondary" className="mt-0.5">Manage your sales pipeline and close revenue</Text>
           </div>
-        ))}
-      </div>
+          <PageActions>
+            <a
+              href="/workspace"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-default bg-surface px-3 py-2 text-xs font-medium text-secondary hover:text-primary hover:border-border-strong transition-colors"
+            >
+              <GitBranch className="h-3.5 w-3.5 text-accent" /> Configure Pipelines
+            </a>
+            <Button onClick={() => setIsModalOpen(true)} size="md">
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              Add Deal
+            </Button>
+          </PageActions>
+        </PageHeader>
+
+        {/* KPI Bar */}
+        <Grid cols={{ mobile: 2, desktop: 4 }} gap={3}>
+          {[
+            { label: 'Open deals',     value: String(openDeals.length) },
+            { label: 'Pipeline value', value: formatCurrency(totalPipeline) },
+            { label: 'Won this period',value: String(wonDeals.length) },
+            { label: 'Revenue won',    value: formatCurrency(totalWon) },
+          ].map(({ label, value }) => (
+            <div key={label} className="rounded-lg border border-border-default bg-surface p-4 shadow-xs">
+              <Caption color="muted">{label}</Caption>
+              <Metric value={value} size="md" className="mt-1" />
+            </div>
+          ))}
+        </Grid>
 
       {/* Kanban */}
       {isLoadingDeals ? (
@@ -188,6 +195,7 @@ export default function DealsPage(): React.JSX.Element {
           </form>
         </Modal>
       )}
-    </div>
+      </Stack>
+    </Container>
   );
 }

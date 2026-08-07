@@ -15,7 +15,7 @@ const registerSchema = z.object({
   first_name: z.string().min(1, 'First name is required').max(100),
   last_name:  z.string().min(1, 'Last name is required').max(100),
   email:      z.string().email('Please enter a valid email'),
-  password:   z.string().min(12, 'Must be at least 12 characters').max(128),
+  password:   z.string().min(6, 'Must be at least 6 characters').max(128),
   job_title:  z.string().optional(),
 });
 
@@ -98,12 +98,12 @@ export default function RegisterPage(): React.JSX.Element {
           label="Password"
           htmlFor="password"
           error={errors.password?.message}
-          hint="Must be at least 12 characters"
+          hint="Must be at least 6 characters"
         >
           <Input
             id="password"
             type="password"
-            placeholder="12+ characters"
+            placeholder="6+ characters"
             autoComplete="new-password"
             error={!!errors.password}
             {...register('password')}

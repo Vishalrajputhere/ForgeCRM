@@ -62,11 +62,11 @@ export default function RootLayout({ children }: RootLayoutProps): React.JSX.Ele
       className={`${geistSans.variable} ${geistMono.variable}`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen bg-surface-base font-sans antialiased">
+      <body className="min-h-screen bg-canvas font-sans text-txt-primary antialiased">
         <ThemeProvider
           attribute="class"
-          defaultTheme="dark"
-          forcedTheme="dark"
+          defaultTheme="system"
+          enableSystem
           disableTransitionOnChange
         >
           <QueryProvider>
