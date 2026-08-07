@@ -53,7 +53,8 @@ async def chat_completion(
 ) -> AIChatResponse:
     user, workspace = auth
     service = AIService(db)
-    return await service.chat(payload, workspace_id=workspace.id, user_id=user.id)
+    ws_name = getattr(workspace, "name", "Default Workspace")
+    return await service.chat(payload, workspace_id=workspace.id if workspace else user.id, workspace_name=ws_name, user_id=user.id)
 
 
 @router.post(
@@ -68,9 +69,11 @@ async def stream_chat_completion(
 ) -> StreamingResponse:
     user, workspace = auth
     service = AIService(db)
+    ws_name = getattr(workspace, "name", "Default Workspace")
+    ws_id = workspace.id if workspace else user.id
 
     async def event_generator():
-        async for chunk in service.stream(payload, workspace_id=workspace.id, user_id=user.id):
+        async for chunk in service.stream(payload, workspace_id=ws_id, workspace_name=ws_name, user_id=user.id):
             yield f"data: {json.dumps(chunk.model_dump(mode='json'))}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
