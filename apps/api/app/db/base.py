@@ -177,6 +177,7 @@ try:
     from app.modules.identity import models as _identity_models  # noqa: F401
     from app.modules.workspace import models as _workspace_models  # noqa: F401
     from app.modules.ai import models as _ai_models  # noqa: F401
+    from app.modules.ai.agents import models as _ai_agent_models  # noqa: F401
 except ImportError:
     pass
 
