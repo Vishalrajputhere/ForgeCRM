@@ -173,6 +173,13 @@ class BaseModel(Base, UUIDPrimaryKeyMixin, AuditMixin, SoftDeleteMixin):
     __abstract__ = True
 
 
+try:
+    from app.modules.identity import models as _identity_models  # noqa: F401
+    from app.modules.workspace import models as _workspace_models  # noqa: F401
+    from app.modules.ai import models as _ai_models  # noqa: F401
+except ImportError:
+    pass
+
 __all__ = [
     "AuditMixin",
     "Base",

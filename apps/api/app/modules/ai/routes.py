@@ -18,6 +18,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user_and_workspace
 from app.db.engine import get_db
+from app.modules.ai.context import EnterpriseContextBuilder
+from app.modules.ai.rag import RAGRetrievalEngine
 from app.modules.ai.schemas import AIChatRequest, AIChatResponse, AIProviderCapability
 from app.modules.ai.service import AIService
 from app.modules.identity.models import User
@@ -77,3 +79,46 @@ async def stream_chat_completion(
             yield f"data: {json.dumps(chunk.model_dump(mode='json'))}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@router.post(
+    "/rag/query",
+    status_code=status.HTTP_200_OK,
+    summary="Execute hybrid vector + keyword RAG search over workspace documents",
+)
+async def query_rag_engine(
+    query_text: str,
+    top_k: int = 5,
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+):
+    user, workspace = auth
+    engine = RAGRetrievalEngine(db)
+    ws_id = workspace.id if workspace else user.id
+    return await engine.search(workspace_id=ws_id, user_id=user.id, query=query_text, top_k=top_k)
+
+
+@router.get(
+    "/debug/context",
+    status_code=status.HTTP_200_OK,
+    summary="Inspect assembled AI context, ranking, quality scores, and snapshot telemetry",
+)
+async def debug_assembled_context(
+    active_route: str | None = None,
+    entity_type: str | None = None,
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+):
+    user, workspace = auth
+    ws_name = getattr(workspace, "name", "Default Workspace")
+    ws_id = workspace.id if workspace else user.id
+    builder = EnterpriseContextBuilder(db)
+    return await builder.build(
+        workspace_id=ws_id,
+        workspace_name=ws_name,
+        user_id=user.id,
+        user_role="admin",
+        active_route=active_route,
+        entity_type=entity_type,
+        user_prompt="Inspect active workspace context",
+    )

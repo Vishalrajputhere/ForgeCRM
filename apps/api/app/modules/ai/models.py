@@ -96,3 +96,53 @@ class AIUsageMeter(Base):
     completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     estimated_cost_usd: Mapped[float] = mapped_column(Numeric(10, 6), nullable=False, default=0.0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIDocumentChunk(Base):
+    """Stores text chunks and vector embeddings for pgvector RAG retrieval."""
+
+    __tablename__ = "ai_document_chunks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    entity_type: Mapped[str] = mapped_column(String(64), nullable=False, index=True)  # company, deal, note, file
+    entity_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    chunk_text: Mapped[str] = mapped_column(Text, nullable=False)
+    embedding_model: Mapped[str] = mapped_column(String(64), nullable=False, default="text-embedding-3-small")
+    embedding_version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0.0")
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIRetrievalLog(Base):
+    """Audit log for vector & hybrid RAG queries."""
+
+    __tablename__ = "ai_retrieval_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    query_text: Mapped[str] = mapped_column(Text, nullable=False)
+    top_k: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    results_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIContextSnapshot(Base):
+    """Snapshot audit log for assembled AI context, explainability scores, and metrics."""
+
+    __tablename__ = "ai_context_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    route: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    assembled_context: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    discarded_context: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    quality_metrics: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    build_duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+

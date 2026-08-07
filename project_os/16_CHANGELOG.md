@@ -2,6 +2,22 @@
 
 All future implementations must append changes to this living log following this exact markdown structure:
 
+## [2.2.0-phase7.2.2] — 2026-08-07
+
+### `pgvector` Hybrid RAG Engine & Document Embedding Pipeline
+- **Document Chunker Engine (`apps/api/app/modules/ai/chunker.py`)**: `DocumentChunker` with 512-token sliding window and 64-token overlap for raw documents, notes, CSVs, and emails.
+- **Embedding Pipeline (`ai/embeddings.py`)**: `EmbeddingService` generating 1536D normalized vector embeddings with model versioning (`text-embedding-3-small@v1`).
+- **Hybrid RAG Retrieval Engine (`ai/rag.py`)**: `RAGRetrievalEngine` performing reciprocal rank fusion (RRF) combining cosine vector similarity (`0.7`) with PostgreSQL `tsvector` keyword search (`0.3`) and citation confidence scoring.
+- **SQLAlchemy 2 ORM Models (`ai/models.py`)**: `AIDocumentChunk`, `AIRetrievalLog`, `AIContextSnapshot`.
+- **FastAPI Endpoints (`ai/routes.py`)**: `POST /api/v1/ai/rag/query` and `GET /api/v1/ai/debug/context`.
+
+### Quality & Verification
+- **Sub-phase 7.2.2 Unit & Integration Tests (`apps/api/tests/test_ai_rag.py`)**: 3/3 tests passing (`test_document_chunker_sliding_window`, `test_embedding_service_generation`, `test_rag_retrieval_engine_search`).
+- **Regression Suite**: 10/10 AI test cases passing across `test_ai_rag.py`, `test_ai_context.py`, and `test_ai.py`.
+- **Frontend Type Safety**: Executed `npx tsc --noEmit` — Exit code 0 (**0 compilation errors** across 100% of files).
+
+---
+
 ## [2.2.0-phase7.2.1] — 2026-08-07
 
 ### Enterprise AI Context Builder & Security Engine

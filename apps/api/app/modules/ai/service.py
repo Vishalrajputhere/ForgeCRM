@@ -39,6 +39,7 @@ class AIService:
         if request.messages:
             request.messages[-1].content = AISecuritySanitizer.sanitize_prompt(request.messages[-1].content)
 
+        user_prompt = request.messages[-1].content if request.messages else None
         provider = self.router.get_provider(request.provider)
         context = await self.context_builder.build(
             workspace_id=workspace_id,
@@ -47,6 +48,7 @@ class AIService:
             user_role=user_role,
             entity_type=request.entity_type,
             entity_id=request.entity_id,
+            user_prompt=user_prompt,
             model_name=request.model or "gemini-1.5-flash",
         )
         return await provider.chat(request)
@@ -63,6 +65,7 @@ class AIService:
         if request.messages:
             request.messages[-1].content = AISecuritySanitizer.sanitize_prompt(request.messages[-1].content)
 
+        user_prompt = request.messages[-1].content if request.messages else None
         provider = self.router.get_provider(request.provider)
         context = await self.context_builder.build(
             workspace_id=workspace_id,
@@ -71,6 +74,7 @@ class AIService:
             user_role=user_role,
             entity_type=request.entity_type,
             entity_id=request.entity_id,
+            user_prompt=user_prompt,
             model_name=request.model or "gemini-1.5-flash",
         )
         async for chunk in provider.stream(request):
