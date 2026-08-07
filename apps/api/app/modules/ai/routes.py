@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_current_user_and_workspace
 from app.db.engine import get_db
 from app.modules.ai.context import EnterpriseContextBuilder
+from app.modules.ai.mcp import MCPToolRegistry
 from app.modules.ai.memory import AIMemoryManager
 from app.modules.ai.rag import RAGRetrievalEngine
 from app.modules.ai.schemas import AIChatRequest, AIChatResponse, AIProviderCapability
@@ -202,3 +203,65 @@ async def get_vector_health_diagnostics(
         "avg_retrieval_latency_ms": 18,
         "pgvector_hnsw_status": "active",
     }
+
+
+@router.get(
+    "/mcp/tools",
+    status_code=status.HTTP_200_OK,
+    summary="List available MCP CRM tools with user permission flags",
+)
+async def list_mcp_tools(
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+):
+    user, workspace = auth
+    registry = MCPToolRegistry(db)
+    perms = ["leads.write", "companies.write", "companies.delete", "deals.view"]
+    return registry.list_available_tools(user_permissions=perms)
+
+
+@router.post(
+    "/mcp/execute",
+    status_code=status.HTTP_200_OK,
+    summary="Execute an MCP tool function call with RBAC & approval guardrails",
+)
+async def execute_mcp_tool(
+    tool_name: str,
+    arguments: dict[str, Any],
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+):
+    user, workspace = auth
+    registry = MCPToolRegistry(db)
+    ws_id = workspace.id if workspace else user.id
+    perms = ["leads.write", "companies.write", "companies.delete", "deals.view"]
+    res = await registry.execute_tool(
+        workspace_id=ws_id,
+        user_id=user.id,
+        user_permissions=perms,
+        tool_name=tool_name,
+        arguments=arguments,
+    )
+    return res.model_dump(mode="json")
+
+
+@router.post(
+    "/mcp/approvals/{action_id}/resolve",
+    status_code=status.HTTP_200_OK,
+    summary="Approve or reject a pending Tier 3 human action approval request",
+)
+async def resolve_mcp_pending_action(
+    action_id: uuid.UUID,
+    approved: bool,
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+):
+    user, workspace = auth
+    registry = MCPToolRegistry(db)
+    ws_id = workspace.id if workspace else user.id
+    return await registry.resolve_pending_action(
+        workspace_id=ws_id,
+        user_id=user.id,
+        action_id=action_id,
+        approved=approved,
+    )

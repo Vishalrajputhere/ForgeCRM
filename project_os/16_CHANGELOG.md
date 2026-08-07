@@ -2,6 +2,21 @@
 
 All future implementations must append changes to this living log following this exact markdown structure:
 
+## [2.2.0-phase7.2.4] — 2026-08-07
+
+### MCP Tool Registry & Action Approval Guardrails
+- **MCP Tool Registry (`apps/api/app/modules/ai/mcp.py`)**: `MCPToolRegistry` defining CRM tool schemas (`create_lead`, `update_company`, `delete_company`, `search_deals`) with RBAC permission enforcement (`leads.write`, `companies.delete`).
+- **Tier 3 Human Action Approval Workflow (`ai/models.py`, `mcp.py`)**: `AIPendingAction` capturing destructive operations (`delete_company`) requiring human confirmation before execution.
+- **Tool Audit Logging (`ai/models.py`)**: `AIToolExecutionLog` audit trail tracking tool arguments, outputs, execution duration, and status (`success`, `approval_required`, `failed`).
+- **MCP REST Endpoints (`ai/routes.py`)**: `GET /api/v1/ai/mcp/tools`, `POST /api/v1/ai/mcp/execute`, and `POST /api/v1/ai/mcp/approvals/{id}/resolve`.
+
+### Quality & Verification
+- **Sub-phase 7.2.4 Unit & Integration Tests (`apps/api/tests/test_ai_mcp.py`)**: 4/4 tests passing (`test_mcp_tool_discovery_and_permissions`, `test_mcp_tool_execution_success`, `test_mcp_tool_permission_denied`, `test_mcp_destructive_tool_approval_workflow`).
+- **Regression Suite**: 16/16 AI test cases passing across `test_ai_mcp.py`, `test_ai_memory.py`, `test_ai_rag.py`, `test_ai_context.py`, and `test_ai.py`.
+- **Frontend Type Safety**: Executed `npx tsc --noEmit` — Exit code 0 (**0 compilation errors** across 100% of files).
+
+---
+
 ## [2.2.0-phase7.2.3] — 2026-08-07
 
 ### AI Memory Manager & Conversation Tree Branching
