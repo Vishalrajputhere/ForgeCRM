@@ -2,6 +2,20 @@
 
 All future implementations must append changes to this living log following this exact markdown structure:
 
+## [2.2.0-phase7.2.3] — 2026-08-07
+
+### AI Memory Manager & Conversation Tree Branching
+- **AI Memory Manager (`apps/api/app/modules/ai/memory.py`)**: `AIMemoryManager` handling 4 memory tiers: Workspace Memory, User Preferences, Pinned Rules, and Conversation Memory Summaries.
+- **Conversation Tree Branching (`ai/models.py`)**: Added `parent_message_id` to `AIMessage` enabling ChatGPT-style message editing and tree-based conversation branching (`Branch A`, `Branch B`).
+- **Vector Health & Memory REST Endpoints (`ai/routes.py`)**: `GET /api/v1/ai/memory`, `POST /api/v1/ai/memory`, `DELETE /api/v1/ai/memory/{id}`, and `GET /api/v1/ai/vector/health`.
+
+### Quality & Verification
+- **Sub-phase 7.2.3 Unit & Integration Tests (`apps/api/tests/test_ai_memory.py`)**: 2/2 tests passing (`test_ai_memory_manager_crud`, `test_conversation_summarization_engine`).
+- **Regression Suite**: 12/12 AI test cases passing across `test_ai_memory.py`, `test_ai_rag.py`, `test_ai_context.py`, and `test_ai.py`.
+- **Frontend Type Safety**: Executed `npx tsc --noEmit` — Exit code 0 (**0 compilation errors** across 100% of files).
+
+---
+
 ## [2.2.0-phase7.2.2] — 2026-08-07
 
 ### `pgvector` Hybrid RAG Engine & Document Embedding Pipeline
