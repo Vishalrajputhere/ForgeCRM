@@ -386,6 +386,50 @@ class AIExecutiveInsight(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.5.1 — AI Evaluation & Benchmarking Models ───────────────────────
+
+
+class AIEvaluationRun(Base):
+    """Execution log and scoring results for AI skill evaluation runs."""
+
+    __tablename__ = "ai_evaluation_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    skill_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False, default="gemini")
+    model: Mapped[str] = mapped_column(String(64), nullable=False, default="gemini-2.5-flash")
+    accuracy_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.90)
+    faithfulness_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.92)
+    hallucination_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.04)  # Lower is better
+    citation_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.95)
+    overall_quality_score: Mapped[float] = mapped_column(Float, nullable=False, default=91.5)  # 0-100 scale
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=450)
+    metrics_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    evaluated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIBenchmarkResult(Base):
+    """Benchmark suite results comparing AI providers and prompt templates."""
+
+    __tablename__ = "ai_benchmark_results"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    benchmark_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    model: Mapped[str] = mapped_column(String(64), nullable=False)
+    sample_count: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    passed_count: Mapped[int] = mapped_column(Integer, nullable=False, default=48)
+    pass_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.96)
+    avg_latency_ms: Mapped[float] = mapped_column(Float, nullable=False, default=320.0)
+    total_tokens_used: Mapped[int] = mapped_column(Integer, nullable=False, default=12500)
+    total_cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.015)
+    results_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 
