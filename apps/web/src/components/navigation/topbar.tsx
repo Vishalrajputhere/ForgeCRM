@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Search, Bell, LogOut, Settings } from 'lucide-react';
+import { Search, Bell, LogOut, Settings, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import { Breadcrumb } from '@/components/navigation/breadcrumb';
 import { QuickCreateMenu } from '@/components/navigation/quick-create';
 import { useNavigationStore } from '@/stores/navigation-store';
@@ -33,6 +34,16 @@ export function Topbar({ onOpenCmdK }: { onOpenCmdK: () => void }) {
           <span>Search or jump to…</span>
           <kbd className="ml-2 rounded border border-border-strong bg-overlay px-1.5 font-mono text-[10px]">Cmd+K</kbd>
         </button>
+
+        {/* AI Quick Copilot Action */}
+        <Link
+          href="/ai/copilot"
+          className="hidden md:flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent hover:bg-accent/20 transition-all shadow-xs"
+          title="Open AI Sales Copilot"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span>AI Copilot</span>
+        </Link>
 
         {/* Quick Create Menu */}
         <QuickCreateMenu />

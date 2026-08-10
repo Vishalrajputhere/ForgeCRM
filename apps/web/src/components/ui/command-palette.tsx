@@ -13,6 +13,12 @@ import {
   Plus,
   Search,
   HardDrive,
+  Sparkles,
+  ShieldAlert,
+  Target,
+  Mail,
+  Crown,
+  Shield,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/cn';
@@ -57,6 +63,13 @@ export function CommandPalette({
     { id: 'companies', label: 'Companies', group: 'navigation', icon: <Building2 className="h-4 w-4" strokeWidth={1.5} />,       shortcut: 'G C', onSelect: () => navigate('/companies') },
     { id: 'contacts',  label: 'Contacts',  group: 'navigation', icon: <Users className="h-4 w-4" strokeWidth={1.5} />,           shortcut: 'G O', onSelect: () => navigate('/contacts') },
     { id: 'deals',     label: 'Deals',     group: 'navigation', icon: <TrendingUp className="h-4 w-4" strokeWidth={1.5} />,      shortcut: 'G E', onSelect: () => navigate('/deals') },
+    { id: 'ai-copilot', label: 'AI Sales Copilot', group: 'navigation', icon: <Sparkles className="h-4 w-4 text-accent" strokeWidth={1.5} />, shortcut: 'G A', onSelect: () => navigate('/ai/copilot') },
+    { id: 'ai-deal-coach', label: 'AI Deal Coach', group: 'navigation', icon: <ShieldAlert className="h-4 w-4 text-rose-400" strokeWidth={1.5} />, shortcut: 'G H', onSelect: () => navigate('/ai/deal-coach') },
+    { id: 'ai-lead-qual', label: 'AI Lead Qualification', group: 'navigation', icon: <Target className="h-4 w-4 text-emerald-400" strokeWidth={1.5} />, shortcut: 'G Q', onSelect: () => navigate('/ai/lead-qualification') },
+    { id: 'ai-forecast', label: 'Forecast AI Intelligence', group: 'navigation', icon: <TrendingUp className="h-4 w-4 text-amber-400" strokeWidth={1.5} />, shortcut: 'G F', onSelect: () => navigate('/ai/forecast') },
+    { id: 'ai-email', label: 'Email AI Copilot', group: 'navigation', icon: <Mail className="h-4 w-4 text-sky-400" strokeWidth={1.5} />, shortcut: 'G M', onSelect: () => navigate('/ai/email') },
+    { id: 'ai-executive', label: 'Executive Copilot', group: 'navigation', icon: <Crown className="h-4 w-4 text-indigo-400" strokeWidth={1.5} />, shortcut: 'G X', onSelect: () => navigate('/ai/executive') },
+    { id: 'ai-admin', label: 'AI Governance Admin', group: 'navigation', icon: <Shield className="h-4 w-4 text-emerald-500" strokeWidth={1.5} />, shortcut: 'G I', onSelect: () => navigate('/ai/admin') },
     { id: 'tasks',     label: 'Tasks',     group: 'navigation', icon: <CheckSquare2 className="h-4 w-4" strokeWidth={1.5} />,    shortcut: 'G T', onSelect: () => navigate('/tasks') },
     { id: 'storage',   label: 'Storage Manager', group: 'navigation', icon: <HardDrive className="h-4 w-4" strokeWidth={1.5} />, shortcut: 'G S', onSelect: () => navigate('/storage') },
     { id: 'workspace', label: 'Workspace Settings', group: 'navigation', icon: <Settings2 className="h-4 w-4" strokeWidth={1.5} />, onSelect: () => navigate('/workspace') },

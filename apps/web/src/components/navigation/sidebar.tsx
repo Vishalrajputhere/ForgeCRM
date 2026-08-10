@@ -16,6 +16,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Star,
+  Sparkles,
+  ShieldAlert,
+  Target,
+  Mail,
+  Crown,
+  Terminal,
+  Shield,
 } from 'lucide-react';
 
 import { useNavigationStore } from '@/stores/navigation-store';
@@ -40,6 +47,19 @@ const NAV_GROUPS: NavGroup[] = [
       { name: 'Companies', href: '/companies', icon: Building2, count: 128 },
       { name: 'Contacts', href: '/contacts', icon: Users, count: 342 },
       { name: 'Deals', href: '/deals', icon: TrendingUp, count: 24 },
+    ],
+  },
+  {
+    label: 'AI Subsystem',
+    items: [
+      { name: 'Sales Copilot', href: '/ai/copilot', icon: Sparkles },
+      { name: 'Deal Coach', href: '/ai/deal-coach', icon: ShieldAlert },
+      { name: 'Lead Qualification', href: '/ai/lead-qualification', icon: Target },
+      { name: 'Forecast AI', href: '/ai/forecast', icon: TrendingUp },
+      { name: 'Email Assistant', href: '/ai/email', icon: Mail },
+      { name: 'Executive Copilot', href: '/ai/executive', icon: Crown },
+      { name: 'AI Debug Console', href: '/ai/debug', icon: Terminal },
+      { name: 'AI Governance Admin', href: '/ai/admin', icon: Shield },
     ],
   },
   {

@@ -16,6 +16,15 @@ const ROUTE_LABELS: Record<string, string> = {
   automations: 'Workflow Automations',
   workspace: 'Workspace Settings',
   'design-system': 'Design System',
+  ai: 'AI Subsystem',
+  copilot: 'Sales Copilot',
+  'deal-coach': 'Deal Coach',
+  'lead-qualification': 'Lead Qualification AI',
+  forecast: 'Forecast AI',
+  email: 'Email Assistant',
+  executive: 'Executive Copilot',
+  debug: 'AI Debug Console',
+  admin: 'AI Governance Admin',
 };
 
 export function Breadcrumb() {

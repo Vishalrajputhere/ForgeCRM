@@ -5,8 +5,11 @@ import {
   TrendingUp,
   Users,
   Zap,
-  Building2,
   ArrowUpRight,
+  CheckSquare2,
+  Sparkles,
+  ShieldAlert,
+  Target,
 } from 'lucide-react';
 
 import { useAnalytics } from '@/hooks/use-analytics';
@@ -111,7 +114,7 @@ function DealItem({ deal, companies }: { deal: DealResponse; companies: { id: st
 
 export default function DashboardPage(): React.JSX.Element {
   const { deals, tasks, companies, isLoadingDeals, isLoadingTasks } = useCRM();
-  const { overview, dealMetrics, leadMetrics, isLoadingOverview } = useAnalytics();
+  const { overview, leadMetrics, isLoadingOverview } = useAnalytics();
   const { formatCurrency } = useFormatters();
 
   const openTasks = tasks.filter((t) => t.status === 'Open').slice(0, 6);
@@ -152,6 +155,13 @@ export default function DashboardPage(): React.JSX.Element {
             loading={isLoadingOverview}
           />
           <StatCard
+            label="Open Tasks"
+            value={overview?.pending_tasks ?? openTasks.length}
+            icon={CheckSquare2}
+            href="/tasks"
+            loading={isLoadingOverview}
+          />
+          <StatCard
             label="Lead Conversion"
             value={leadMetrics ? `${leadMetrics.conversion_rate_percent}%` : '—'}
             sub={leadMetrics ? `${leadMetrics.converted_leads} of ${leadMetrics.total_leads} leads` : undefined}
@@ -159,14 +169,40 @@ export default function DashboardPage(): React.JSX.Element {
             href="/leads"
             loading={isLoadingOverview}
           />
-          <StatCard
-            label="Won Revenue"
-            value={dealMetrics ? formatCurrency(dealMetrics.total_won_revenue) : '—'}
-            sub={dealMetrics ? `${dealMetrics.win_rate_percent}% win rate` : undefined}
-            icon={Building2}
-            loading={isLoadingOverview}
-          />
         </Grid>
+
+        {/* ── AI Enterprise Intelligence & Quick Actions ───────────────────────── */}
+        <Surface variant="elevated" className="rounded-xl border border-accent/20 bg-gradient-to-r from-accent/10 via-elevated to-surface p-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-xl bg-accent/20 border border-accent/30 flex items-center justify-center text-accent shrink-0">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-sm font-bold text-primary flex items-center gap-2">
+                  <span>ForgeCRM Enterprise Sales Copilot</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-accent text-accent-fg">Active</span>
+                </h2>
+                <p className="text-xs text-muted">Generate account summaries, run win probability predictions, score new leads, or compose AI sales emails.</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <Link href="/ai/copilot" className="px-3 py-1.5 rounded-lg bg-accent text-accent-fg text-xs font-bold hover:bg-accent/90 transition-all flex items-center gap-1.5 shadow-sm">
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>Sales Copilot</span>
+              </Link>
+              <Link href="/ai/deal-coach" className="px-3 py-1.5 rounded-lg bg-surface border border-border-default hover:border-accent/40 text-xs font-semibold text-primary transition-all flex items-center gap-1.5">
+                <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
+                <span>Deal Coach</span>
+              </Link>
+              <Link href="/ai/lead-qualification" className="px-3 py-1.5 rounded-lg bg-surface border border-border-default hover:border-accent/40 text-xs font-semibold text-primary transition-all flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-emerald-400" />
+                <span>Lead Qual</span>
+              </Link>
+            </div>
+          </div>
+        </Surface>
 
         {/* ── Main Grid ────────────────────────────────────────────────────────── */}
         <Grid cols={{ mobile: 1, desktop: 2 }} gap={4}>

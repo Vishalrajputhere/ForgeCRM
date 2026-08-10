@@ -9,6 +9,9 @@ import {
   TrendingUp,
   Plus,
   Search,
+  Sparkles,
+  ShieldAlert,
+  Shield,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useNavigationStore } from '@/stores/navigation-store';
@@ -93,14 +96,44 @@ export function CommandPaletteV2({ open, onClose }: { open: boolean; onClose: ()
                 <kbd className="rounded border border-border-subtle bg-sunken px-1.5 font-mono text-[10px] text-muted">G C</kbd>
               </Command.Item>
               <Command.Item
-                onSelect={() => navigate('/deals', 'Sales Kanban & Deals')}
+                onSelect={() => navigate('/ai/copilot', 'AI Sales Copilot')}
                 className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-secondary hover:text-primary hover:bg-hover cursor-pointer"
               >
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-indigo-400" />
-                  <span>Sales Kanban & Deals</span>
+                  <Sparkles className="h-4 w-4 text-accent" />
+                  <span>AI Sales Copilot</span>
                 </div>
-                <kbd className="rounded border border-border-subtle bg-sunken px-1.5 font-mono text-[10px] text-muted">G E</kbd>
+                <kbd className="rounded border border-border-subtle bg-sunken px-1.5 font-mono text-[10px] text-muted">G A</kbd>
+              </Command.Item>
+              <Command.Item
+                onSelect={() => navigate('/ai/deal-coach', 'AI Deal Coach')}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-secondary hover:text-primary hover:bg-hover cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-4 w-4 text-rose-400" />
+                  <span>AI Deal Coach</span>
+                </div>
+                <kbd className="rounded border border-border-subtle bg-sunken px-1.5 font-mono text-[10px] text-muted">G H</kbd>
+              </Command.Item>
+              <Command.Item
+                onSelect={() => navigate('/ai/forecast', 'Forecast AI')}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-secondary hover:text-primary hover:bg-hover cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4 text-amber-400" />
+                  <span>Forecast AI</span>
+                </div>
+                <kbd className="rounded border border-border-subtle bg-sunken px-1.5 font-mono text-[10px] text-muted">G F</kbd>
+              </Command.Item>
+              <Command.Item
+                onSelect={() => navigate('/ai/admin', 'AI Governance Admin')}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-xs text-secondary hover:text-primary hover:bg-hover cursor-pointer"
+              >
+                <div className="flex items-center gap-2">
+                  <Shield className="h-4 w-4 text-emerald-400" />
+                  <span>AI Governance Admin</span>
+                </div>
+                <kbd className="rounded border border-border-subtle bg-sunken px-1.5 font-mono text-[10px] text-muted">G I</kbd>
               </Command.Item>
             </Command.Group>
 
