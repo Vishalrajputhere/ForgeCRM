@@ -3,7 +3,7 @@
 import * as React from 'react';
 import {
   Send, ShieldCheck, Zap, Mail, RefreshCw,
-  UserCheck, Award,
+  UserCheck, Target,
 } from 'lucide-react';
 import { AIResponseCard } from '@/components/ai/ai-response-card';
 import { type Citation } from '@/components/ai/citation-card';
@@ -18,6 +18,8 @@ import { QualificationTimeline } from '@/components/ai/qualification-timeline';
 import { BuyingSignalsPanel } from '@/components/ai/buying-signals-panel';
 import { FollowUpRecommendations } from '@/components/ai/follow-up-recommendations';
 import { QualificationReasoningPanel } from '@/components/ai/qualification-reasoning-panel';
+import { useCRM } from '@/hooks/use-crm';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 
 interface SkillMessage {
   id: string;
@@ -40,14 +42,17 @@ interface SkillMessage {
 }
 
 const LEAD_QUALIFICATION_SUGGESTIONS: PromptSuggestion[] = [
-  { icon: <UserCheck className="h-3.5 w-3.5" />, label: 'Qualify lead BANT', skill: 'qualify_lead' },
-  { icon: <Award className="h-3.5 w-3.5" />, label: 'Calculate composite lead score', skill: 'lead_score' },
+  { icon: <Target className="h-3.5 w-3.5" />, label: 'Qualify lead BANT', skill: 'qualify_lead' },
+  { icon: <UserCheck className="h-3.5 w-3.5" />, label: 'Calculate lead score', skill: 'lead_score' },
   { icon: <ShieldCheck className="h-3.5 w-3.5" />, label: 'ICP match analysis', skill: 'icp_match' },
   { icon: <Zap className="h-3.5 w-3.5" />, label: 'Detect buying signals', skill: 'buying_signals' },
   { icon: <Mail className="h-3.5 w-3.5" />, label: 'Outreach & follow-up strategy', skill: 'follow_up_strategy' },
 ];
 
 export default function AILeadQualificationPage() {
+  const { leads, isLoadingLeads } = useCRM();
+  const { currentWorkspace } = useWorkspaceStore();
+
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
@@ -58,9 +63,22 @@ export default function AILeadQualificationPage() {
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [selectedLeadName, setSelectedLeadName] = React.useState('Sarah Jenkins — VP Sales at NexaCorp');
+  const [selectedLeadId, setSelectedLeadId] = React.useState<string>('');
   const [selectedMessage, setSelectedMessage] = React.useState<SkillMessage | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Set default selected lead when leads load
+  React.useEffect(() => {
+    if (leads && leads.length > 0 && !selectedLeadId) {
+      const firstLead = leads[0];
+      if (firstLead?.id) setSelectedLeadId(firstLead.id);
+    }
+  }, [leads, selectedLeadId]);
+
+  const selectedLead = leads.find((l) => l.id === selectedLeadId);
+  const selectedLeadName = selectedLead
+    ? `${selectedLead.first_name} ${selectedLead.last_name ?? ''} — ${selectedLead.job_title ?? 'Lead'} at ${selectedLead.company_name ?? 'Account'}`
+    : 'All Inbound Leads';
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -95,13 +113,18 @@ export default function AILeadQualificationPage() {
     try {
       const res = await fetch('/api/v1/ai/lead-qualification', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Workspace-ID': currentWorkspace?.id || '',
+        },
         credentials: 'include',
         body: JSON.stringify({
           skill: skillKey,
           question: prompt,
           entity_type: 'lead',
+          entity_id: selectedLeadId,
           entity_name: selectedLeadName,
+          workspace_id: currentWorkspace?.id,
         }),
       });
 
@@ -166,13 +189,22 @@ export default function AILeadQualificationPage() {
           </div>
 
           <select
-            value={selectedLeadName}
-            onChange={(e) => setSelectedLeadName(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-surface border border-border-default text-xs font-semibold text-primary outline-none focus:border-accent"
+            value={selectedLeadId}
+            onChange={(e) => setSelectedLeadId(e.target.value)}
+            disabled={isLoadingLeads}
+            className="px-3 py-1.5 rounded-lg bg-surface border border-border-default text-xs font-semibold text-primary outline-none focus:border-accent disabled:opacity-50"
           >
-            <option value="Sarah Jenkins — VP Sales at NexaCorp">Sarah Jenkins — VP Sales at NexaCorp</option>
-            <option value="Marcus Vance — CTO at Apex Systems">Marcus Vance — CTO at Apex Systems</option>
-            <option value="Elena Rostova — Head of Growth at Scale AI">Elena Rostova — Head of Growth at Scale AI</option>
+            {isLoadingLeads ? (
+              <option value="">Loading workspace leads…</option>
+            ) : leads.length === 0 ? (
+              <option value="">No leads in workspace</option>
+            ) : (
+              leads.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.first_name} {l.last_name ?? ''} ({l.company_name ?? 'Lead'})
+                </option>
+              ))
+            )}
           </select>
         </div>
 

@@ -47,6 +47,8 @@ interface SkillMessage {
   isLoading?: boolean;
 }
 
+import { useWorkspaceStore } from '@/stores/workspace-store';
+
 interface Conversation {
   id: string;
   title: string;
@@ -56,13 +58,10 @@ interface Conversation {
   messageCount: number;
 }
 
-// ─── Mock Conversations ───────────────────────────────────────────────────────
-
-const MOCK_CONVERSATIONS: Conversation[] = [
-  { id: '1', title: 'Acme Corp Account Review', pinned: true, folder: 'Accounts', updatedAt: '2m ago', messageCount: 8 },
-  { id: '2', title: 'Q3 Pipeline Analysis', pinned: true, folder: 'Pipeline', updatedAt: '1h ago', messageCount: 12 },
-  { id: '3', title: 'Deal Risk Assessment', pinned: false, folder: 'Deals', updatedAt: '3h ago', messageCount: 5 },
-  { id: '4', title: 'Lead Qualification Session', pinned: false, folder: 'Leads', updatedAt: 'Yesterday', messageCount: 7 },
+const INITIAL_CONVERSATIONS: Conversation[] = [
+  { id: 'c-1', title: 'Pipeline Risk Assessment', pinned: true, folder: 'Pipeline', updatedAt: 'Just now', messageCount: 2 },
+  { id: 'c-2', title: 'Q3 Forecast Intelligence', pinned: true, folder: 'Forecast', updatedAt: 'Today', messageCount: 4 },
+  { id: 'c-3', title: 'Key Account Executive Brief', pinned: false, folder: 'Accounts', updatedAt: 'Yesterday', messageCount: 6 },
 ];
 
 function now() {
@@ -311,7 +310,16 @@ function ContextPanel({ message }: { message: SkillMessage | null }) {
 // ─── Main Page Component ──────────────────────────────────────────────────────
 
 export default function AICopilotPage() {
-  const [messages, setMessages] = React.useState<SkillMessage[]>([
+  const { currentWorkspace } = useWorkspaceStore();
+  const [conversations, setConversations] = React.useState<Conversation[]>(() => {
+    if (typeof window === 'undefined') return INITIAL_CONVERSATIONS;
+    const stored = localStorage.getItem('forge-copilot-conversations');
+    return stored ? JSON.parse(stored) : INITIAL_CONVERSATIONS;
+  });
+
+  const [activeConvId, setActiveConvId] = React.useState<string>('c-1');
+
+  const [messages, setMessages] = React.useState<SkillMessage[]>(() => [
     {
       id: 'welcome',
       role: 'assistant',
@@ -321,11 +329,16 @@ export default function AICopilotPage() {
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [activeConvId, setActiveConvId] = React.useState('1');
   const [selectedMessage, setSelectedMessage] = React.useState<SkillMessage | null>(null);
   const [showSidebar, setShowSidebar] = React.useState(true);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('forge-copilot-conversations', JSON.stringify(conversations));
+    }
+  }, [conversations]);
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -361,11 +374,15 @@ export default function AICopilotPage() {
       // Single unified API endpoint (Rule 7)
       const res = await fetch('/api/v1/ai/copilot', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Workspace-ID': currentWorkspace?.id || '',
+        },
         credentials: 'include',
         body: JSON.stringify({
           skill: skillType,
           question: prompt,
+          workspace_id: currentWorkspace?.id,
         }),
       });
 
@@ -394,6 +411,15 @@ export default function AICopilotPage() {
         };
         setMessages((prev) => prev.map((m) => (m.id === loadingId ? assistantMsg : m)));
         setSelectedMessage(assistantMsg);
+
+        // Update active conversation count
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === activeConvId
+              ? { ...c, messageCount: c.messageCount + 2, updatedAt: 'Just now' }
+              : c
+          )
+        );
       } else {
         const errMsg: SkillMessage = {
           id: loadingId,
@@ -430,19 +456,39 @@ export default function AICopilotPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleNewConversation = () => {
+    const newId = `c-${Date.now()}`;
+    const newConv: Conversation = {
+      id: newId,
+      title: `New Session ${conversations.length + 1}`,
+      pinned: false,
+      folder: 'General',
+      updatedAt: 'Just now',
+      messageCount: 1,
+    };
+    setConversations((prev) => [newConv, ...prev]);
+    setActiveConvId(newId);
+    setMessages([
+      {
+        id: `welcome-${Date.now()}`,
+        role: 'assistant',
+        content: 'New Copilot session initialized. Ask me anything about your deals, accounts, or pipeline.',
+        timestamp: now(),
+      },
+    ]);
+    setSelectedMessage(null);
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)] bg-background overflow-hidden">
       {/* Sidebar */}
       {showSidebar && (
         <div className="w-60 shrink-0 hidden lg:flex flex-col">
           <ConversationSidebar
-            conversations={MOCK_CONVERSATIONS}
+            conversations={conversations}
             activeId={activeConvId}
             onSelect={setActiveConvId}
-            onNew={() => {
-              setMessages([]);
-              setSelectedMessage(null);
-            }}
+            onNew={handleNewConversation}
           />
         </div>
       )}

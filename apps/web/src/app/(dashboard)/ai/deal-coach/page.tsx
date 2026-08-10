@@ -15,6 +15,9 @@ import { PromptSuggestionBar, type PromptSuggestion } from '@/components/ai/prom
 import { DealHealthTimeline } from '@/components/ai/deal-health-timeline';
 import { RiskPanel } from '@/components/ai/risk-panel';
 
+import { useCRM } from '@/hooks/use-crm';
+import { useWorkspaceStore } from '@/stores/workspace-store';
+
 interface SkillMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -44,6 +47,9 @@ const DEAL_COACH_SUGGESTIONS: PromptSuggestion[] = [
 ];
 
 export default function AIDealCoachPage() {
+  const { deals, isLoadingDeals } = useCRM();
+  const { currentWorkspace } = useWorkspaceStore();
+
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
@@ -54,9 +60,20 @@ export default function AIDealCoachPage() {
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [selectedDealName, setSelectedDealName] = React.useState('Acme Corp Enterprise License ($120K)');
+  const [selectedDealId, setSelectedDealId] = React.useState<string>('');
   const [selectedMessage, setSelectedMessage] = React.useState<SkillMessage | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Set default selected deal when deals load
+  React.useEffect(() => {
+    if (deals && deals.length > 0 && !selectedDealId) {
+      const firstDeal = deals[0];
+      if (firstDeal?.id) setSelectedDealId(firstDeal.id);
+    }
+  }, [deals, selectedDealId]);
+
+  const selectedDeal = deals.find((d) => d.id === selectedDealId);
+  const selectedDealName = selectedDeal ? `${selectedDeal.name} ($${selectedDeal.value?.toLocaleString() ?? 0})` : 'All Open Pipeline Deals';
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -91,13 +108,18 @@ export default function AIDealCoachPage() {
     try {
       const res = await fetch('/api/v1/ai/deal-coach', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Workspace-ID': currentWorkspace?.id || '',
+        },
         credentials: 'include',
         body: JSON.stringify({
           skill: skillKey,
           question: prompt,
           entity_type: 'deal',
+          entity_id: selectedDealId,
           entity_name: selectedDealName,
+          workspace_id: currentWorkspace?.id,
         }),
       });
 
@@ -162,13 +184,22 @@ export default function AIDealCoachPage() {
           </div>
 
           <select
-            value={selectedDealName}
-            onChange={(e) => setSelectedDealName(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-surface border border-border-default text-xs font-semibold text-primary outline-none focus:border-accent"
+            value={selectedDealId}
+            onChange={(e) => setSelectedDealId(e.target.value)}
+            disabled={isLoadingDeals}
+            className="px-3 py-1.5 rounded-lg bg-surface border border-border-default text-xs font-semibold text-primary outline-none focus:border-accent disabled:opacity-50"
           >
-            <option value="Acme Corp Enterprise License ($120K)">Acme Corp Enterprise License ($120K)</option>
-            <option value="Starlight Tech Platform Expansion ($85K)">Starlight Tech Platform Expansion ($85K)</option>
-            <option value="Global Logistics CRM Migration ($250K)">Global Logistics CRM Migration ($250K)</option>
+            {isLoadingDeals ? (
+              <option value="">Loading workspace deals…</option>
+            ) : deals.length === 0 ? (
+              <option value="">No deals in workspace</option>
+            ) : (
+              deals.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name} (${d.value?.toLocaleString() ?? 0})
+                </option>
+              ))
+            )}
           </select>
         </div>
 

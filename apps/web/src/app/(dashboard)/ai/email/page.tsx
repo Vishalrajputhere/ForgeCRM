@@ -20,6 +20,8 @@ import { ThreadTimeline } from '@/components/ai/thread-timeline';
 import { SuggestedReplies } from '@/components/ai/suggested-replies';
 import { EmailInsightsPanel } from '@/components/ai/email-insights-panel';
 import { EmailTranslationPanel } from '@/components/ai/email-translation-panel';
+import { useCRM } from '@/hooks/use-crm';
+import { useWorkspaceStore } from '@/stores/workspace-store';
 
 interface SkillMessage {
   id: string;
@@ -51,6 +53,9 @@ const EMAIL_SUGGESTIONS: PromptSuggestion[] = [
 ];
 
 export default function AIEmailPage() {
+  const { contacts, isLoadingContacts } = useCRM();
+  const { currentWorkspace } = useWorkspaceStore();
+
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
@@ -61,12 +66,25 @@ export default function AIEmailPage() {
   ]);
   const [input, setInput] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(false);
-  const [selectedContact, setSelectedContact] = React.useState('Sarah Jenkins — VP Sales at NexaCorp');
+  const [selectedContactId, setSelectedContactId] = React.useState<string>('');
   const [selectedTone, setSelectedTone] = React.useState<EmailTone>('Executive');
   const [subject, setSubject] = React.useState('Follow-up: ForgeCRM Enterprise Security & Deployment');
-  const [body, setBody] = React.useState('Hi Sarah,\n\nThank you for taking the time to speak with our team yesterday regarding NexaCorp\'s CRM requirements.\n\nAttached is our security whitepaper outlining SOC2 Type II compliance and SSO capabilities. Would Tuesday at 2:00 PM EST work for a brief 15-minute technical deep dive?\n\nBest regards,\nForgeCRM Team');
+  const [body, setBody] = React.useState('Hi,\n\nThank you for taking the time to speak with our team yesterday regarding CRM requirements.\n\nAttached is our security whitepaper outlining SOC2 Type II compliance and SSO capabilities. Would Tuesday at 2:00 PM EST work for a brief 15-minute technical deep dive?\n\nBest regards,\nForgeCRM Team');
   const [selectedMessage, setSelectedMessage] = React.useState<SkillMessage | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  // Set default selected contact when contacts load
+  React.useEffect(() => {
+    if (contacts && contacts.length > 0 && !selectedContactId) {
+      const firstContact = contacts[0];
+      if (firstContact?.id) setSelectedContactId(firstContact.id);
+    }
+  }, [contacts, selectedContactId]);
+
+  const selectedContactObj = contacts.find((c) => c.id === selectedContactId);
+  const selectedContactName = selectedContactObj
+    ? `${selectedContactObj.first_name} ${selectedContactObj.last_name ?? ''} <${selectedContactObj.email ?? ''}>`
+    : 'All Workspace Contacts';
 
   React.useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -101,14 +119,20 @@ export default function AIEmailPage() {
     try {
       const res = await fetch('/api/v1/ai/email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Workspace-ID': currentWorkspace?.id || '',
+        },
         credentials: 'include',
         body: JSON.stringify({
           skill: skillKey,
           question: prompt,
           entity_type: 'contact',
-          entity_name: selectedContact,
+          entity_id: selectedContactId,
+          entity_name: selectedContactName,
+          recipient_email: selectedContactObj?.email ?? '',
           focus_areas: selectedTone,
+          workspace_id: currentWorkspace?.id,
         }),
       });
 
@@ -181,13 +205,22 @@ export default function AIEmailPage() {
           </div>
 
           <select
-            value={selectedContact}
-            onChange={(e) => setSelectedContact(e.target.value)}
-            className="px-3 py-1.5 rounded-lg bg-surface border border-border-default text-xs font-semibold text-primary outline-none focus:border-accent"
+            value={selectedContactId}
+            onChange={(e) => setSelectedContactId(e.target.value)}
+            disabled={isLoadingContacts}
+            className="px-3 py-1.5 rounded-lg bg-surface border border-border-default text-xs font-semibold text-primary outline-none focus:border-accent disabled:opacity-50"
           >
-            <option value="Sarah Jenkins — VP Sales at NexaCorp">Sarah Jenkins — VP Sales at NexaCorp</option>
-            <option value="Marcus Vance — CTO at Apex Systems">Marcus Vance — CTO at Apex Systems</option>
-            <option value="Elena Rostova — Head of Growth at Scale AI">Elena Rostova — Head of Growth at Scale AI</option>
+            {isLoadingContacts ? (
+              <option value="">Loading workspace contacts…</option>
+            ) : contacts.length === 0 ? (
+              <option value="">No contacts in workspace</option>
+            ) : (
+              contacts.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.first_name} {c.last_name ?? ''} ({c.email ?? 'No email'})
+                </option>
+              ))
+            )}
           </select>
         </div>
 
