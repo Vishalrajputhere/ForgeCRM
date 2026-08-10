@@ -91,5 +91,10 @@ from app.modules.ai.skills import forecast_routes  # noqa: E402
 
 api_v1_router.include_router(forecast_routes.router)
 
+# Enterprise Communication Assistant & Email Copilot (Phase 7.4.5)
+from app.modules.ai.skills import email_routes  # noqa: E402
+
+api_v1_router.include_router(email_routes.router)
+
 
 __all__ = ["api_v1_router"]

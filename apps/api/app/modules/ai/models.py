@@ -311,6 +311,44 @@ class AIForecast(Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.4.5 — Email Copilot & Communication Models ───────────────────────
+
+
+class AIEmailDraft(Base):
+    """AI-generated email draft, tone, and outreach response."""
+
+    __tablename__ = "ai_email_drafts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    subject: Mapped[str] = mapped_column(String(255), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    tone: Mapped[str] = mapped_column(String(32), nullable=False, default="professional")
+    language: Mapped[str] = mapped_column(String(16), nullable=False, default="English")
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.85)
+    reasoning_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")  # draft, sent, discarded
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIEmailSummary(Base):
+    """AI-generated email thread summary, sentiment, and action items."""
+
+    __tablename__ = "ai_email_summaries"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    thread_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    sentiment: Mapped[str] = mapped_column(String(32), nullable=False, default="Neutral")
+    key_points: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=list)
+    action_items: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=list)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 
