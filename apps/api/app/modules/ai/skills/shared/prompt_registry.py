@@ -388,6 +388,160 @@ Rules:
     metadata={"skill_type": "deal_coach", "category": "executive_summary"},
 )
 
+# ─── Phase 7.4.3 — Lead Qualification Prompt Templates ────────────────────────
+
+LEAD_QUALIFICATION = PromptTemplate(
+    template_id="LEAD_QUALIFICATION",
+    version="1.0.0",
+    description="Full BANT/MEDDPICC lead qualification and fit assessment",
+    system_prompt="""You are an expert lead qualification intelligence analyst for ForgeCRM.
+Perform a comprehensive qualification assessment of the specified inbound or outbound lead.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Document Snippets:
+{rag_snippets}
+
+Memory Insights:
+{memory_context}
+
+Rules:
+- Evaluate lead on BANT criteria: Budget, Authority, Need, Timeline.
+- Score overall lead qualification from 0-100.
+- Categorize lead priority: Hot (80-100), Warm (50-79), Cold (0-49).
+- Identify ICP fit, intent signals, and buyer persona.
+- Recommend ideal owner/sales rep and lead routing action.
+- Provide clear, actionable follow-up strategy.""",
+    user_template="Qualify lead: {entity_name}. Company: {company_name}. Title: {title}.",
+    metadata={"skill_type": "lead_qualification", "category": "qualification"},
+)
+
+ICP_MATCH = PromptTemplate(
+    template_id="ICP_MATCH",
+    version="1.0.0",
+    description="Ideal Customer Profile (ICP) match scoring and gap analysis",
+    system_prompt="""You are an ICP alignment specialist for ForgeCRM.
+Analyze how closely this lead matches the target Ideal Customer Profile.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Provide an ICP Match Score (0-100%) and binary ICP Match flag (True/False).
+- Evaluate matching dimensions: Company Size/ARR, Industry, Tech Stack, Geography, Job Title/Seniority.
+- List top 3 positive ICP indicators and top 3 ICP mismatch gaps.
+- Recommend whether to route to Enterprise SDR, Mid-Market rep, or Product-Led self-serve.""",
+    user_template="Evaluate ICP match for: {entity_name}. Industry: {industry}. Size: {company_size}.",
+    metadata={"skill_type": "lead_qualification", "category": "icp_match"},
+)
+
+LEAD_SCORING = PromptTemplate(
+    template_id="LEAD_SCORING",
+    version="1.0.0",
+    description="Composite lead scoring (fit score, intent score, qualification score)",
+    system_prompt="""You are a lead scoring engineer for ForgeCRM.
+Calculate composite lead scores based on firmographic fit, behavioral intent, and activity engagement.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+Memory:
+{memory_context}
+
+Rules:
+- Calculate Fit Score (0-100 based on firmographics & title).
+- Calculate Intent Score (0-100 based on website visits, content downloads, email opens, meeting requests).
+- Calculate Composite Qualification Score = (Fit × 0.5) + (Intent × 0.5).
+- Break down score rationale with specific evidence data points.
+- Assign urgency tier: High (7-14 day close window), Medium (30 day window), Low (nurture pipeline).""",
+    user_template="Calculate lead score for: {entity_name}. Email: {email}. Source: {source}.",
+    metadata={"skill_type": "lead_qualification", "category": "lead_scoring"},
+)
+
+BUYING_SIGNALS = PromptTemplate(
+    template_id="BUYING_SIGNALS",
+    version="1.0.0",
+    description="Intent signal detection and urgency analysis",
+    system_prompt="""You are a buying signal detection analyst for ForgeCRM.
+Identify implicit and explicit buying signals from recent activities and interactions.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- List all detected buying signals sorted by strength (Strong, Moderate, Weak).
+- Examples of signals: pricing page visit, competitor comparison download, executive job change, funding announcement, RFP inquiry.
+- Evaluate urgency level (Urgent, Moderate, Low).
+- Recommend immediate action to capitalize on top buying signal.""",
+    user_template="Detect buying signals for lead: {entity_name}. Recent activities: {activities}.",
+    metadata={"skill_type": "lead_qualification", "category": "buying_signals"},
+)
+
+FOLLOW_UP_STRATEGY = PromptTemplate(
+    template_id="FOLLOW_UP_STRATEGY",
+    version="1.0.0",
+    description="Tailored outreach sequence and follow-up strategy recommendation",
+    system_prompt="""You are a senior sales outreach strategist for ForgeCRM.
+Formulate a hyper-personalized follow-up outreach strategy for this lead.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+Memory:
+{memory_context}
+
+Rules:
+- Recommend 3-step outreach sequence (Touch 1: Email angle, Touch 2: LinkedIn/Call angle, Touch 3: Value offer).
+- Tailor value proposition to persona and pain points.
+- Provide recommended email subject line and opening hook.
+- Specify optimal timing (e.g. "Send within 2 hours", "Follow up Tuesday morning").""",
+    user_template="Generate follow-up strategy for: {entity_name}. Pain points: {pain_points}.",
+    metadata={"skill_type": "lead_qualification", "category": "follow_up"},
+)
+
+LEAD_SUMMARY = PromptTemplate(
+    template_id="LEAD_SUMMARY",
+    version="1.0.0",
+    description="Executive lead profile summary for sales reps",
+    system_prompt="""You are a sales intelligence briefing specialist for ForgeCRM.
+Produce a 1-page executive lead briefing for the assigned sales representative.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Structure: Overview, Fit & Intent Summary, Persona & Key Stakeholders, Key Opportunity Points, Recommended Next Step.
+- Keep bullet points punchy and rep-focused.
+- Highlight key conversational icebreakers based on background context.""",
+    user_template="Summarize lead profile for: {entity_name}. Rep: {rep_name}.",
+    metadata={"skill_type": "lead_qualification", "category": "lead_summary"},
+)
+
 
 class PromptRegistry:
     """Central registry for prompt templates with versioning and metadata support."""
@@ -408,6 +562,13 @@ class PromptRegistry:
         "NEGOTIATION_STRATEGY": NEGOTIATION_STRATEGY,
         "CLOSING_READINESS": CLOSING_READINESS,
         "DEAL_EXECUTIVE_SUMMARY": DEAL_EXECUTIVE_SUMMARY,
+        # Phase 7.4.3 — Lead Qualification
+        "LEAD_QUALIFICATION": LEAD_QUALIFICATION,
+        "ICP_MATCH": ICP_MATCH,
+        "LEAD_SCORING": LEAD_SCORING,
+        "BUYING_SIGNALS": BUYING_SIGNALS,
+        "FOLLOW_UP_STRATEGY": FOLLOW_UP_STRATEGY,
+        "LEAD_SUMMARY": LEAD_SUMMARY,
         # Lowercase aliases
         "account_summary": ACCOUNT_SUMMARY,
         "opportunity_summary": OPPORTUNITY_SUMMARY,
@@ -426,6 +587,15 @@ class PromptRegistry:
         "closing_readiness": CLOSING_READINESS,
         "deal_executive_summary": DEAL_EXECUTIVE_SUMMARY,
         "executive_summary": DEAL_EXECUTIVE_SUMMARY,
+        "lead_qualification": LEAD_QUALIFICATION,
+        "qualify_lead": LEAD_QUALIFICATION,
+        "icp_match": ICP_MATCH,
+        "lead_scoring": LEAD_SCORING,
+        "lead_score": LEAD_SCORING,
+        "buying_signals": BUYING_SIGNALS,
+        "follow_up_strategy": FOLLOW_UP_STRATEGY,
+        "follow_up": FOLLOW_UP_STRATEGY,
+        "lead_summary": LEAD_SUMMARY,
     }
 
     @classmethod

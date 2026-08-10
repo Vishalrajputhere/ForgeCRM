@@ -81,5 +81,10 @@ from app.modules.ai.skills import deal_coach_routes  # noqa: E402
 
 api_v1_router.include_router(deal_coach_routes.router)
 
+# Enterprise Lead Qualification (Phase 7.4.3)
+from app.modules.ai.skills import lead_qualification_routes  # noqa: E402
+
+api_v1_router.include_router(lead_qualification_routes.router)
+
 
 __all__ = ["api_v1_router"]

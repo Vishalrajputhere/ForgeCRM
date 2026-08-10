@@ -266,5 +266,27 @@ class AIDealScore(Base):
     scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.4.3 — Lead Qualification AI Models ───────────────────────────────
+
+
+class AILeadScore(Base):
+    """AI-generated lead qualification, ICP fit, and intent scores."""
+
+    __tablename__ = "ai_lead_scores"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    lead_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    fit_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    intent_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    qualification_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    icp_match: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    urgency: Mapped[str] = mapped_column(String(32), nullable=False, default="medium")  # high, medium, low
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.8)
+    reasoning_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
