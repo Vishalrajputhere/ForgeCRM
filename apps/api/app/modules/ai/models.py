@@ -246,4 +246,25 @@ class AISuggestion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.4.2 — Enterprise Deal Coach Models ──────────────────────────────
+
+
+class AIDealScore(Base):
+    """AI-generated deal health score, win probability, and risk score."""
+
+    __tablename__ = "ai_deal_scores"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    deal_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    win_probability: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    health_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.7)
+    risk_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.3)
+    forecast_confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.6)
+    reasoning_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    model_version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0.0")
+    scored_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 

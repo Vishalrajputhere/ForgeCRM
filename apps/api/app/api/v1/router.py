@@ -76,9 +76,10 @@ from app.modules.ai.agents import routes as ai_agent_routes  # noqa: E402
 
 api_v1_router.include_router(ai_agent_routes.router)
 
+# Enterprise Deal Coach (Phase 7.4.2)
+from app.modules.ai.skills import deal_coach_routes  # noqa: E402
 
-
-
+api_v1_router.include_router(deal_coach_routes.router)
 
 
 __all__ = ["api_v1_router"]

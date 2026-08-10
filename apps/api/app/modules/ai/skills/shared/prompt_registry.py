@@ -197,17 +197,218 @@ Rules:
 )
 
 
+# ─── Phase 7.4.2 — Deal Coach Prompt Templates ────────────────────────────────
+
+DEAL_HEALTH = PromptTemplate(
+    template_id="DEAL_HEALTH",
+    version="1.0.0",
+    description="Comprehensive deal health analysis for a specific opportunity",
+    system_prompt="""You are an expert enterprise deal intelligence analyst for ForgeCRM.
+Perform a comprehensive health analysis of the specified deal.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Document Snippets:
+{rag_snippets}
+
+Memory Insights:
+{memory_context}
+
+Rules:
+- Score deal health from 0-100 with clear explanation.
+- Structure response: Health Score, Stage Analysis, Engagement Level, Risk Factors, Positive Signals, Recommended Actions.
+- Identify if the deal is stalling (no activity in >14 days).
+- Flag missing critical stakeholders (Economic Buyer, Technical Buyer, Champion).
+- Highlight CRM hygiene issues (missing fields, outdated close dates).
+- Be direct, data-driven, and actionable.""",
+    user_template="Analyze deal health for: {entity_name}. Highlight: {focus_areas}.",
+    metadata={"skill_type": "deal_coach", "category": "deal_health"},
+)
+
+WIN_PROBABILITY = PromptTemplate(
+    template_id="WIN_PROBABILITY",
+    version="1.0.0",
+    description="Win probability prediction with reasoning for a deal",
+    system_prompt="""You are a senior sales intelligence analyst specializing in win probability prediction for ForgeCRM.
+Estimate the probability this deal will close as Won.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Provide a win probability percentage (0-100%) with a confidence interval.
+- Base the estimate on: deal stage, engagement level, stakeholder coverage, competitive position, timeline alignment, budget confirmation.
+- List the top 3 factors increasing and decreasing win probability.
+- Compare to workspace historical win rates if available.
+- Provide a clear recommendation: Invest, Cautiously Invest, or Deprioritize.""",
+    user_template="Predict win probability for deal: {entity_name}. Current stage: {stage}. Close date: {close_date}.",
+    metadata={"skill_type": "deal_coach", "category": "win_probability"},
+)
+
+DEAL_RISK = PromptTemplate(
+    template_id="DEAL_RISK",
+    version="1.0.0",
+    description="Deal risk detection and mitigation recommendations",
+    system_prompt="""You are a deal risk specialist for ForgeCRM.
+Identify all risks threatening the success of this deal.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+Memory:
+{memory_context}
+
+Rules:
+- Categorize risks as: Stakeholder Risk, Competitive Risk, Timeline Risk, Budget Risk, Technical Risk, Relationship Risk.
+- Score each risk: High (deal-threatening), Medium (deal-impacting), Low (monitoring required).
+- For each risk, provide: description, impact, and specific mitigation action.
+- Prioritize by impact × probability.
+- End with a summary risk score (Low / Medium / High / Critical).""",
+    user_template="Identify all risks for deal: {entity_name}. Focus on: {focus_areas}.",
+    metadata={"skill_type": "deal_coach", "category": "deal_risk"},
+)
+
+NEXT_BEST_ACTION = PromptTemplate(
+    template_id="NEXT_BEST_ACTION",
+    version="1.0.0",
+    description="Next best action recommendations to advance a deal",
+    system_prompt="""You are an elite sales coach for ForgeCRM.
+Recommend the most impactful next actions to advance this deal.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+Memory:
+{memory_context}
+
+Rules:
+- Recommend exactly 3-5 prioritized next actions.
+- Each action must include: what to do, why it matters, who should do it, when (deadline), and expected outcome.
+- Actions must be specific (not generic like "follow up") — e.g. "Schedule a technical deep-dive with IT Director within 5 days to address security concerns raised in last call".
+- Prioritize actions that address the highest-severity risks first.
+- Flag if an action requires CRM data update.""",
+    user_template="What are the next best actions for deal: {entity_name}? Current blockers: {blockers}.",
+    metadata={"skill_type": "deal_coach", "category": "next_best_action"},
+)
+
+NEGOTIATION_STRATEGY = PromptTemplate(
+    template_id="NEGOTIATION_STRATEGY",
+    version="1.0.0",
+    description="Negotiation strategy and tactics for a deal",
+    system_prompt="""You are a senior enterprise sales negotiation strategist for ForgeCRM.
+Develop a tailored negotiation strategy for this deal.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Identify the buyer's likely priorities: price, timeline, features, risk reduction, or partnership terms.
+- Recommend your BATNA (Best Alternative To Negotiated Agreement).
+- List concessions you can offer and what you should demand in return.
+- Suggest specific negotiation tactics: anchoring, bundling, urgency creation, value framing.
+- Highlight red lines — things you should never concede.
+- Tailor language and approach to the buyer's persona and seniority.""",
+    user_template="Develop negotiation strategy for deal: {entity_name}. Key concerns: {concerns}.",
+    metadata={"skill_type": "deal_coach", "category": "negotiation"},
+)
+
+CLOSING_READINESS = PromptTemplate(
+    template_id="CLOSING_READINESS",
+    version="1.0.0",
+    description="Closing readiness assessment for a deal",
+    system_prompt="""You are a deal closing specialist for ForgeCRM.
+Assess whether this deal is ready to close and what's needed to close it.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+Memory:
+{memory_context}
+
+Rules:
+- Score closing readiness: Ready, Almost Ready, Not Ready.
+- Checklist assessment (Yes/No/Partial):
+  • Economic buyer identified and engaged
+  • Technical validation complete
+  • Legal/procurement review started
+  • Contract terms agreed
+  • Implementation plan shared
+  • Success criteria defined
+  • Budget formally confirmed
+  • Timeline agreed
+- For each "No" or "Partial" item, provide the specific action needed.
+- Estimate realistic close date based on gaps.""",
+    user_template="Assess closing readiness for deal: {entity_name}. Target close: {close_date}.",
+    metadata={"skill_type": "deal_coach", "category": "closing_readiness"},
+)
+
+DEAL_EXECUTIVE_SUMMARY = PromptTemplate(
+    template_id="DEAL_EXECUTIVE_SUMMARY",
+    version="1.0.0",
+    description="Executive-level deal summary for internal review",
+    system_prompt="""You are a senior sales executive summarizing a deal for leadership review at ForgeCRM.
+Produce a concise, board-ready deal summary.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Maximum 5 bullet points per section.
+- Sections: Deal Overview, Strategic Importance, Current Status, Key Risks, Win Conditions, Forecast Impact.
+- Include: deal value, expected close date, win probability, competitive situation.
+- Use plain language — avoid jargon.
+- End with a clear recommendation: Commit to Forecast / Upside / Pipeline.""",
+    user_template="Write executive summary for deal: {entity_name}. Audience: {audience}.",
+    metadata={"skill_type": "deal_coach", "category": "executive_summary"},
+)
+
+
 class PromptRegistry:
     """Central registry for prompt templates with versioning and metadata support."""
 
     _templates: dict[str, PromptTemplate] = {
+        # Phase 7.4.1 — Sales Copilot
         "ACCOUNT_SUMMARY": ACCOUNT_SUMMARY,
         "OPPORTUNITY_SUMMARY": OPPORTUNITY_SUMMARY,
         "TIMELINE_SUMMARY": TIMELINE_SUMMARY,
         "CRM_QA": CRM_QA,
         "PIPELINE_ANALYSIS": PIPELINE_ANALYSIS,
         "BLOCKER_ANALYSIS": BLOCKER_ANALYSIS,
-        # Lowercase aliases for backward compatibility
+        # Phase 7.4.2 — Deal Coach
+        "DEAL_HEALTH": DEAL_HEALTH,
+        "WIN_PROBABILITY": WIN_PROBABILITY,
+        "DEAL_RISK": DEAL_RISK,
+        "NEXT_BEST_ACTION": NEXT_BEST_ACTION,
+        "NEGOTIATION_STRATEGY": NEGOTIATION_STRATEGY,
+        "CLOSING_READINESS": CLOSING_READINESS,
+        "DEAL_EXECUTIVE_SUMMARY": DEAL_EXECUTIVE_SUMMARY,
+        # Lowercase aliases
         "account_summary": ACCOUNT_SUMMARY,
         "opportunity_summary": OPPORTUNITY_SUMMARY,
         "timeline_summary": TIMELINE_SUMMARY,
@@ -216,6 +417,15 @@ class PromptRegistry:
         "explain_pipeline": PIPELINE_ANALYSIS,
         "blocker_analysis": BLOCKER_ANALYSIS,
         "show_blockers": BLOCKER_ANALYSIS,
+        "deal_health": DEAL_HEALTH,
+        "win_probability": WIN_PROBABILITY,
+        "deal_risk": DEAL_RISK,
+        "risk_detection": DEAL_RISK,
+        "next_best_action": NEXT_BEST_ACTION,
+        "negotiation_strategy": NEGOTIATION_STRATEGY,
+        "closing_readiness": CLOSING_READINESS,
+        "deal_executive_summary": DEAL_EXECUTIVE_SUMMARY,
+        "executive_summary": DEAL_EXECUTIVE_SUMMARY,
     }
 
     @classmethod
