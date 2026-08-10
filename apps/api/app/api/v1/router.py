@@ -66,6 +66,16 @@ from app.modules.automation import routes as automation_routes  # noqa: E402
 
 api_v1_router.include_router(automation_routes.router)
 
+# AI Skills — Enterprise Copilot, Sales Intelligence (Phase 7.4)
+from app.modules.ai.skills import routes as ai_skills_routes  # noqa: E402
+
+api_v1_router.include_router(ai_skills_routes.router)
+
+# AI Agent Runtime — Autonomous Execution (Phase 7.3)
+from app.modules.ai.agents import routes as ai_agent_routes  # noqa: E402
+
+api_v1_router.include_router(ai_agent_routes.router)
+
 
 
 

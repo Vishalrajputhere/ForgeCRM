@@ -1,0 +1,1 @@
+"""ForgeCRM — AI Skills Package."""
