@@ -348,6 +348,45 @@ class AIEmailSummary(Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.4.6 — Executive Copilot & Strategic Intelligence Models ──────────
+
+
+class AIExecutiveReport(Base):
+    """AI-generated board reports, quarterly briefings, and executive summaries."""
+
+    __tablename__ = "ai_executive_reports"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    period: Mapped[str] = mapped_column(String(32), nullable=False, default="Q3 2026")
+    report_type: Mapped[str] = mapped_column(String(32), nullable=False, default="dashboard")  # dashboard, board_report, weekly, quarterly
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    kpis_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    risks_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=list)
+    opportunities_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=list)
+    recommendations_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=list)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.90)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIExecutiveInsight(Base):
+    """AI-generated strategic C-suite insights and recommendations."""
+
+    __tablename__ = "ai_executive_insights"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    entity_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    entity_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    priority: Mapped[str] = mapped_column(String(16), nullable=False, default="high")  # critical, high, medium, low
+    category: Mapped[str] = mapped_column(String(32), nullable=False, default="growth")  # revenue, risk, opportunity, team, market
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.88)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 

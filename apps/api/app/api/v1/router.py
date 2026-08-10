@@ -96,5 +96,10 @@ from app.modules.ai.skills import email_routes  # noqa: E402
 
 api_v1_router.include_router(email_routes.router)
 
+# Enterprise Executive Copilot & Strategic Intelligence (Phase 7.4.6)
+from app.modules.ai.skills import executive_routes  # noqa: E402
+
+api_v1_router.include_router(executive_routes.router)
+
 
 __all__ = ["api_v1_router"]
