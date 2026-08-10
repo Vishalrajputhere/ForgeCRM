@@ -2,6 +2,19 @@
 
 All future implementations must append changes to this living log following this exact markdown structure:
 
+## [2.4.1-phase7.4.2] — 2026-08-10
+
+### Enterprise Deal Coach AI Skill
+- **`DealCoachSkill` (`ai/skills/deal_coach.py`)**: Implements 15 deal coaching capabilities extending `BaseAISkill` and registered in `SkillRegistry`.
+- **`AIDealScore` Model (`ai/models.py`)**: ORM model for storing win probability, health score, risk score, and forecast confidence per deal.
+- **7 Prompt Templates (`ai/skills/shared/prompt_registry.py`)**: Added `DEAL_HEALTH`, `WIN_PROBABILITY`, `DEAL_RISK`, `NEXT_BEST_ACTION`, `NEGOTIATION_STRATEGY`, `CLOSING_READINESS`, `DEAL_EXECUTIVE_SUMMARY`.
+- **REST Endpoints (`ai/skills/deal_coach_routes.py`)**: `POST /api/v1/ai/deal-coach`, `/health`, `/win-prob`.
+- **Frontend Page (`/ai/deal-coach/page.tsx`)**: 3-panel enterprise deal coaching workspace with deal selector and chat stream.
+- **Frontend Components**: `DealHealthTimeline` (`components/ai/deal-health-timeline.tsx`), `RiskPanel` (`components/ai/risk-panel.tsx`).
+- **Quality**: 37/37 pytest passed (100% pass rate); 0 TypeScript errors (`npx tsc --noEmit`).
+
+---
+
 ## [2.4.0-phase7.4.1] — 2026-08-10
 
 ### Enterprise Sales Copilot & Refined AI Skills Framework
