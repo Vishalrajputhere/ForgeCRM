@@ -4,25 +4,25 @@ All future implementations must append changes to this living log following this
 
 ## [2.4.0-phase7.4.1] — 2026-08-10
 
-### Enterprise Sales Copilot & AI Skills Framework
-- **BaseAISkill Abstract Framework (`ai/skills/base.py`)**: Reusable base class inherited by all AI Skills — provides out-of-the-box Context Builder, RAG, Memory, MCP, AI Router, Confidence Scoring, Citation Extraction, Insight Generation, and Reasoning Chains.
-- **SalesCopilotSkill (`ai/skills/sales_copilot.py`)**: 7 enterprise sales intelligence capabilities: `account_summary`, `opportunity_summary`, `timeline_summary`, `meeting_brief`, `crm_qa`, `show_blockers`, `explain_pipeline`.
+### Enterprise Sales Copilot & Refined AI Skills Framework
+- **BaseAISkill Abstract Framework (`ai/skills/base.py`)**: Reusable pipeline exposing `build_context()`, `retrieve_rag()`, `load_memory()`, `collect_tool_data()`, `build_prompt()`, `call_llm()`, `generate_reasoning()`, `generate_explainability()`, `calculate_confidence()`, `extract_citations()`, `generate_insights()`, `build_response()`.
+- **SkillRegistry (`ai/skills/registry.py`)**: Central registry mapping skill keys (`account_summary`, `timeline_summary`, `crm_qa`, `explain_pipeline`, `show_blockers`, `opportunity_summary`) to skill handlers.
 - **Shared Skill Infrastructure (`ai/skills/shared/`)**:
-  - `prompt_templates.py` — 7 versioned prompt templates (v1.0.0) with Jinja2-style rendering and few-shots
-  - `confidence.py` — `ConfidenceScorer` with weighted 5-factor scoring (RAG, Memory, Tools, Freshness, Completeness)
-  - `citations.py` — `CitationManager` extracting deduplicated `Citation` objects from RAG results
-  - `insights.py` — `InsightGenerator` with keyword-heuristic insight extraction (risk, opportunity, alert, recommendation, trend)
-  - `reasoning.py` — `ReasoningEngine` building step-by-step explainability chains
-- **AI Skill Schemas (`ai/skills/schemas.py`)**: `SkillRequest`, `SkillResponse`, `CitationSchema`, `InsightSchema`, `ReasoningChainSchema`, `CopilotRequest`
-- **Phase 7.4.1 ORM Models** added to `ai/models.py`: `AIInsight`, `AISuggestion`, `AILeadScore`, `AIDealScore`, `AIForecast`
-- **REST Endpoints (`ai/skills/routes.py`)**: `POST /api/v1/ai/copilot` (Q&A), `/account`, `/opportunity`, `/timeline`, `/meeting`, `/blockers`, `/pipeline`, `GET /skills`
-- **Frontend Premium `/ai/copilot` Page**: 3-panel enterprise copilot layout (conversation sidebar, streaming chat, context panel with insights/citations/reasoning)
-- **Frontend Components**: `citation-card.tsx`, `reasoning-panel.tsx`, `confidence-badge.tsx`, `insight-card.tsx`
+  - `prompt_registry.py` — `PromptRegistry` with versioned templates (`ACCOUNT_SUMMARY`, `OPPORTUNITY_SUMMARY`, `TIMELINE_SUMMARY`, `CRM_QA`, `PIPELINE_ANALYSIS`, `BLOCKER_ANALYSIS`) and metadata support.
+  - `response_builder.py` — `ResponseBuilder` constructing standardized `SkillResponse`.
+  - `explainability.py` — `ExplainabilityEngine` generating non-sensitive evidence, sources, missing context, and why-produced rationale.
+  - `confidence.py` — 5-factor weighted `ConfidenceScorer`.
+  - `citations.py` — `CitationManager` for RAG citations.
+  - `insights.py` — Post-processing text `InsightGenerator` (0 extra LLM calls).
+- **SalesCopilotSkill (`ai/skills/sales_copilot.py`)**: 6 core capabilities (`account_summary`, `opportunity_summary`, `timeline_summary`, `answer_crm_question`, `explain_pipeline`, `show_blockers`).
+- **ORM Models (`ai/models.py`)**: `AIInsight` and `AISuggestion` created for Phase 7.4.1.
+- **Single REST Endpoint (`ai/skills/routes.py`)**: Unified `POST /api/v1/ai/copilot` accepting `{"skill": "...", "question": "..."}` dispatched via `SkillRegistry`. (Plus `GET /api/v1/ai/copilot/skills`).
+- **Frontend Components (`components/ai/`)**: Reusable `AIResponseCard`, `CitationCard`, `ReasoningPanel`, `ConfidenceBadge`, `InsightCard`, `RecommendationCard`, `ActionCard`, `PromptSuggestionBar`.
+- **Frontend Page (`/ai/copilot/page.tsx`)**: Enterprise 3-panel layout.
 
 ### Quality & Verification
-- **Phase 7.4.1 Tests (`test_ai_skills_copilot.py`)**: 19/19 new tests passing (prompt templates, confidence scorer, citation manager, insight generator, reasoning engine, SalesCopilotSkill e2e)
-- **Full AI Test Suite**: **43/43 tests passing** across all 9 AI test files in 56.98s (100% pass rate)
-- **Frontend TypeScript**: Exit code 0 — 0 compilation errors (`npx tsc --noEmit`)
+- **Pytest**: 33/33 PASSED (100% pass rate) in 33.98s across full AI test suite.
+- **TypeScript**: 0 errors (`npx tsc --noEmit` exit code 0).
 
 ---
 
