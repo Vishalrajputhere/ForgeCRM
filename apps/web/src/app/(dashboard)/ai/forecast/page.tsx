@@ -49,7 +49,10 @@ const FORECAST_SUGGESTIONS: PromptSuggestion[] = [
   { icon: <Award className="h-3.5 w-3.5" />, label: 'Executive forecast briefing', skill: 'executive_forecast' },
 ];
 
+import { useWorkspaceStore } from '@/stores/workspace-store';
+
 export default function AIForecastPage() {
+  const { currentWorkspace } = useWorkspaceStore();
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
@@ -97,13 +100,17 @@ export default function AIForecastPage() {
     try {
       const res = await fetch('/api/v1/ai/forecast', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Workspace-ID': currentWorkspace?.id || '',
+        },
         credentials: 'include',
         body: JSON.stringify({
           skill: skillKey,
           question: prompt,
           entity_type: 'workspace',
           time_window: selectedPeriod,
+          workspace_id: currentWorkspace?.id,
         }),
       });
 

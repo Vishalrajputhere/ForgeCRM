@@ -53,12 +53,15 @@ const EXECUTIVE_SUGGESTIONS: PromptSuggestion[] = [
   { icon: <FileText className="h-3.5 w-3.5" />, label: 'Formulate C-suite strategic action plan', skill: 'executive_next_actions' },
 ];
 
+import { useWorkspaceStore } from '@/stores/workspace-store';
+
 export default function AIExecutivePage() {
+  const { currentWorkspace } = useWorkspaceStore();
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
       role: 'assistant',
-      content: "Welcome to Enterprise Executive Copilot & Strategic Intelligence! I synthesize board-level dashboards, calculate commercial health scores, generate quarterly Board reports, run SaaS KPI diagnostics, and formulate strategic growth directives.\n\nSelect a period or ask me to:\n• Synthesize executive dashboard\n• Evaluate commercial health index\n• Generate quarterly Board of Directors report\n• Audit sales velocity & team performance\n• Identify top 5 strategic ARR growth opportunities",
+      content: "Welcome to Executive Copilot & Strategic Intelligence! I synthesize cross-functional revenue metrics, quarterly performance, customer health, renewal outlooks, and board-level risk overviews.\n\nSelect a time window or ask me to:\n• Executive briefing & board summary\n• Company health & KPI scorecards\n• Quarterly sales velocity review\n• Customer churn & renewal outlook\n• Strategic revenue opportunities",
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -101,13 +104,17 @@ export default function AIExecutivePage() {
     try {
       const res = await fetch('/api/v1/ai/executive', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Workspace-ID': currentWorkspace?.id || '',
+        },
         credentials: 'include',
         body: JSON.stringify({
           skill: skillKey,
           question: prompt,
           entity_type: 'workspace',
           time_window: selectedPeriod,
+          workspace_id: currentWorkspace?.id,
         }),
       });
 
