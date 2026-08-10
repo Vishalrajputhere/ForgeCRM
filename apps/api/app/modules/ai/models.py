@@ -498,6 +498,42 @@ class AIGovernancePolicy(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.5.4 — Semantic Cache & Prompt Version Management Models ──────────
+
+
+class AISemanticCacheEntry(Base):
+    """Semantic vector cache storing precomputed AI responses for similar prompts."""
+
+    __tablename__ = "ai_semantic_cache_entries"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    prompt_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    prompt_text: Mapped[str] = mapped_column(Text, nullable=False)
+    response_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    skill_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    ttl_seconds: Mapped[int] = mapped_column(Integer, nullable=False, default=86400)  # 24 hour TTL
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIPromptVersionHistory(Base):
+    """Version history, diffs, and approval records for PromptRegistry templates."""
+
+    __tablename__ = "ai_prompt_version_histories"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    template_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0.0")
+    system_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    user_template: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")  # active, draft, archived
+    author_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 
