@@ -463,6 +463,42 @@ class AIProviderHealth(Base):
     last_checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.5.3 — AI Governance, Security & Prompt Firewall Models ───────────
+
+
+class AISecurityAuditLog(Base):
+    """Audit log for prompt injection detections, PII redactions, and security violations."""
+
+    __tablename__ = "ai_security_audit_logs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    event_type: Mapped[str] = mapped_column(String(64), nullable=False)  # prompt_injection, jailbreak_attempt, pii_detected, policy_violation
+    severity: Mapped[str] = mapped_column(String(16), nullable=False, default="medium")  # critical, high, medium, low
+    blocked: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    sanitized_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    details_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    logged_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIGovernancePolicy(Base):
+    """Workspace-level AI access control, safety policy, and RBAC rules."""
+
+    __tablename__ = "ai_governance_policies"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    policy_name: Mapped[str] = mapped_column(String(128), nullable=False)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    enforce_pii_masking: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    enforce_prompt_firewall: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    allowed_roles: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=list)
+    max_daily_budget_usd: Mapped[float] = mapped_column(Float, nullable=False, default=100.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 
