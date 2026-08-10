@@ -429,6 +429,41 @@ class AIBenchmarkResult(Base):
     executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.5.2 — AI Model Lifecycle & Provider Management Models ───────────
+
+
+class AIModelConfig(Base):
+    """Configuration, lifecycle status, and deployment settings for LLM models."""
+
+    __tablename__ = "ai_model_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)  # gemini, openai, ollama
+    model_name: Mapped[str] = mapped_column(String(64), nullable=False)
+    version: Mapped[str] = mapped_column(String(32), nullable=False, default="1.0.0")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")  # active, deprecated, shadow, canary
+    traffic_weight: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)  # 0.0 to 1.0 for A/B testing
+    is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cost_per_1k_tokens: Mapped[float] = mapped_column(Float, nullable=False, default=0.00015)
+    config_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIProviderHealth(Base):
+    """Health monitor, uptime, and latency log for AI providers."""
+
+    __tablename__ = "ai_provider_health"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="healthy")  # healthy, degraded, offline
+    avg_latency_ms: Mapped[float] = mapped_column(Float, nullable=False, default=250.0)
+    error_rate: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    last_checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 
