@@ -535,11 +535,190 @@ Memory:
 {memory_context}
 
 Rules:
-- Structure: Overview, Fit & Intent Summary, Persona & Key Stakeholders, Key Opportunity Points, Recommended Next Step.
 - Keep bullet points punchy and rep-focused.
 - Highlight key conversational icebreakers based on background context.""",
     user_template="Summarize lead profile for: {entity_name}. Rep: {rep_name}.",
     metadata={"skill_type": "lead_qualification", "category": "lead_summary"},
+)
+
+# ─── Phase 7.4.4 — Forecast AI Prompt Templates ────────────────────────────────
+
+REVENUE_FORECAST = PromptTemplate(
+    template_id="REVENUE_FORECAST",
+    version="1.0.0",
+    description="Quarterly and monthly revenue prediction with confidence intervals",
+    system_prompt="""You are a chief revenue intelligence analyst for ForgeCRM.
+Calculate revenue predictions for the target period based on pipeline, win rates, and historical performance.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Document Snippets:
+{rag_snippets}
+
+Memory Insights:
+{memory_context}
+
+Rules:
+- Provide expected revenue prediction with 95% confidence interval [lower_bound, upper_bound].
+- Predict quota attainment percentage against workspace target quota.
+- Provide 3 scenario projections: Best Case, Expected Case, Worst Case.
+- Highlight key revenue drivers and top 3 deals contributing to the forecast.
+- Flag high-risk deals currently included in the commit forecast.""",
+    user_template="Generate revenue forecast for period: {time_window}. Target Quota: {focus_areas}.",
+    metadata={"skill_type": "forecast_ai", "category": "revenue_forecast"},
+)
+
+PIPELINE_FORECAST = PromptTemplate(
+    template_id="PIPELINE_FORECAST",
+    version="1.0.0",
+    description="Pipeline coverage, deal velocity, and funnel conversion forecast",
+    system_prompt="""You are a sales pipeline forecast analyst for ForgeCRM.
+Analyze pipeline coverage ratio, conversion velocity, and stage progression forecasts.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Calculate pipeline coverage multiplier (e.g. 3.2x quota).
+- Evaluate stage conversion rates against historical benchmarks.
+- Identify pipeline slippage risk (deals likely to push out of quarter).
+- Recommend pipeline creation targets needed to close any quota gap.""",
+    user_template="Forecast pipeline coverage and conversion for: {time_window}. Focus: {focus_areas}.",
+    metadata={"skill_type": "forecast_ai", "category": "pipeline_forecast"},
+)
+
+CHURN_FORECAST = PromptTemplate(
+    template_id="CHURN_FORECAST",
+    version="1.0.0",
+    description="Customer renewal, retention, and churn risk prediction",
+    system_prompt="""You are a customer retention and churn intelligence specialist for ForgeCRM.
+Predict customer churn risk and net revenue retention (NRR) impact.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+Memory:
+{memory_context}
+
+Rules:
+- Predict expected churn value ($ ARR) and customer count.
+- List accounts at High, Medium, and Low churn risk with specific risk factors (e.g., low activity, unresolved support tickets, executive change).
+- Recommend retention intervention plans for top 3 at-risk accounts.
+- Calculate Net Retention Rate (NRR) forecast.""",
+    user_template="Predict churn risk and retention for period: {time_window}. Focus accounts: {focus_areas}.",
+    metadata={"skill_type": "forecast_ai", "category": "churn_forecast"},
+)
+
+EXPANSION_FORECAST = PromptTemplate(
+    template_id="EXPANSION_FORECAST",
+    version="1.0.0",
+    description="Account expansion, upsell, and cross-sell opportunity forecasting",
+    system_prompt="""You are an account expansion revenue specialist for ForgeCRM.
+Identify and quantify expansion, upsell, and cross-sell revenue opportunities.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Identify top account expansion candidates based on product usage, seat limit proximity, and feature adoption.
+- Estimate total expansion revenue potential ($ ARR).
+- Recommend specific upsell plays (e.g., Enterprise tier upgrade, add-on modules).
+- Provide expected conversion timing.""",
+    user_template="Forecast expansion & upsell potential for: {time_window}. Focus: {focus_areas}.",
+    metadata={"skill_type": "forecast_ai", "category": "expansion_forecast"},
+)
+
+EXECUTIVE_FORECAST = PromptTemplate(
+    template_id="EXECUTIVE_FORECAST",
+    version="1.0.0",
+    description="Board-level executive forecast summary and KPI overview",
+    system_prompt="""You are a VP of Sales Operations preparing a board-level revenue forecast briefing for ForgeCRM.
+Produce an executive forecast summary.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Include Key KPIs: Total Forecast, Quota Attainment %, Coverage Ratio, NRR, GRR, Churn Risk.
+- Executive Narrative: Strategic summary of revenue performance and outlook.
+- Strategic Recommendations for C-suite to hit or exceed target.
+- Board-ready formatting with clear bullet points.""",
+    user_template="Generate executive forecast briefing for: {time_window}. Audience: Board / C-Suite.",
+    metadata={"skill_type": "forecast_ai", "category": "executive_forecast"},
+)
+
+SCENARIO_ANALYSIS = PromptTemplate(
+    template_id="SCENARIO_ANALYSIS",
+    version="1.0.0",
+    description="What-if scenario simulation (Best Case, Expected Case, Worst Case)",
+    system_prompt="""You are a financial revenue scenario planner for ForgeCRM.
+Perform what-if scenario simulations for revenue outcomes.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+Memory:
+{memory_context}
+
+Rules:
+- Simulate 3 detailed scenarios:
+  1. Best Case (90% win rate on commit, 50% on upside, 0% churn)
+  2. Expected Case (70% win rate on commit, 25% on upside, baseline churn)
+  3. Worst Case (50% win rate on commit, 0% on upside, max churn)
+- Provide exact dollar figures and quota attainment for each scenario.
+- Identify pivotal deals that determine whether Best Case or Worst Case occurs.""",
+    user_template="Run scenario simulation for period: {time_window}. Variables: {focus_areas}.",
+    metadata={"skill_type": "forecast_ai", "category": "scenario_analysis"},
+)
+
+FORECAST_SUMMARY = PromptTemplate(
+    template_id="FORECAST_SUMMARY",
+    version="1.0.0",
+    description="Comprehensive revenue & forecast intelligence briefing",
+    system_prompt="""You are a revenue intelligence briefing specialist for ForgeCRM.
+Synthesize all revenue, pipeline, churn, and expansion data into a unified forecast summary.
+
+Workspace: {workspace_name}
+CRM Context:
+{crm_context}
+
+RAG Snippets:
+{rag_snippets}
+
+Memory:
+{memory_context}
+
+Rules:
+- Provide clear 1-page summary covering New ARR, Expansion ARR, Churn ARR, Net New ARR.
+- List top 3 revenue tailwinds and top 3 headwinds.
+- End with 3 concrete actions for the sales team this week.""",
+    user_template="Summarize complete forecast intelligence for: {time_window}.",
+    metadata={"skill_type": "forecast_ai", "category": "forecast_summary"},
 )
 
 
@@ -569,6 +748,14 @@ class PromptRegistry:
         "BUYING_SIGNALS": BUYING_SIGNALS,
         "FOLLOW_UP_STRATEGY": FOLLOW_UP_STRATEGY,
         "LEAD_SUMMARY": LEAD_SUMMARY,
+        # Phase 7.4.4 — Forecast AI
+        "REVENUE_FORECAST": REVENUE_FORECAST,
+        "PIPELINE_FORECAST": PIPELINE_FORECAST,
+        "CHURN_FORECAST": CHURN_FORECAST,
+        "EXPANSION_FORECAST": EXPANSION_FORECAST,
+        "EXECUTIVE_FORECAST": EXECUTIVE_FORECAST,
+        "SCENARIO_ANALYSIS": SCENARIO_ANALYSIS,
+        "FORECAST_SUMMARY": FORECAST_SUMMARY,
         # Lowercase aliases
         "account_summary": ACCOUNT_SUMMARY,
         "opportunity_summary": OPPORTUNITY_SUMMARY,
@@ -596,6 +783,24 @@ class PromptRegistry:
         "follow_up_strategy": FOLLOW_UP_STRATEGY,
         "follow_up": FOLLOW_UP_STRATEGY,
         "lead_summary": LEAD_SUMMARY,
+        "revenue_forecast": REVENUE_FORECAST,
+        "pipeline_forecast": PIPELINE_FORECAST,
+        "quarterly_forecast": REVENUE_FORECAST,
+        "monthly_foreview": REVENUE_FORECAST,
+        "renewal_forecast": CHURN_FORECAST,
+        "churn_prediction": CHURN_FORECAST,
+        "expansion_prediction": EXPANSION_FORECAST,
+        "forecast_accuracy": REVENUE_FORECAST,
+        "scenario_analysis": SCENARIO_ANALYSIS,
+        "best_case": SCENARIO_ANALYSIS,
+        "expected_case": SCENARIO_ANALYSIS,
+        "worst_case": SCENARIO_ANALYSIS,
+        "pipeline_coverage": PIPELINE_FORECAST,
+        "quota_attainment": REVENUE_FORECAST,
+        "executive_forecast": EXECUTIVE_FORECAST,
+        "forecast_summary": FORECAST_SUMMARY,
+        "forecast_reasoning": FORECAST_SUMMARY,
+        "forecast_alerts": CHURN_FORECAST,
     }
 
     @classmethod

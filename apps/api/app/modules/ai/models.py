@@ -287,6 +287,31 @@ class AILeadScore(Base):
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.4.4 — Forecast AI & Revenue Intelligence Models ─────────────────
+
+
+class AIForecast(Base):
+    """AI-generated revenue, pipeline, ARR, and scenario forecasts."""
+
+    __tablename__ = "ai_forecasts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    forecast_type: Mapped[str] = mapped_column(String(32), nullable=False)  # revenue, pipeline, quarter, arr, mrr, scenario
+    period: Mapped[str] = mapped_column(String(32), nullable=False, default="Q3 2026")
+    revenue_prediction: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    pipeline_prediction: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    confidence: Mapped[float] = mapped_column(Float, nullable=False, default=0.8)
+    best_case: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    expected_case: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    worst_case: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    quota_attainment: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    assumptions_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    reasoning_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 

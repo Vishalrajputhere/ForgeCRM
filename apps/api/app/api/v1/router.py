@@ -86,5 +86,10 @@ from app.modules.ai.skills import lead_qualification_routes  # noqa: E402
 
 api_v1_router.include_router(lead_qualification_routes.router)
 
+# Enterprise Forecast AI & Revenue Intelligence (Phase 7.4.4)
+from app.modules.ai.skills import forecast_routes  # noqa: E402
+
+api_v1_router.include_router(forecast_routes.router)
+
 
 __all__ = ["api_v1_router"]
