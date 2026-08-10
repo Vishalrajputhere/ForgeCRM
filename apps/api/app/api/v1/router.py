@@ -101,5 +101,10 @@ from app.modules.ai.skills import executive_routes  # noqa: E402
 
 api_v1_router.include_router(executive_routes.router)
 
+# Enterprise AI Admin Console & Operations (Phase 7.5.5)
+from app.modules.ai.ops import admin_routes  # noqa: E402
+
+api_v1_router.include_router(admin_routes.router)
+
 
 __all__ = ["api_v1_router"]

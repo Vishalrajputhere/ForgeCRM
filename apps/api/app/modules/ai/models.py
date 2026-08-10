@@ -533,6 +533,42 @@ class AIPromptVersionHistory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
 
 
+# ─── Phase 7.5.5 — Cost Analytics & Budget Management Models ─────────────────
+
+
+class AICostRecord(Base):
+    """Detailed token consumption and cost tracking log by workspace, user, provider, and skill."""
+
+    __tablename__ = "ai_cost_records"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    provider: Mapped[str] = mapped_column(String(32), nullable=False)
+    model: Mapped[str] = mapped_column(String(64), nullable=False)
+    skill_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    prompt_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=500)
+    completion_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=300)
+    total_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=800)
+    cost_usd: Mapped[float] = mapped_column(Float, nullable=False, default=0.0012)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+class AIBudgetAlert(Base):
+    """Budget alert threshold notifications for AI spend management."""
+
+    __tablename__ = "ai_budget_alerts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    workspace_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    threshold_pct: Mapped[float] = mapped_column(Float, nullable=False, default=80.0)  # 50%, 80%, 100%
+    current_spend_usd: Mapped[float] = mapped_column(Float, nullable=False, default=80.0)
+    budget_limit_usd: Mapped[float] = mapped_column(Float, nullable=False, default=100.0)
+    is_resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    triggered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=datetime.utcnow)
+
+
+
 
 
 
