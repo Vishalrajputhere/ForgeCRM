@@ -69,12 +69,25 @@ class ReasoningChainSchema(BaseModel):
     overall_confidence: float
 
 
+# ─── Explainability Schema ─────────────────────────────────────────────────────
+
+class ExplainabilitySchema(BaseModel):
+    """Structured user-facing explainability report."""
+
+    evidence: list[str] = []
+    sources: list[str] = []
+    missing_context: list[str] = []
+    confidence_explanation: str = ""
+    why_produced: str = ""
+
+
 # ─── Skill Request ────────────────────────────────────────────────────────────
 
 class SkillRequest(BaseModel):
     """Standard request payload for any AI Skill execution."""
 
-    skill_type: str = Field(..., description="Skill identifier, e.g. 'account_summary', 'crm_qa'")
+    skill: str = Field(..., description="Skill identifier, e.g. 'account_summary', 'crm_qa'")
+    skill_type: str | None = Field(None, description="Alias for skill")
     question: str | None = Field(None, description="Free-text question for Q&A skills")
     entity_type: str | None = Field(None, description="CRM entity type (company, deal, lead, contact)")
     entity_id: uuid.UUID | None = Field(None, description="CRM entity UUID")
@@ -89,15 +102,22 @@ class SkillRequest(BaseModel):
 # ─── Skill Response ───────────────────────────────────────────────────────────
 
 class SkillResponse(BaseModel):
-    """Standard response payload for any AI Skill execution."""
+    """
+    Standard response contract mandatory across the platform (Rule 10).
+    """
 
-    skill_type: str
+    skill: str = Field(..., description="Skill identifier")
+    skill_type: str = Field(..., description="Skill identifier")
     summary: str = Field(..., description="Primary AI-generated response")
-    reasoning_chain: ReasoningChainSchema | None = None
+    reasoning: ReasoningChainSchema | None = None
+    reasoning_chain: ReasoningChainSchema | None = None  # Alias for backward compatibility
+    explainability: ExplainabilitySchema | None = None
     confidence: float = Field(..., ge=0.0, le=1.0)
     confidence_label: Literal["HIGH", "MEDIUM", "LOW"]
     confidence_explanation: str = ""
     citations: list[CitationSchema] = []
+    evidence: list[str] = []
+    missing_context: list[str] = []
     insights: list[InsightSchema] = []
     recommendations: list[str] = []
     next_actions: list[str] = []
@@ -105,6 +125,7 @@ class SkillResponse(BaseModel):
     latency_ms: int = 0
     prompt_tokens: int = 0
     completion_tokens: int = 0
+    token_usage: dict[str, int] = Field(default_factory=dict)
     estimated_cost_usd: float = 0.0
     provider_used: str = ""
     model_used: str = ""
@@ -113,15 +134,17 @@ class SkillResponse(BaseModel):
     generated_at: datetime = Field(default_factory=datetime.utcnow)
 
 
-# ─── Copilot Request (extends SkillRequest for REST API) ─────────────────────
+# ─── Copilot Request (single endpoint contract for POST /api/v1/ai/copilot) ────
 
 class CopilotRequest(BaseModel):
-    """Request payload for POST /api/v1/ai/copilot endpoints."""
+    """Request payload for POST /api/v1/ai/copilot."""
 
-    question: str = Field(..., min_length=1, description="Natural language CRM question or command")
+    skill: str = Field("crm_qa", description="Skill identifier, e.g. 'account_summary', 'crm_qa'")
+    question: str | None = Field(None, description="Natural language CRM question or command")
     entity_type: str | None = None
     entity_id: uuid.UUID | None = None
     entity_name: str | None = None
     focus_areas: str | None = None
+    time_window: str | None = "30 days"
     provider: str | None = None
     model: str | None = None

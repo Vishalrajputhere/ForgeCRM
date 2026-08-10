@@ -1,21 +1,23 @@
 """
 ForgeCRM — BaseAISkill Abstract Framework
 
-The reusable foundation that ALL AI Skills inherit from.
-Every future skill (DealCoach, ForecastAgent, LeadQualificationAgent,
+The reusable execution pipeline that ALL AI Skills inherit from.
+Every future skill (SalesCopilot, DealCoach, ForecastAgent, LeadQualificationAgent,
 EmailCopilot, MeetingAssistant, ExecutiveCopilot) extends BaseAISkill.
 
-Provides out-of-the-box:
-- Enterprise Context Builder integration
-- RAG Retrieval
-- Memory Manager
-- MCP Tool Registry
-- AI Router (provider-agnostic)
-- Confidence Scoring
-- Citation Extraction
-- Insight Generation
-- Reasoning Chain Construction
-- Telemetry tracking
+Provides the standardized pipeline methods:
+  build_context()
+  retrieve_rag()
+  load_memory()
+  collect_tool_data()
+  build_prompt()
+  call_llm()
+  generate_reasoning()
+  generate_explainability()
+  calculate_confidence()
+  extract_citations()
+  generate_insights()
+  build_response()
 
 Documentation: docs/03_Backend/301_BACKEND_OVERVIEW.md
 """
@@ -35,32 +37,27 @@ from app.modules.ai.memory import AIMemoryManager
 from app.modules.ai.rag import RAGRetrievalEngine
 from app.modules.ai.router import AIRouterEngine
 from app.modules.ai.schemas import AIChatRequest, AIMessageTurn
-from app.modules.ai.skills.schemas import (
-    CitationSchema,
-    InsightSchema,
-    ReasoningChainSchema,
-    ReasoningStepSchema,
-    SkillRequest,
-    SkillResponse,
-)
+from app.modules.ai.skills.schemas import SkillRequest, SkillResponse
 from app.modules.ai.skills.shared.citations import CitationManager
-from app.modules.ai.skills.shared.confidence import ConfidenceScorer
-from app.modules.ai.skills.shared.insights import InsightGenerator
-from app.modules.ai.skills.shared.prompt_templates import get_template
-from app.modules.ai.skills.shared.reasoning import ReasoningEngine
+from app.modules.ai.skills.shared.confidence import ConfidenceResult, ConfidenceScorer
+from app.modules.ai.skills.shared.explainability import ExplainabilityEngine, ExplainabilityReport
+from app.modules.ai.skills.shared.insights import InsightGenerator, SkillInsight
+from app.modules.ai.skills.shared.prompt_registry import PromptRegistry, PromptTemplate
+from app.modules.ai.skills.shared.reasoning import ReasoningChain, ReasoningEngine
+from app.modules.ai.skills.shared.response_builder import ResponseBuilder
 
 
 class BaseAISkill(ABC):
     """
     Abstract base class for all ForgeCRM AI Skills.
 
-    Subclasses must implement `execute()`.
-    All shared infrastructure (context, RAG, memory, MCP, confidence, citations)
-    is available via helper methods.
+    Child classes override `build_prompt()` and optionally `collect_tool_data()`
+    or post-processing hooks. Everything else is executed automatically by the
+    standard template method pipeline in `execute()`.
     """
 
     skill_type: str = "base"
-    default_template_id: str = "crm_qa"
+    default_template_id: str = "CRM_QA"
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -70,7 +67,8 @@ class BaseAISkill(ABC):
         self.mcp_registry = MCPToolRegistry(db)
         self.ai_router = AIRouterEngine()
 
-    @abstractmethod
+    # ─── Standard Template Method Pipeline ────────────────────────────────────
+
     async def execute(
         self,
         request: SkillRequest,
@@ -79,12 +77,59 @@ class BaseAISkill(ABC):
         user_id: uuid.UUID,
         user_role: str = "member",
     ) -> SkillResponse:
-        """Execute the AI skill and return a structured SkillResponse."""
-        ...
+        """Standard execution pipeline for all AI Skills."""
+        skill_name = request.skill or request.skill_type or self.skill_type
+        goal = request.question or f"Execute {skill_name} analysis"
 
-    # ─── Shared Helper Methods ────────────────────────────────────────────────
+        # 1. Build context
+        crm_context_str = await self.build_context(
+            workspace_id, workspace_name, user_id, user_role,
+            request.entity_type, request.entity_id, goal
+        )
 
-    async def _build_context_payload(
+        # 2. Retrieve RAG snippets
+        rag_snippets = await self.retrieve_rag(
+            workspace_id, request.question or goal, request.entity_type
+        )
+
+        # 3. Load memory
+        memory_context = await self.load_memory(
+            workspace_id, user_id, request.question or goal
+        )
+
+        # 4. Collect tool data
+        tool_calls_used = await self.collect_tool_data(
+            workspace_id, user_id, skill_name, request
+        )
+
+        # 5. Build prompt (Overridden or default from PromptRegistry)
+        system_prompt, user_message, template_id = self.build_prompt(
+            request, workspace_name, crm_context_str, rag_snippets, memory_context
+        )
+
+        # 6. Call LLM via AI Router
+        llm_text, prompt_tokens, completion_tokens, cost, provider, model = await self.call_llm(
+            system_prompt, user_message, request.provider, request.model
+        )
+
+        # 7–11. Build final SkillResponse using ResponseBuilder
+        builder = (
+            ResponseBuilder(skill_name, goal)
+            .set_summary(llm_text)
+            .set_rag_snippets(rag_snippets)
+            .set_memory_context(memory_context)
+            .set_tool_calls_used(tool_calls_used)
+            .set_metrics(prompt_tokens, completion_tokens, cost)
+            .set_provider_info(provider, model)
+            .set_template_id(template_id)
+            .set_entity(request.entity_type, request.entity_id)
+        )
+
+        return builder.build()
+
+    # ─── Standard Pipeline Methods ────────────────────────────────────────────
+
+    async def build_context(
         self,
         workspace_id: uuid.UUID,
         workspace_name: str,
@@ -93,27 +138,36 @@ class BaseAISkill(ABC):
         entity_type: str | None,
         entity_id: uuid.UUID | None,
         user_prompt: str,
-    ) -> Any:
-        """Assembles the full 6-layer enterprise context payload."""
-        return await self.context_builder.build(
-            workspace_id=workspace_id,
-            workspace_name=workspace_name,
-            user_id=user_id,
-            user_role=user_role,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            user_prompt=user_prompt,
-            model_name="gemini-1.5-flash",
-        )
+    ) -> str:
+        """Assembles context using EnterpriseContextBuilder."""
+        try:
+            payload = await self.context_builder.build(
+                workspace_id=workspace_id,
+                workspace_name=workspace_name,
+                user_id=user_id,
+                user_role=user_role,
+                entity_type=entity_type,
+                entity_id=entity_id,
+                user_prompt=user_prompt,
+                model_name="gemini-1.5-flash",
+            )
+            lines = [f"Workspace: {workspace_name}"]
+            if entity_type and entity_id:
+                lines.append(f"Active Entity: {entity_type} ({entity_id})")
+            if payload and hasattr(payload, "entity_context") and payload.entity_context:
+                lines.append(f"Entity Details: {payload.entity_context}")
+            return "\n".join(lines)
+        except Exception:
+            return f"Workspace: {workspace_name}"
 
-    async def _retrieve_rag(
+    async def retrieve_rag(
         self,
         workspace_id: uuid.UUID,
         query: str,
         entity_type: str | None = None,
         top_k: int = 6,
     ) -> list[dict[str, Any]]:
-        """Runs hybrid RAG retrieval and returns ranked snippets."""
+        """Runs hybrid RAG retrieval."""
         try:
             return await self.rag_engine.retrieve(
                 workspace_id=workspace_id,
@@ -124,7 +178,7 @@ class BaseAISkill(ABC):
         except Exception:
             return []
 
-    async def _load_memories(
+    async def load_memory(
         self,
         workspace_id: uuid.UUID,
         user_id: uuid.UUID,
@@ -143,108 +197,47 @@ class BaseAISkill(ABC):
         except Exception:
             return []
 
-    def _score_confidence(
+    async def collect_tool_data(
         self,
-        rag_snippets: list[dict[str, Any]],
-        memory_hits: int,
-        tool_calls_made: int,
-        response_text: str,
-    ) -> tuple[float, str, str]:
-        """Returns (score, label, explanation)."""
-        result = ConfidenceScorer.score(
-            rag_snippets=rag_snippets,
-            memory_hits=memory_hits,
-            tool_calls_made=tool_calls_made,
-            response_length=len(response_text.split()),
-        )
-        return result.score, result.label.value, result.explanation
+        workspace_id: uuid.UUID,
+        user_id: uuid.UUID,
+        skill_name: str,
+        request: SkillRequest,
+    ) -> list[str]:
+        """Default hook returning tool execution metadata."""
+        default_tools = {
+            "account_summary": ["search_deals", "update_company"],
+            "opportunity_summary": ["search_deals"],
+            "meeting_brief": ["search_contacts"],
+            "show_blockers": ["search_deals"],
+            "explain_pipeline": ["search_deals"],
+            "crm_qa": ["search_deals", "search_contacts"],
+        }
+        return default_tools.get(skill_name, [])
 
-    def _extract_citations(self, rag_snippets: list[dict[str, Any]]) -> list[CitationSchema]:
-        """Extracts structured citations from RAG results."""
-        raw = CitationManager.from_rag_snippets(rag_snippets)
-        return [
-            CitationSchema(
-                citation_id=c.citation_id,
-                source=c.source,
-                entity_type=c.entity_type,
-                entity_id=c.entity_id,
-                entity_name=c.entity_name,
-                excerpt=c.excerpt,
-                relevance_score=c.relevance_score,
-                page_number=c.page_number,
-            )
-            for c in raw
-        ]
-
-    def _generate_insights(
+    @abstractmethod
+    def build_prompt(
         self,
-        analysis_text: str,
-        entity_type: str | None = None,
-        entity_id: str | None = None,
-    ) -> list[InsightSchema]:
-        """Extracts typed business insights from analysis text."""
-        raw = InsightGenerator.extract_from_text(
-            analysis_text=analysis_text,
-            entity_type=entity_type,
-            entity_id=entity_id,
-        )
-        return [
-            InsightSchema(
-                insight_type=i.insight_type,
-                title=i.title,
-                body=i.body,
-                confidence=i.confidence,
-                entity_type=i.entity_type,
-                entity_id=i.entity_id,
-                tags=i.tags,
-                priority=i.priority,
-            )
-            for i in raw
-        ]
-
-    def _build_reasoning_chain(
-        self,
-        goal: str,
+        request: SkillRequest,
+        workspace_name: str,
+        crm_context: str,
         rag_snippets: list[dict[str, Any]],
         memory_context: list[str],
-        tool_calls_used: list[str],
-        llm_summary: str,
-        confidence: float,
-    ) -> ReasoningChainSchema:
-        """Constructs a structured reasoning chain."""
-        chain = ReasoningEngine.build_chain(
-            skill_type=self.skill_type,
-            goal=goal,
-            rag_snippets=rag_snippets,
-            memory_context=memory_context,
-            tool_calls_used=tool_calls_used,
-            llm_summary=llm_summary,
-            confidence=confidence,
-        )
-        return ReasoningChainSchema(
-            goal=chain.goal,
-            steps=[
-                ReasoningStepSchema(
-                    step_number=s.step_number,
-                    title=s.title,
-                    description=s.description,
-                    evidence=s.evidence,
-                    confidence=s.confidence,
-                )
-                for s in chain.steps
-            ],
-            conclusion=chain.conclusion,
-            overall_confidence=chain.overall_confidence,
-        )
+    ) -> tuple[str, str, str]:
+        """
+        Builds and returns (system_prompt, user_message, template_id).
+        Must be implemented by child skill classes.
+        """
+        ...
 
-    async def _call_llm(
+    async def call_llm(
         self,
         system_prompt: str,
         user_message: str,
         provider: str | None = None,
         model: str | None = None,
     ) -> tuple[str, int, int, float, str, str]:
-        """Calls the AI Router and returns (text, prompt_tokens, completion_tokens, cost, provider, model)."""
+        """Calls AIRouterEngine and returns (text, prompt_tokens, completion_tokens, cost, provider, model)."""
         selected_provider = self.ai_router.get_provider(provider)
         request = AIChatRequest(
             messages=[
@@ -253,7 +246,7 @@ class BaseAISkill(ABC):
             ],
             provider=provider,
             model=model,
-            temperature=0.3,  # Lower temperature for factual skill responses
+            temperature=0.3,
             max_tokens=2048,
         )
         response = await selected_provider.chat(request)
@@ -265,3 +258,71 @@ class BaseAISkill(ABC):
             response.provider,
             response.model,
         )
+
+    def generate_reasoning(
+        self,
+        goal: str,
+        rag_snippets: list[dict[str, Any]],
+        memory_context: list[str],
+        tool_calls_used: list[str],
+        llm_summary: str,
+        confidence: float,
+    ) -> ReasoningChain:
+        return ReasoningEngine.build_chain(
+            self.skill_type, goal, rag_snippets, memory_context, tool_calls_used, llm_summary, confidence
+        )
+
+    def generate_explainability(
+        self,
+        goal: str,
+        rag_snippets: list[dict[str, Any]],
+        memory_context: list[str],
+        tool_calls_used: list[str],
+        confidence_score: float,
+        confidence_label: str,
+        confidence_explanation: str,
+    ) -> ExplainabilityReport:
+        return ExplainabilityEngine.generate(
+            self.skill_type, goal, rag_snippets, memory_context, tool_calls_used, confidence_score, confidence_label, confidence_explanation
+        )
+
+    def calculate_confidence(
+        self,
+        rag_snippets: list[dict[str, Any]],
+        memory_hits: int,
+        tool_calls_made: int,
+        response_text: str,
+    ) -> ConfidenceResult:
+        return ConfidenceScorer.score(rag_snippets, memory_hits, tool_calls_made, response_length=len(response_text.split()))
+
+    def extract_citations(self, rag_snippets: list[dict[str, Any]]) -> list[Any]:
+        return CitationManager.from_rag_snippets(rag_snippets)
+
+    def generate_insights(self, analysis_text: str, entity_type: str | None = None, entity_id: str | None = None) -> list[SkillInsight]:
+        return InsightGenerator.extract_from_text(analysis_text, entity_type=entity_type, entity_id=entity_id)
+
+    def build_response(
+        self,
+        summary: str,
+        goal: str,
+        rag_snippets: list[dict[str, Any]],
+        memory_context: list[str],
+        tool_calls_used: list[str],
+        prompt_tokens: int,
+        completion_tokens: int,
+        cost: float,
+        provider: str,
+        model: str,
+        template_id: str,
+    ) -> SkillResponse:
+        builder = (
+            ResponseBuilder(self.skill_type, goal)
+            .set_summary(summary)
+            .set_rag_snippets(rag_snippets)
+            .set_memory_context(memory_context)
+            .set_tool_calls_used(tool_calls_used)
+            .set_metrics(prompt_tokens, completion_tokens, cost)
+            .set_provider_info(provider, model)
+            .set_template_id(template_id)
+        )
+        return builder.build()
