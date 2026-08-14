@@ -2,15 +2,19 @@
 ForgeCRM API — Identity Domain Routes
 
 FastAPI router exposing authentication, profile, session, and password management endpoints.
+Includes real-time SSE authorization change stream (Phase 8.X RBAC).
 
 Documentation: docs/03_Backend/302_API_DESIGN.md
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Request, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import CurrentUser
@@ -30,6 +34,7 @@ from app.modules.identity.schemas import (
     UserResponse,
 )
 from app.modules.identity.service import IdentityService
+from app.modules.identity.sse import SSE_HEARTBEAT_INTERVAL_SECONDS, authorization_sse_manager
 
 router = APIRouter(prefix="/auth", tags=["Authentication & Identity"])
 
@@ -254,4 +259,136 @@ async def list_system_roles(
     service = IdentityService(db)
     return await service.list_roles()
 
+
+# ── Phase 8.X — Real-Time Authorization SSE Stream ────────────────────────────
+
+
+@router.get(
+    "/me/events",
+    status_code=status.HTTP_200_OK,
+    summary="Authorization Change Event Stream (SSE)",
+    description=(
+        "Server-Sent Events stream for real-time authorization change notifications. "
+        "Emits 'authorization.changed' events when the authenticated user's role or permissions change. "
+        "Clients should immediately re-fetch GET /auth/me/permissions on receipt. "
+        "A 'ping' heartbeat is sent every 25 seconds to keep proxy connections alive."
+    ),
+)
+async def authorization_event_stream(
+    request: Request,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-ID")] = None,
+) -> StreamingResponse:
+    """
+    SSE endpoint delivering authorization change events in real time.
+
+    Workflow:
+      1. Client connects with Authorization header (Bearer token).
+      2. Server registers a queue for this user.
+      3. When Super Admin changes user's role → backend publishes to queue.
+      4. SSE message is streamed to all open browser tabs of the user.
+      5. Client hook re-fetches /auth/me/permissions and updates the store.
+    """
+    user_id = current_user.id
+    queue = authorization_sse_manager.connect(user_id)
+
+    async def _event_generator():
+        try:
+            # Send an initial connected confirmation
+            yield (
+                "event: connected\n"
+                f'data: {{"user_id": "{user_id}", "status": "subscribed"}}\n\n'
+            )
+
+            while True:
+                # Check if client disconnected
+                if await request.is_disconnected():
+                    break
+
+                try:
+                    # Wait for an event or heartbeat timeout
+                    message = await asyncio.wait_for(
+                        queue.get(),
+                        timeout=SSE_HEARTBEAT_INTERVAL_SECONDS,
+                    )
+                    if message is None:
+                        # Graceful shutdown signal
+                        break
+                    yield message
+                except asyncio.TimeoutError:
+                    # Send heartbeat ping to keep connection alive through proxies
+                    yield "event: ping\ndata: {}\n\n"
+        finally:
+            authorization_sse_manager.disconnect(user_id, queue)
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",  # Disable Nginx buffering for SSE
+            "Connection": "keep-alive",
+        },
+    )
+
+
+@router.get(
+    "/me/authorization-version",
+    status_code=status.HTTP_200_OK,
+    summary="Get Current Authorization Version",
+    description=(
+        "Lightweight endpoint returning only the current authorization_version for the "
+        "authenticated user within the specified workspace. Used by the frontend polling "
+        "fallback to detect role changes without fetching full permissions on every poll."
+    ),
+)
+async def get_authorization_version(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-ID")] = None,
+) -> dict:
+    """Returns {authorization_version, workspace_id} — very cheap, no permission calculations."""
+    from sqlalchemy import select
+    from app.modules.workspace.models import WorkspaceMember
+
+    workspace_id: UUID | None = None
+    if x_workspace_id:
+        try:
+            workspace_id = UUID(x_workspace_id)
+        except ValueError:
+            workspace_id = None
+
+    auth_version = 1
+    resolved_ws_id: str | None = None
+
+    if workspace_id:
+        stmt = select(WorkspaceMember.authorization_version, WorkspaceMember.workspace_id).where(
+            WorkspaceMember.user_id == current_user.id,
+            WorkspaceMember.workspace_id == workspace_id,
+        )
+        result = await db.execute(stmt)
+        row = result.first()
+        if row:
+            auth_version = row[0] or 1
+            resolved_ws_id = str(row[1])
+    else:
+        # Fall back to first active membership
+        stmt = (
+            select(WorkspaceMember.authorization_version, WorkspaceMember.workspace_id)
+            .where(WorkspaceMember.user_id == current_user.id)
+            .order_by(WorkspaceMember.is_default_workspace.desc())
+            .limit(1)
+        )
+        result = await db.execute(stmt)
+        row = result.first()
+        if row:
+            auth_version = row[0] or 1
+            resolved_ws_id = str(row[1])
+
+    return {
+        "authorization_version": auth_version,
+        "workspace_id": resolved_ws_id,
+        "user_id": str(current_user.id),
+    }
 

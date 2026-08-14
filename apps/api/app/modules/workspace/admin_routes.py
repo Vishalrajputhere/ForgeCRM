@@ -31,6 +31,7 @@ from app.modules.crm.models import Company, Contact, Deal, Lead, Task
 from app.modules.identity.models import Permission, Role, Session, User
 from app.modules.identity.schemas import PermissionResponse, RoleResponse
 from app.modules.identity.service import IdentityService
+from app.modules.identity.sse import authorization_sse_manager
 from app.modules.workspace.models import (
     AuditEvent,
     EnterpriseIntegration,
@@ -571,7 +572,11 @@ async def create_custom_role(
         role.permissions = list(perms)
 
     await db.commit()
-    await db.refresh(role)
+
+    stmt_refetch = select(Role).options(selectinload(Role.permissions)).where(Role.id == role.id)
+    res_refetch = await db.execute(stmt_refetch)
+    role = res_refetch.scalar_one()
+
     return RoleResponse.model_validate(role)
 
 
@@ -622,11 +627,28 @@ async def update_custom_role(
     # Bump authorization_version for all members assigned to this role
     stmt_bump = select(WorkspaceMember).where(WorkspaceMember.role_id == role_id)
     res_bump = await db.execute(stmt_bump)
-    for bm in res_bump.scalars().all():
+    affected_members = res_bump.scalars().all()
+    for bm in affected_members:
         bm.authorization_version = (bm.authorization_version or 1) + 1
 
     await db.commit()
-    await db.refresh(role)
+    
+    # Re-fetch role with loaded permissions to prevent MissingGreenlet lazy-load error
+    stmt_refetch = select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id)
+    res_refetch = await db.execute(stmt_refetch)
+    role = res_refetch.scalar_one()
+
+    # ── Phase 8.X: Notify affected users via SSE ────────────────────────────
+    # Fire-and-forget: SSE publish is non-blocking; if user has no open
+    # connection, this silently drops (frontend polling fallback handles it).
+    for bm in affected_members:
+        await authorization_sse_manager.publish(
+            user_id=bm.user_id,
+            workspace_id=bm.workspace_id,
+            authorization_version=bm.authorization_version,
+            reason="role_permissions_changed",
+        )
+
     return RoleResponse.model_validate(role)
 
 
@@ -713,6 +735,7 @@ async def update_member_role(
 
     # Increment authorization_version to invalidate affected user's authorization state in real time
     member.authorization_version = (member.authorization_version or 1) + 1
+    new_auth_version = member.authorization_version
 
     await _log_audit_event(
         db=db,
@@ -721,11 +744,22 @@ async def update_member_role(
         action="member.role_changed",
         resource_type="WorkspaceMember",
         resource_id=str(member_id),
-        changes={"new_role_id": str(payload.role_id) if payload.role_id else None, "status": payload.status, "auth_version": member.authorization_version},
+        changes={"new_role_id": str(payload.role_id) if payload.role_id else None, "status": payload.status, "auth_version": new_auth_version},
     )
 
     await db.commit()
     await db.refresh(member)
+
+    # ── Phase 8.X: Push SSE authorization change event to affected user ──────
+    # Non-blocking: if user has no open SSE connection, publish silently drops;
+    # the frontend's 15-second polling fallback will detect the version change.
+    await authorization_sse_manager.publish(
+        user_id=member.user_id,
+        workspace_id=workspace_id,
+        authorization_version=new_auth_version,
+        reason="role_changed",
+    )
+
     return WorkspaceMemberResponse.model_validate(member)
 
 

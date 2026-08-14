@@ -1,5 +1,7 @@
 'use client';
 
+import { PagePermissionGuard } from '@/components/auth/permission-guard';
+
 import { useState } from 'react';
 import { Zap, Plus, Search, X, Check } from 'lucide-react';
 
@@ -314,7 +316,8 @@ export default function LeadsPage(): React.JSX.Element {
   };
 
   return (
-    <Container size="xl" className="py-6">
+    <PagePermissionGuard permission="leads.read">
+      <Container size="xl" className="py-6">
       <Stack gap={5}>
         {/* ── Header ─────────────────────────────────────────────────────────── */}
         <PageHeader>
@@ -565,6 +568,7 @@ export default function LeadsPage(): React.JSX.Element {
         </Modal>
       )}
       </Stack>
-    </Container>
+      </Container>
+    </PagePermissionGuard>
   );
 }

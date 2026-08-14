@@ -1,5 +1,7 @@
 'use client';
 
+import { PagePermissionGuard } from '@/components/auth/permission-guard';
+
 import Link from 'next/link';
 import { useState } from 'react';
 import { Users, Plus, Building2, Mail, Phone } from 'lucide-react';
@@ -123,7 +125,8 @@ export default function ContactsPage(): React.JSX.Element {
   ];
 
   return (
-    <Container size="xl" className="py-6">
+    <PagePermissionGuard permission="contacts.read">
+      <Container size="xl" className="py-6">
       <Stack gap={5}>
         {/* Header */}
         <PageHeader>
@@ -203,6 +206,7 @@ export default function ContactsPage(): React.JSX.Element {
           </form>
         </Modal>
       </Stack>
-    </Container>
+      </Container>
+    </PagePermissionGuard>
   );
 }

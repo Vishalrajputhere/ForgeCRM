@@ -9,6 +9,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { PagePermissionGuard } from '@/components/auth/permission-guard';
 import {
   Zap,
   Plus,
@@ -260,7 +261,8 @@ export default function AutomationsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <PagePermissionGuard permission="automations.read">
+      <div className="flex flex-col gap-6 p-6">
       {/* ── Page Header ── */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -386,6 +388,7 @@ export default function AutomationsPage() {
           </button>
         </div>
       )}
-    </div>
+      </div>
+    </PagePermissionGuard>
   );
 }

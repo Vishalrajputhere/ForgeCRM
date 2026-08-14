@@ -1,5 +1,7 @@
 'use client';
 
+import { PagePermissionGuard } from '@/components/auth/permission-guard';
+
 import { useState } from 'react';
 import { CheckSquare2, Plus, Search, X, Check, Edit2, Trash2, Calendar, AlertCircle } from 'lucide-react';
 
@@ -258,7 +260,8 @@ export default function TasksPage(): React.JSX.Element {
     task.status === 'Open' && task.due_date && new Date(task.due_date) < new Date();
 
   return (
-    <div className="space-y-5 p-6 max-w-7xl mx-auto">
+    <PagePermissionGuard permission="tasks.read">
+      <div className="space-y-5 p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -413,6 +416,7 @@ export default function TasksPage(): React.JSX.Element {
           </form>
         </Modal>
       )}
-    </div>
+      </div>
+    </PagePermissionGuard>
   );
 }

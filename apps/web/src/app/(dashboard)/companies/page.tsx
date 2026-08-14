@@ -1,5 +1,6 @@
 'use client';
 
+import { PagePermissionGuard } from '@/components/auth/permission-guard';
 import Link from 'next/link';
 import { useState } from 'react';
 import { Building2, Plus, Search, X, ExternalLink, Upload, Download } from 'lucide-react';
@@ -135,7 +136,8 @@ export default function CompaniesPage(): React.JSX.Element {
   };
 
   return (
-    <Container size="xl" className="py-6">
+    <PagePermissionGuard permission="companies.read">
+      <Container size="xl" className="py-6">
       <Stack gap={5}>
         {/* Header */}
         <PageHeader>
@@ -375,6 +377,7 @@ export default function CompaniesPage(): React.JSX.Element {
         <ExportModal entityType="Company" selectedIds={Array.from(selectedIds)} onClose={() => setIsExportOpen(false)} />
       )}
       </Stack>
-    </Container>
+      </Container>
+    </PagePermissionGuard>
   );
 }

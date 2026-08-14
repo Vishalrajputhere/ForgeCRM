@@ -1,5 +1,6 @@
 'use client';
 
+import { PagePermissionGuard } from '@/components/auth/permission-guard';
 import { useState, useRef, useEffect } from 'react';
 import {
   Folder, FolderOpen, FileText, Image as ImageIcon, FileCode, FileArchive,
@@ -282,7 +283,8 @@ export default function StorageManagerPage(): React.JSX.Element {
   };
 
   return (
-    <Container size="xl" className="py-6">
+    <PagePermissionGuard permission="storage.read">
+      <Container size="xl" className="py-6">
       <Stack gap={5}>
         {/* Header */}
         <PageHeader>
@@ -770,6 +772,7 @@ export default function StorageManagerPage(): React.JSX.Element {
         </div>
       )}
       </Stack>
-    </Container>
+      </Container>
+    </PagePermissionGuard>
   );
 }

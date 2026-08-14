@@ -1,5 +1,7 @@
 'use client';
 
+import { PagePermissionGuard } from '@/components/auth/permission-guard';
+
 import { useState } from 'react';
 import { TrendingUp, Plus, X, GitBranch } from 'lucide-react';
 
@@ -82,7 +84,8 @@ export default function DealsPage(): React.JSX.Element {
   };
 
   return (
-    <Container size="xl" className="py-6">
+    <PagePermissionGuard permission="deals.read">
+      <Container size="xl" className="py-6">
       <Stack gap={5}>
         {/* Header */}
         <PageHeader>
@@ -196,6 +199,7 @@ export default function DealsPage(): React.JSX.Element {
         </Modal>
       )}
       </Stack>
-    </Container>
+      </Container>
+    </PagePermissionGuard>
   );
 }
