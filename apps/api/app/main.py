@@ -74,11 +74,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     )
     logger.info("database_initialized")
 
-    # Auto-create tables in development/testing mode if needed
+    # Auto-create tables and execute idempotent DDL column migrations for existing PostgreSQL tables
     try:
+        from sqlalchemy import text
         from app.db.base import Base
         async with _engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(
+                text("ALTER TABLE workspace_members ADD COLUMN IF NOT EXISTS authorization_version INTEGER NOT NULL DEFAULT 1;")
+            )
     except Exception as exc:
         logger.warning("auto_create_tables_failed", error=str(exc))
 
