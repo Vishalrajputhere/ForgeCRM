@@ -596,8 +596,8 @@ async def update_custom_role(
     if not role:
         raise NotFoundError("Role not found.")
 
-    if role.is_system:
-        raise ForbiddenError("System roles cannot be modified to ensure system stability.")
+    if role.is_system and not current_user.is_super_admin:
+        raise ForbiddenError("Only a Super Admin can modify system role definitions.")
 
     if payload.name is not None:
         role.name = payload.name

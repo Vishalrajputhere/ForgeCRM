@@ -165,10 +165,17 @@ export default function WorkspaceRolesPage() {
     }
   };
 
-  // Open Edit Modal for a Custom Role
-  const openEditModal = (role: RoleItem) => {
+  const canEditRole = (role: RoleItem) => {
     if (role.is_system !== false) {
-      toast('error', 'Protected Role', 'System roles cannot be modified to protect stability.');
+      return isSuperAdmin; // Only Super Admin can edit system roles
+    }
+    return can('roles.manage');
+  };
+
+  // Open Edit Modal for a Role (Custom Role, or System Role if Super Admin)
+  const openEditModal = (role: RoleItem) => {
+    if (role.is_system !== false && !isSuperAdmin) {
+      toast('error', 'Super Admin Required', 'Only a Super Admin can modify system role definitions.');
       return;
     }
     setEditingRoleId(role.id);
@@ -178,7 +185,7 @@ export default function WorkspaceRolesPage() {
     setShowEditModal(true);
   };
 
-  // Handle Update Custom Role
+  // Handle Update Role
   const handleUpdateCustomRole = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingRoleId || !editRoleName.trim()) return;
@@ -193,26 +200,26 @@ export default function WorkspaceRolesPage() {
 
       if (res.ok) {
         const updatedRole = await res.json();
-        toast('success', 'Role Updated', `Custom role "${editRoleName}" updated successfully.`);
+        toast('success', 'Role Updated', `Role "${editRoleName}" updated successfully.`);
         setShowEditModal(false);
         setEditingRoleId(null);
         setSelectedRole(updatedRole);
         await fetchRolesAndPermissions();
       } else {
         const errData = await res.json().catch(() => ({}));
-        toast('error', 'Update Failed', errData.detail || errData.message || 'Failed to update custom role.');
+        toast('error', 'Update Failed', errData.detail || errData.message || 'Failed to update role.');
       }
     } catch (err: unknown) {
-      toast('error', 'Error', (err as Error).message || 'Error updating custom role.');
+      toast('error', 'Error', (err as Error).message || 'Error updating role.');
     } finally {
       setIsSubmittingEdit(false);
     }
   };
 
-  // Live Permission Toggle on Custom Role
+  // Live Permission Toggle on Role (Custom Role, or System Role if Super Admin)
   const handleLiveTogglePermission = async (role: RoleItem, perm: PermissionItem) => {
-    if (role.is_system !== false) {
-      toast('error', 'Protected Role', 'System roles cannot be modified.');
+    if (role.is_system !== false && !isSuperAdmin) {
+      toast('error', 'Super Admin Required', 'Only a Super Admin can modify system role definitions.');
       return;
     }
     if (!isSuperAdmin && !can(perm.name)) {
@@ -368,33 +375,33 @@ export default function WorkspaceRolesPage() {
                       </div>
                       <p className="text-xs text-slate-400 line-clamp-2">{r.description || 'Enterprise RBAC Role'}</p>
 
-                      {/* Action buttons for custom roles */}
-                      {isCustom && (
-                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
-                          <PermissionGuard permission="roles.manage">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openEditModal(r);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-accent border border-accent/30 text-[11px] font-semibold transition-all flex items-center gap-1"
-                            >
-                              <Pencil className="h-3 w-3" /> Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDeletingRole(r);
-                              }}
-                              className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-semibold transition-all flex items-center gap-1"
-                            >
-                              <Trash2 className="h-3 w-3" /> Delete
-                            </button>
-                          </PermissionGuard>
-                        </div>
-                      )}
+                      {/* Action buttons */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+                        {canEditRole(r) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEditModal(r);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-accent border border-accent/30 text-[11px] font-semibold transition-all flex items-center gap-1"
+                          >
+                            <Pencil className="h-3 w-3" /> {r.is_system !== false ? 'Edit (Super Admin)' : 'Edit'}
+                          </button>
+                        )}
+                        {isCustom && can('roles.manage') && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeletingRole(r);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-semibold transition-all flex items-center gap-1"
+                          >
+                            <Trash2 className="h-3 w-3" /> Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -412,9 +419,15 @@ export default function WorkspaceRolesPage() {
                           <Sliders className="h-5 w-5 text-accent" /> {selectedRole.name} — Permission Matrix
                         </h2>
                         {selectedRole.is_system !== false ? (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-cyan-400 border border-slate-700 flex items-center gap-1">
-                            <Lock className="h-3 w-3" /> System Role (Read Only)
-                          </span>
+                          isSuperAdmin ? (
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                              <Edit3 className="h-3 w-3" /> System Role (Super Admin Editable)
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-cyan-400 border border-slate-700 flex items-center gap-1">
+                              <Lock className="h-3 w-3" /> System Role (Super Admin Required)
+                            </span>
+                          )
                         ) : (
                           <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
                             <Edit3 className="h-3 w-3" /> Custom Editable Role
@@ -424,15 +437,13 @@ export default function WorkspaceRolesPage() {
                       <p className="text-xs text-slate-400 mt-1">{selectedRole.description || 'Effective RBAC permissions for members assigned to this role'}</p>
                     </div>
 
-                    {selectedRole.is_system === false && (
-                      <PermissionGuard permission="roles.manage">
-                        <button
-                          onClick={() => openEditModal(selectedRole)}
-                          className="px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm shrink-0"
-                        >
-                          <Pencil className="h-3.5 w-3.5" /> Edit Custom Role
-                        </button>
-                      </PermissionGuard>
+                    {canEditRole(selectedRole) && (
+                      <button
+                        onClick={() => openEditModal(selectedRole)}
+                        className="px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm shrink-0"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> {selectedRole.is_system !== false ? 'Edit System Role' : 'Edit Custom Role'}
+                      </button>
                     )}
                   </div>
 
@@ -452,7 +463,7 @@ export default function WorkspaceRolesPage() {
                                 selectedRole.name === 'Workspace Admin' ||
                                 selectedRole.permissions?.some((rp) => rp.id === p.id || rp.name === p.name);
 
-                              const isEditable = selectedRole.is_system === false && can('roles.manage');
+                              const isEditable = canEditRole(selectedRole);
 
                               return (
                                 <div
