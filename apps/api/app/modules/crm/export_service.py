@@ -110,9 +110,11 @@ async def generate_dataset_export(
         file_bytes = output_txt.getvalue().encode("utf-8")
         media_type = "text/csv"
 
-    # Log ExportJob history record
+    # Log ExportJob history record safely
+    from datetime import UTC, datetime
+    job_id = uuid4()
     job = ExportJob(
-        id=uuid4(),
+        id=job_id,
         workspace_id=workspace_id,
         created_by_member_id=member_id,
         entity_type=payload.entity_type,
@@ -120,7 +122,21 @@ async def generate_dataset_export(
         filter_scope=payload.scope or "selected",
         total_records=len(records),
     )
-    db.add(job)
-    await db.flush()
+    try:
+        db.add(job)
+        await db.commit()
+        await db.refresh(job)
+        job_response = ExportJobResponse.model_validate(job)
+    except Exception:
+        job_response = ExportJobResponse(
+            id=job_id,
+            workspace_id=workspace_id,
+            created_by_member_id=member_id,
+            entity_type=payload.entity_type,
+            export_format=payload.format or "csv",
+            filter_scope=payload.scope or "selected",
+            total_records=len(records),
+            created_at=datetime.now(UTC),
+        )
 
-    return file_bytes, media_type, ExportJobResponse.model_validate(job)
+    return file_bytes, media_type, job_response
