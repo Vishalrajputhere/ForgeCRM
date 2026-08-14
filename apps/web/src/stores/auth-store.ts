@@ -26,14 +26,26 @@ export interface UserState {
   roles: { id: string; name: string }[];
 }
 
+export interface EffectiveAuthData {
+  permissions: string[];
+  roles: { id: string; name: string }[];
+  authorizationVersion: number;
+  isSuperAdmin: boolean;
+}
+
 interface AuthStore {
   user: UserState | null;
   accessToken: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  effectivePermissions: string[];
+  effectiveRoles: { id: string; name: string }[];
+  authorizationVersion: number;
+  isSuperAdmin: boolean;
 
   setAuth: (user: UserState, accessToken: string, refreshToken: string) => void;
   setUser: (user: UserState) => void;
+  setEffectiveAuthorization: (data: EffectiveAuthData) => void;
   clearAuth: () => void;
 }
 
@@ -44,6 +56,10 @@ export const useAuthStore = create<AuthStore>()(
       accessToken: null,
       refreshToken: null,
       isAuthenticated: false,
+      effectivePermissions: [],
+      effectiveRoles: [],
+      authorizationVersion: 1,
+      isSuperAdmin: false,
 
       setAuth: (user, accessToken, refreshToken) =>
         set({
@@ -58,12 +74,30 @@ export const useAuthStore = create<AuthStore>()(
           user,
         }),
 
+      setEffectiveAuthorization: (data) =>
+        set((state) => ({
+          effectivePermissions: data.permissions,
+          effectiveRoles: data.roles,
+          authorizationVersion: data.authorizationVersion,
+          isSuperAdmin: data.isSuperAdmin,
+          user: state.user
+            ? {
+                ...state.user,
+                roles: data.roles.length > 0 ? data.roles : state.user.roles,
+              }
+            : null,
+        })),
+
       clearAuth: () =>
         set({
           user: null,
           accessToken: null,
           refreshToken: null,
           isAuthenticated: false,
+          effectivePermissions: [],
+          effectiveRoles: [],
+          authorizationVersion: 1,
+          isSuperAdmin: false,
         }),
     }),
     {

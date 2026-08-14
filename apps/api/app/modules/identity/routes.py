@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import CurrentUser
 from app.db.session import get_db_session
 from app.modules.identity.schemas import (
+    EffectiveAuthorizationResponse,
     LoginRequest,
     PasswordChangeRequest,
     PasswordResetConfirm,
@@ -103,6 +104,29 @@ async def get_me(
 ) -> UserResponse:
     service = IdentityService(db)
     return await service.get_user_profile(current_user.id)
+
+
+@router.get(
+    "/me/permissions",
+    response_model=EffectiveAuthorizationResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Effective User Authorization & Permissions",
+    description="Returns database-derived canonical roles, effective permissions, and authorization version.",
+)
+async def get_my_effective_permissions(
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    x_workspace_id: Annotated[str | None, Header(alias="X-Workspace-ID")] = None,
+) -> EffectiveAuthorizationResponse:
+    from uuid import UUID
+    ws_id = None
+    if x_workspace_id:
+        try:
+            ws_id = UUID(x_workspace_id)
+        except ValueError:
+            ws_id = None
+    service = IdentityService(db)
+    return await service.get_effective_permissions(current_user.id, workspace_id=ws_id)
 
 
 @router.patch(

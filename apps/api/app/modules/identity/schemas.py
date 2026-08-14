@@ -151,7 +151,37 @@ class PasswordResetConfirm(BaseModel):
     new_password: PasswordStr
 
 
+class EffectiveUserSummary(BaseModel):
+    """User summary DTO for authorization response."""
+
+    id: UUID
+    first_name: str
+    last_name: str
+    email: str
+
+
+class EffectiveWorkspaceSummary(BaseModel):
+    """Workspace summary DTO for authorization response."""
+
+    id: UUID
+    name: str
+
+
+class EffectiveAuthorizationResponse(BaseModel):
+    """Database-derived canonical effective authorization DTO."""
+
+    user: EffectiveUserSummary
+    workspace: EffectiveWorkspaceSummary | None = None
+    roles: list[RoleResponse] = Field(default_factory=list)
+    permissions: list[str] = Field(default_factory=list)
+    authorization_version: int = 1
+    is_super_admin: bool = False
+
+
 __all__ = [
+    "EffectiveAuthorizationResponse",
+    "EffectiveUserSummary",
+    "EffectiveWorkspaceSummary",
     "LoginRequest",
     "PasswordChangeRequest",
     "PasswordResetConfirm",

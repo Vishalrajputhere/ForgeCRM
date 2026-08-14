@@ -89,6 +89,7 @@ class WorkspaceMember(BaseModel):
     invited_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     is_default_workspace: Mapped[bool] = mapped_column(BOOLEAN, default=False, server_default="false", nullable=False)
+    authorization_version: Mapped[int] = mapped_column(Integer, default=1, server_default="1", nullable=False)
 
     __table_args__ = (
         UniqueConstraint("workspace_id", "user_id", name="uq_workspace_member_user"),

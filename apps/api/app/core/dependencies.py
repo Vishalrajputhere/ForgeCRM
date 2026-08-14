@@ -215,8 +215,8 @@ def require_workspace_permission(required_permission: str) -> Callable[..., Coro
         current_user: CurrentUser,
         member: Annotated[Any, Depends(get_current_workspace_member)],
     ) -> User:
-        # 1. Super Admin bypass
-        if getattr(current_user, "is_super_admin", False) or (member.role and member.role.name == "Super Admin"):
+        is_super = any(r.name == "Super Admin" for r in (getattr(current_user, "roles", []) or []))
+        if is_super or (member.role and member.role.name == "Super Admin"):
             return current_user
 
         # 2. Extract permission names

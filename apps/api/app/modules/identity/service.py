@@ -455,6 +455,114 @@ class IdentityService:
             )
         return res
 
+    async def get_effective_permissions(
+        self, user_id: UUID, workspace_id: UUID | None = None
+    ) -> EffectiveAuthorizationResponse:
+        """Calculate database-derived effective permissions for a user within a workspace."""
+        from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
+        from app.modules.identity.models import Permission, Role, User
+        from app.modules.workspace.models import WorkspaceMember
+        from app.modules.identity.schemas import (
+            EffectiveAuthorizationResponse,
+            EffectiveUserSummary,
+            EffectiveWorkspaceSummary,
+            PermissionResponse,
+            RoleResponse,
+        )
+
+        # 1. Fetch user with global roles
+        stmt_u = select(User).options(selectinload(User.roles).selectinload(Role.permissions)).where(User.id == user_id)
+        res_u = await self.db.execute(stmt_u)
+        user = res_u.scalar_one_or_none()
+
+        if not user or not user.is_active:
+            raise AccountDisabledError()
+
+        is_super_admin = any(r.name == "Super Admin" for r in (user.roles or []))
+
+        # 2. Fetch workspace membership
+        member: WorkspaceMember | None = None
+        if workspace_id:
+            stmt_m = (
+                select(WorkspaceMember)
+                .options(
+                    selectinload(WorkspaceMember.workspace),
+                    selectinload(WorkspaceMember.role).selectinload(Role.permissions),
+                )
+                .where(
+                    WorkspaceMember.user_id == user_id,
+                    WorkspaceMember.workspace_id == workspace_id,
+                    WorkspaceMember.deleted_at.is_(None),
+                )
+            )
+            res_m = await self.db.execute(stmt_m)
+            member = res_m.scalar_one_or_none()
+        else:
+            stmt_m = (
+                select(WorkspaceMember)
+                .options(
+                    selectinload(WorkspaceMember.workspace),
+                    selectinload(WorkspaceMember.role).selectinload(Role.permissions),
+                )
+                .where(
+                    WorkspaceMember.user_id == user_id,
+                    WorkspaceMember.deleted_at.is_(None),
+                )
+                .order_by(WorkspaceMember.is_default_workspace.desc(), WorkspaceMember.joined_at.asc())
+            )
+            res_m = await self.db.execute(stmt_m)
+            member = res_m.scalars().first()
+
+        # 3. Collect assigned roles and effective permissions
+        roles_set: dict[UUID, RoleResponse] = {}
+        perm_names: set[str] = set()
+
+        for r in (user.roles or []):
+            perm_dtos = [PermissionResponse.model_validate(p) for p in (r.permissions or [])]
+            roles_set[r.id] = RoleResponse(
+                id=r.id, name=r.name, description=r.description, is_system=r.is_system, permissions=perm_dtos
+            )
+            for p in (r.permissions or []):
+                perm_names.add(p.name)
+
+        auth_version = 1
+        if member:
+            auth_version = getattr(member, "authorization_version", 1) or 1
+            if member.role:
+                r = member.role
+                perm_dtos = [PermissionResponse.model_validate(p) for p in (r.permissions or [])]
+                roles_set[r.id] = RoleResponse(
+                    id=r.id, name=r.name, description=r.description, is_system=r.is_system, permissions=perm_dtos
+                )
+                for p in (r.permissions or []):
+                    perm_names.add(p.name)
+
+        if is_super_admin:
+            stmt_p = select(Permission)
+            res_p = await self.db.execute(stmt_p)
+            all_perms = res_p.scalars().all()
+            for p in all_perms:
+                perm_names.add(p.name)
+
+        user_summary = EffectiveUserSummary(
+            id=user.id, first_name=user.first_name, last_name=user.last_name, email=user.email
+        )
+        ws_summary = (
+            EffectiveWorkspaceSummary(id=member.workspace.id, name=member.workspace.name)
+            if (member and member.workspace)
+            else None
+        )
+
+        return EffectiveAuthorizationResponse(
+            user=user_summary,
+            workspace=ws_summary,
+            roles=list(roles_set.values()),
+            permissions=sorted(list(perm_names)),
+            authorization_version=auth_version,
+            is_super_admin=is_super_admin,
+        )
+
 
 __all__ = ["IdentityService", "hash_token"]
 

@@ -619,6 +619,12 @@ async def update_custom_role(
         perms = res_p.scalars().all()
         role.permissions = list(perms)
 
+    # Bump authorization_version for all members assigned to this role
+    stmt_bump = select(WorkspaceMember).where(WorkspaceMember.role_id == role_id)
+    res_bump = await db.execute(stmt_bump)
+    for bm in res_bump.scalars().all():
+        bm.authorization_version = (bm.authorization_version or 1) + 1
+
     await db.commit()
     await db.refresh(role)
     return RoleResponse.model_validate(role)
@@ -694,15 +700,19 @@ async def update_member_role(
         raise ForbiddenError("Cannot modify your own workspace member role or status.")
 
     if payload.role_id:
+        is_super_admin = any(r.name == "Super Admin" for r in (getattr(current_user, "roles", []) or []))
         stmt_target_role = select(Role).where(Role.id == payload.role_id)
         res_target_role = await db.execute(stmt_target_role)
         target_role = res_target_role.scalar_one_or_none()
-        if target_role and target_role.name == "Super Admin" and not getattr(current_user, "is_super_admin", False):
+        if target_role and target_role.name == "Super Admin" and not is_super_admin:
             raise ForbiddenError("Only Super Admins can assign the Super Admin role.")
         member.role_id = payload.role_id
 
     if payload.status:
         member.status = payload.status
+
+    # Increment authorization_version to invalidate affected user's authorization state in real time
+    member.authorization_version = (member.authorization_version or 1) + 1
 
     await _log_audit_event(
         db=db,
@@ -711,7 +721,7 @@ async def update_member_role(
         action="member.role_changed",
         resource_type="WorkspaceMember",
         resource_id=str(member_id),
-        changes={"new_role_id": str(payload.role_id) if payload.role_id else None, "status": payload.status},
+        changes={"new_role_id": str(payload.role_id) if payload.role_id else None, "status": payload.status, "auth_version": member.authorization_version},
     )
 
     await db.commit()
