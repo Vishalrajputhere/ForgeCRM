@@ -192,11 +192,16 @@ export default function WorkspaceRolesPage() {
 
     try {
       setIsSubmittingEdit(true);
-      const res = await aiFetch(`/api/v1/workspaces/roles/${editingRoleId}`, {
+      const payload = {
         name: editRoleName.trim(),
         description: editRoleDescription.trim(),
         permission_ids: editPermIds,
-      }, 'PUT');
+      };
+
+      let res = await aiFetch(`/api/v1/workspaces/roles/${editingRoleId}`, payload, 'PUT');
+      if (!res.ok && currentWorkspace?.id) {
+        res = await aiFetch(`/api/v1/workspaces/${currentWorkspace.id}/roles/${editingRoleId}`, payload, 'PUT');
+      }
 
       if (res.ok) {
         const updatedRole = await res.json();
@@ -234,9 +239,11 @@ export default function WorkspaceRolesPage() {
       : [...currentPermIds, perm.id];
 
     try {
-      const res = await aiFetch(`/api/v1/workspaces/roles/${role.id}`, {
-        permission_ids: newPermIds,
-      }, 'PUT');
+      const payload = { permission_ids: newPermIds };
+      let res = await aiFetch(`/api/v1/workspaces/roles/${role.id}`, payload, 'PUT');
+      if (!res.ok && currentWorkspace?.id) {
+        res = await aiFetch(`/api/v1/workspaces/${currentWorkspace.id}/roles/${role.id}`, payload, 'PUT');
+      }
 
       if (res.ok) {
         const updatedRole = await res.json();
@@ -258,7 +265,10 @@ export default function WorkspaceRolesPage() {
 
     try {
       setIsSubmittingDelete(true);
-      const res = await aiFetch(`/api/v1/workspaces/roles/${deletingRole.id}`, null, 'DELETE');
+      let res = await aiFetch(`/api/v1/workspaces/roles/${deletingRole.id}`, null, 'DELETE');
+      if (!res.ok && currentWorkspace?.id) {
+        res = await aiFetch(`/api/v1/workspaces/${currentWorkspace.id}/roles/${deletingRole.id}`, null, 'DELETE');
+      }
 
       if (res.ok || res.status === 204) {
         toast('success', 'Role Deleted', `Custom role "${deletingRole.name}" deleted.`);

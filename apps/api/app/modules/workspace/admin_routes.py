@@ -583,6 +583,14 @@ async def create_custom_role(
     description="Updates a custom role's name, description, and permission assignments.",
     dependencies=[Depends(require_workspace_permission("roles.manage"))],
 )
+@router.put(
+    "/{workspace_id}/roles/{role_id}",
+    response_model=RoleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Custom Role (Workspace Scoped)",
+    description="Updates a custom role's name, description, and permission assignments.",
+    dependencies=[Depends(require_workspace_permission("roles.manage"))],
+)
 async def update_custom_role(
     role_id: UUID,
     payload: CustomRoleUpdate,
@@ -596,7 +604,8 @@ async def update_custom_role(
     if not role:
         raise NotFoundError("Role not found.")
 
-    if role.is_system and not current_user.is_super_admin:
+    is_super_admin = any(r.name == "Super Admin" for r in (getattr(current_user, "roles", []) or []))
+    if role.is_system and not is_super_admin:
         raise ForbiddenError("Only a Super Admin can modify system role definitions.")
 
     if payload.name is not None:
@@ -619,6 +628,13 @@ async def update_custom_role(
     "/roles/{role_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Custom Role",
+    description="Deletes a custom role if not currently assigned to active workspace members.",
+    dependencies=[Depends(require_workspace_permission("roles.manage"))],
+)
+@router.delete(
+    "/{workspace_id}/roles/{role_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Custom Role (Workspace Scoped)",
     description="Deletes a custom role if not currently assigned to active workspace members.",
     dependencies=[Depends(require_workspace_permission("roles.manage"))],
 )
