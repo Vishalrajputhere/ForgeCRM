@@ -284,10 +284,19 @@ class CustomRoleCreate(BaseModel):
     permission_ids: list[UUID] = Field(default_factory=list)
 
 
+class CustomRoleUpdate(BaseModel):
+    """Custom role update request DTO."""
+
+    name: str | None = Field(None, min_length=2, max_length=100)
+    description: str | None = None
+    permission_ids: list[UUID] | None = None
+
+
 __all__ = [
     "AcceptInvitationRequest",
     "AuditEventResponse",
     "CustomRoleCreate",
+    "CustomRoleUpdate",
     "EnterpriseIntegrationResponse",
     "EnterpriseIntegrationToggleRequest",
     "InviteMemberRequest",

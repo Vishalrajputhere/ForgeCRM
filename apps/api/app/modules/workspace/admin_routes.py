@@ -45,6 +45,7 @@ from app.modules.workspace.models import (
 from app.modules.workspace.schemas import (
     AuditEventResponse,
     CustomRoleCreate,
+    CustomRoleUpdate,
     EnterpriseIntegrationResponse,
     EnterpriseIntegrationToggleRequest,
     TeamResponse,
@@ -572,6 +573,80 @@ async def create_custom_role(
     await db.commit()
     await db.refresh(role)
     return RoleResponse.model_validate(role)
+
+
+@router.put(
+    "/roles/{role_id}",
+    response_model=RoleResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Custom Role",
+    description="Updates a custom role's name, description, and permission assignments.",
+    dependencies=[Depends(require_workspace_permission("roles.manage"))],
+)
+async def update_custom_role(
+    role_id: UUID,
+    payload: CustomRoleUpdate,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> RoleResponse:
+    stmt = select(Role).options(selectinload(Role.permissions)).where(Role.id == role_id)
+    res = await db.execute(stmt)
+    role = res.scalar_one_or_none()
+
+    if not role:
+        raise NotFoundError("Role not found.")
+
+    if role.is_system:
+        raise ForbiddenError("System roles cannot be modified to ensure system stability.")
+
+    if payload.name is not None:
+        role.name = payload.name
+    if payload.description is not None:
+        role.description = payload.description
+
+    if payload.permission_ids is not None:
+        stmt_p = select(Permission).where(Permission.id.in_(payload.permission_ids))
+        res_p = await db.execute(stmt_p)
+        perms = res_p.scalars().all()
+        role.permissions = list(perms)
+
+    await db.commit()
+    await db.refresh(role)
+    return RoleResponse.model_validate(role)
+
+
+@router.delete(
+    "/roles/{role_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Custom Role",
+    description="Deletes a custom role if not currently assigned to active workspace members.",
+    dependencies=[Depends(require_workspace_permission("roles.manage"))],
+)
+async def delete_custom_role(
+    role_id: UUID,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    stmt = select(Role).where(Role.id == role_id)
+    res = await db.execute(stmt)
+    role = res.scalar_one_or_none()
+
+    if not role:
+        raise NotFoundError("Role not found.")
+
+    if role.is_system:
+        raise ForbiddenError("System roles cannot be deleted.")
+
+    # Check if assigned to active members
+    stmt_assigned = select(func.count(WorkspaceMember.id)).where(WorkspaceMember.role_id == role_id)
+    res_assigned = await db.execute(stmt_assigned)
+    assigned_count = res_assigned.scalar() or 0
+
+    if assigned_count > 0:
+        raise ValidationError(f"Cannot delete role '{role.name}' because it is assigned to {assigned_count} member(s). Reassign those members first.")
+
+    await db.delete(role)
+    await db.commit()
 
 
 @router.patch(

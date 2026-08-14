@@ -5,13 +5,14 @@
  *
  * Real API-backed workspace roles and permissions management interface.
  * Shows system & custom roles, permission matrix grouped by module,
- * and custom role creation with authorization safety checks.
+ * and full CRUD operations for custom roles (Create, Edit, Delete, Live Permission Toggles)
+ * with authorization safety checks.
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   Shield, Plus, Key, Sliders, CheckCircle2, XCircle,
-  RefreshCw, AlertTriangle
+  RefreshCw, AlertTriangle, Pencil, Trash2, Edit3, Save, Lock
 } from 'lucide-react';
 import { WorkspaceAdminNav } from '@/components/navigation/workspace-admin-nav';
 import { useWorkspaceStore } from '@/stores/workspace-store';
@@ -47,12 +48,24 @@ export default function WorkspaceRolesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Custom Role Form State
+  // Create Custom Role Modal State
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [roleName, setRoleName] = useState('');
-  const [roleDescription, setRoleDescription] = useState('');
-  const [selectedPermIds, setSelectedPermIds] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [createRoleName, setCreateRoleName] = useState('');
+  const [createRoleDescription, setCreateRoleDescription] = useState('');
+  const [createPermIds, setCreatePermIds] = useState<string[]>([]);
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
+
+  // Edit Custom Role Modal State
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [editRoleName, setEditRoleName] = useState('');
+  const [editRoleDescription, setEditRoleDescription] = useState('');
+  const [editPermIds, setEditPermIds] = useState<string[]>([]);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+
+  // Delete Custom Role Modal State
+  const [deletingRole, setDeletingRole] = useState<RoleItem | null>(null);
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
   const fetchRolesAndPermissions = useCallback(async () => {
     try {
@@ -68,9 +81,12 @@ export default function WorkspaceRolesPage() {
         const dataR = await resR.json();
         if (Array.isArray(dataR)) {
           setRoles(dataR as RoleItem[]);
-          if (dataR.length > 0 && !selectedRole) {
-            setSelectedRole(dataR[0]);
-          }
+          setSelectedRole((prev) => {
+            if (!prev) return dataR[0] || null;
+            // Update reference if existing role in list
+            const found = dataR.find((r: RoleItem) => r.id === prev.id);
+            return found || dataR[0] || null;
+          });
         }
       } else {
         const errData = await resR.json().catch(() => ({}));
@@ -90,49 +106,166 @@ export default function WorkspaceRolesPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [aiFetch, selectedRole]);
+  }, [aiFetch]);
 
   useEffect(() => {
     fetchRolesAndPermissions();
   }, [fetchRolesAndPermissions]);
 
-  const togglePermissionSelection = (permId: string, permName: string) => {
+  // Create Modal Permission Toggle
+  const toggleCreatePerm = (permId: string, permName: string) => {
     if (!isSuperAdmin && !can(permName)) {
       toast('error', 'Unauthorized', 'You cannot grant permissions you do not possess.');
       return;
     }
-    setSelectedPermIds((prev) =>
+    setCreatePermIds((prev) =>
       prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
     );
   };
 
+  // Edit Modal Permission Toggle
+  const toggleEditPerm = (permId: string, permName: string) => {
+    if (!isSuperAdmin && !can(permName)) {
+      toast('error', 'Unauthorized', 'You cannot grant permissions you do not possess.');
+      return;
+    }
+    setEditPermIds((prev) =>
+      prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
+    );
+  };
+
+  // Handle Create Custom Role
   const handleCreateCustomRole = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!roleName.trim()) return;
+    if (!createRoleName.trim()) return;
 
     try {
-      setIsSubmitting(true);
+      setIsSubmittingCreate(true);
       const res = await aiFetch('/api/v1/workspaces/roles/custom', {
-        name: roleName.trim(),
-        description: roleDescription.trim() || 'Custom Enterprise Workspace Role',
-        permission_ids: selectedPermIds,
+        name: createRoleName.trim(),
+        description: createRoleDescription.trim() || 'Custom Enterprise Workspace Role',
+        permission_ids: createPermIds,
       }, 'POST');
 
       if (res.ok) {
-        toast('success', 'Role Created', `Custom role "${roleName}" created successfully.`);
+        toast('success', 'Role Created', `Custom role "${createRoleName}" created successfully.`);
         setShowCreateModal(false);
-        setRoleName('');
-        setRoleDescription('');
-        setSelectedPermIds([]);
-        fetchRolesAndPermissions();
+        setCreateRoleName('');
+        setCreateRoleDescription('');
+        setCreatePermIds([]);
+        await fetchRolesAndPermissions();
       } else {
         const errData = await res.json().catch(() => ({}));
-        toast('error', 'Creation Failed', errData.detail || 'Failed to create custom role.');
+        toast('error', 'Creation Failed', errData.detail || errData.message || 'Failed to create custom role.');
       }
     } catch (err: unknown) {
       toast('error', 'Error', (err as Error).message || 'Error creating custom role.');
     } finally {
-      setIsSubmitting(false);
+      setIsSubmittingCreate(false);
+    }
+  };
+
+  // Open Edit Modal for a Custom Role
+  const openEditModal = (role: RoleItem) => {
+    if (role.is_system !== false) {
+      toast('error', 'Protected Role', 'System roles cannot be modified to protect stability.');
+      return;
+    }
+    setEditingRoleId(role.id);
+    setEditRoleName(role.name);
+    setEditRoleDescription(role.description || '');
+    setEditPermIds(role.permissions ? role.permissions.map((p) => p.id) : []);
+    setShowEditModal(true);
+  };
+
+  // Handle Update Custom Role
+  const handleUpdateCustomRole = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingRoleId || !editRoleName.trim()) return;
+
+    try {
+      setIsSubmittingEdit(true);
+      const res = await aiFetch(`/api/v1/workspaces/roles/${editingRoleId}`, {
+        name: editRoleName.trim(),
+        description: editRoleDescription.trim(),
+        permission_ids: editPermIds,
+      }, 'PUT');
+
+      if (res.ok) {
+        const updatedRole = await res.json();
+        toast('success', 'Role Updated', `Custom role "${editRoleName}" updated successfully.`);
+        setShowEditModal(false);
+        setEditingRoleId(null);
+        setSelectedRole(updatedRole);
+        await fetchRolesAndPermissions();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast('error', 'Update Failed', errData.detail || errData.message || 'Failed to update custom role.');
+      }
+    } catch (err: unknown) {
+      toast('error', 'Error', (err as Error).message || 'Error updating custom role.');
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  // Live Permission Toggle on Custom Role
+  const handleLiveTogglePermission = async (role: RoleItem, perm: PermissionItem) => {
+    if (role.is_system !== false) {
+      toast('error', 'Protected Role', 'System roles cannot be modified.');
+      return;
+    }
+    if (!isSuperAdmin && !can(perm.name)) {
+      toast('error', 'Unauthorized', 'You cannot grant or revoke permissions you do not possess.');
+      return;
+    }
+
+    const currentPermIds = role.permissions ? role.permissions.map((p) => p.id) : [];
+    const hasPerm = currentPermIds.includes(perm.id);
+    const newPermIds = hasPerm
+      ? currentPermIds.filter((id) => id !== perm.id)
+      : [...currentPermIds, perm.id];
+
+    try {
+      const res = await aiFetch(`/api/v1/workspaces/roles/${role.id}`, {
+        permission_ids: newPermIds,
+      }, 'PUT');
+
+      if (res.ok) {
+        const updatedRole = await res.json();
+        toast('success', 'Permission Updated', `${hasPerm ? 'Revoked' : 'Granted'} "${perm.name}" for ${role.name}.`);
+        setSelectedRole(updatedRole);
+        setRoles((prev) => prev.map((r) => (r.id === role.id ? updatedRole : r)));
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast('error', 'Update Failed', errData.detail || errData.message || 'Failed to update role permissions.');
+      }
+    } catch (err: unknown) {
+      toast('error', 'Error', (err as Error).message || 'Failed to toggle permission.');
+    }
+  };
+
+  // Handle Delete Custom Role
+  const handleDeleteCustomRole = async () => {
+    if (!deletingRole) return;
+
+    try {
+      setIsSubmittingDelete(true);
+      const res = await aiFetch(`/api/v1/workspaces/roles/${deletingRole.id}`, null, 'DELETE');
+
+      if (res.ok || res.status === 204) {
+        toast('success', 'Role Deleted', `Custom role "${deletingRole.name}" deleted.`);
+        setDeletingRole(null);
+        setSelectedRole(null);
+        await fetchRolesAndPermissions();
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        toast('error', 'Deletion Failed', errData.detail || errData.message || 'Failed to delete role.');
+      }
+    } catch (err: unknown) {
+      toast('error', 'Error', (err as Error).message || 'Error deleting role.');
+    } finally {
+      setIsSubmittingDelete(false);
     }
   };
 
@@ -209,11 +342,13 @@ export default function WorkspaceRolesPage() {
               <div className="space-y-2">
                 {roles.map((r) => {
                   const isSelected = selectedRole?.id === r.id;
+                  const isCustom = r.is_system === false;
+
                   return (
                     <div
                       key={r.id}
                       onClick={() => setSelectedRole(r)}
-                      className={`p-4 rounded-xl border transition-all cursor-pointer space-y-1 ${
+                      className={`p-4 rounded-xl border transition-all cursor-pointer space-y-2.5 ${
                         isSelected
                           ? 'bg-accent/15 border-accent/40 text-white shadow-md'
                           : 'bg-slate-950/70 border-slate-800 text-slate-300 hover:border-slate-700'
@@ -221,9 +356,9 @@ export default function WorkspaceRolesPage() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-sm text-white">{r.name}</span>
-                        {r.is_system !== false ? (
-                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-cyan-400 border border-slate-700">
-                            System Role
+                        {!isCustom ? (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-cyan-400 border border-slate-700 flex items-center gap-1">
+                            <Lock className="h-3 w-3" /> System Role
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-purple-500/15 text-purple-400 border border-purple-500/30">
@@ -232,6 +367,34 @@ export default function WorkspaceRolesPage() {
                         )}
                       </div>
                       <p className="text-xs text-slate-400 line-clamp-2">{r.description || 'Enterprise RBAC Role'}</p>
+
+                      {/* Action buttons for custom roles */}
+                      {isCustom && (
+                        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+                          <PermissionGuard permission="roles.manage">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditModal(r);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-accent border border-accent/30 text-[11px] font-semibold transition-all flex items-center gap-1"
+                            >
+                              <Pencil className="h-3 w-3" /> Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDeletingRole(r);
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[11px] font-semibold transition-all flex items-center gap-1"
+                            >
+                              <Trash2 className="h-3 w-3" /> Delete
+                            </button>
+                          </PermissionGuard>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -242,13 +405,35 @@ export default function WorkspaceRolesPage() {
             <div className="lg:col-span-2 p-6 rounded-2xl bg-slate-900/60 border border-slate-800 space-y-5">
               {selectedRole ? (
                 <>
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
                     <div>
-                      <h2 className="text-base font-bold text-white flex items-center gap-2">
-                        <Sliders className="h-5 w-5 text-accent" /> {selectedRole.name} — Permission Matrix
-                      </h2>
-                      <p className="text-xs text-slate-400">{selectedRole.description || 'Effective RBAC permissions for members assigned to this role'}</p>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-bold text-white flex items-center gap-2">
+                          <Sliders className="h-5 w-5 text-accent" /> {selectedRole.name} — Permission Matrix
+                        </h2>
+                        {selectedRole.is_system !== false ? (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-cyan-400 border border-slate-700 flex items-center gap-1">
+                            <Lock className="h-3 w-3" /> System Role (Read Only)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+                            <Edit3 className="h-3 w-3" /> Custom Editable Role
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-400 mt-1">{selectedRole.description || 'Effective RBAC permissions for members assigned to this role'}</p>
                     </div>
+
+                    {selectedRole.is_system === false && (
+                      <PermissionGuard permission="roles.manage">
+                        <button
+                          onClick={() => openEditModal(selectedRole)}
+                          className="px-3.5 py-1.5 rounded-xl bg-accent hover:bg-accent/90 text-accent-foreground font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm shrink-0"
+                        >
+                          <Pencil className="h-3.5 w-3.5" /> Edit Custom Role
+                        </button>
+                      </PermissionGuard>
+                    )}
                   </div>
 
                   <div className="space-y-4">
@@ -258,25 +443,44 @@ export default function WorkspaceRolesPage() {
                       </div>
                     ) : (
                       Object.entries(permissionsByModule).map(([moduleName, perms]) => (
-                        <div key={moduleName} className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2">
+                        <div key={moduleName} className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2.5">
                           <h3 className="text-xs font-bold text-accent uppercase tracking-wider">{moduleName} Module</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
                             {perms.map((p) => {
                               const isGranted =
                                 selectedRole.name === 'Super Admin' ||
                                 selectedRole.name === 'Workspace Admin' ||
                                 selectedRole.permissions?.some((rp) => rp.id === p.id || rp.name === p.name);
 
+                              const isEditable = selectedRole.is_system === false && can('roles.manage');
+
                               return (
-                                <div key={p.id} className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-between">
+                                <div
+                                  key={p.id}
+                                  onClick={() => {
+                                    if (isEditable) {
+                                      handleLiveTogglePermission(selectedRole, p);
+                                    }
+                                  }}
+                                  className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+                                    isGranted
+                                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-200'
+                                      : 'bg-slate-900 border-slate-800 text-slate-400'
+                                  } ${isEditable ? 'cursor-pointer hover:border-accent' : ''}`}
+                                >
                                   <div>
-                                    <span className="font-medium text-slate-200 block">{p.name}</span>
-                                    {p.description && <span className="text-[10px] text-slate-500">{p.description}</span>}
+                                    <span className="font-mono text-xs font-bold block text-slate-100">{p.name}</span>
+                                    {p.description && <span className="text-[10px] text-slate-400">{p.description}</span>}
                                   </div>
+
                                   {isGranted ? (
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">
+                                      <CheckCircle2 className="h-3.5 w-3.5" /> Granted
+                                    </div>
                                   ) : (
-                                    <XCircle className="h-4 w-4 text-rose-500/60 shrink-0" />
+                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800 text-slate-500 font-bold text-[10px]">
+                                      <XCircle className="h-3.5 w-3.5" /> Revoked
+                                    </div>
                                   )}
                                 </div>
                               );
@@ -294,7 +498,7 @@ export default function WorkspaceRolesPage() {
           </div>
         )}
 
-        {/* ── Create Custom Role Modal ────────────────────────────────────────────── */}
+        {/* ── 1. Create Custom Role Modal ────────────────────────────────────────────── */}
         {showCreateModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
             <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl space-y-4 text-slate-100 max-h-[90vh] overflow-y-auto">
@@ -312,8 +516,8 @@ export default function WorkspaceRolesPage() {
                     type="text"
                     required
                     placeholder="e.g., Regional Sales Specialist"
-                    value={roleName}
-                    onChange={(e) => setRoleName(e.target.value)}
+                    value={createRoleName}
+                    onChange={(e) => setCreateRoleName(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-accent"
                   />
                 </div>
@@ -323,8 +527,8 @@ export default function WorkspaceRolesPage() {
                   <input
                     type="text"
                     placeholder="Brief summary of permissions and responsibilities"
-                    value={roleDescription}
-                    onChange={(e) => setRoleDescription(e.target.value)}
+                    value={createRoleDescription}
+                    onChange={(e) => setCreateRoleDescription(e.target.value)}
                     className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-accent"
                   />
                 </div>
@@ -336,7 +540,7 @@ export default function WorkspaceRolesPage() {
                       <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">{mod}</span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {perms.map((p) => {
-                          const isChecked = selectedPermIds.includes(p.id);
+                          const isChecked = createPermIds.includes(p.id);
                           const isPossessed = isSuperAdmin || can(p.name);
                           return (
                             <label
@@ -351,7 +555,7 @@ export default function WorkspaceRolesPage() {
                                 type="checkbox"
                                 checked={isChecked}
                                 disabled={!isPossessed}
-                                onChange={() => togglePermissionSelection(p.id, p.name)}
+                                onChange={() => toggleCreatePerm(p.id, p.name)}
                                 className="h-4 w-4 rounded border-slate-800 text-accent focus:ring-accent"
                               />
                               <span className="font-mono text-[11px] truncate">{p.name}</span>
@@ -373,13 +577,140 @@ export default function WorkspaceRolesPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isSubmittingCreate}
                     className="px-4 py-2 rounded-xl bg-accent text-accent-foreground font-semibold disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Creating...' : 'Create Custom Role'}
+                    {isSubmittingCreate ? 'Creating...' : 'Create Custom Role'}
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── 2. Edit Custom Role Modal ────────────────────────────────────────────── */}
+        {showEditModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl space-y-4 text-slate-100 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Pencil className="h-4 w-4 text-accent" /> Edit Custom Role: {editRoleName}
+                </h3>
+                <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-white">✕</button>
+              </div>
+
+              <form onSubmit={handleUpdateCustomRole} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Role Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={editRoleName}
+                    onChange={(e) => setEditRoleName(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 font-semibold mb-1">Description</label>
+                  <input
+                    type="text"
+                    value={editRoleDescription}
+                    onChange={(e) => setEditRoleDescription(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-accent"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="block text-slate-300 font-bold uppercase tracking-wider text-[11px]">Configured Permissions</label>
+                  {Object.entries(permissionsByModule).map(([mod, perms]) => (
+                    <div key={mod} className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                      <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">{mod}</span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {perms.map((p) => {
+                          const isChecked = editPermIds.includes(p.id);
+                          const isPossessed = isSuperAdmin || can(p.name);
+                          return (
+                            <label
+                              key={p.id}
+                              className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all ${
+                                isChecked
+                                  ? 'bg-accent/15 border-accent/40 text-white'
+                                  : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                              } ${!isPossessed ? 'opacity-40 cursor-not-allowed' : ''}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                disabled={!isPossessed}
+                                onChange={() => toggleEditPerm(p.id, p.name)}
+                                className="h-4 w-4 rounded border-slate-800 text-accent focus:ring-accent"
+                              />
+                              <span className="font-mono text-[11px] truncate">{p.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditModal(false)}
+                    className="px-4 py-2 rounded-xl bg-slate-900 text-slate-400 font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingEdit}
+                    className="px-4 py-2 rounded-xl bg-accent text-accent-foreground font-semibold disabled:opacity-50 flex items-center gap-1.5"
+                  >
+                    <Save className="h-4 w-4" /> {isSubmittingEdit ? 'Saving...' : 'Save Role Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* ── 3. Delete Custom Role Confirmation Modal ────────────────────────────────── */}
+        {deletingRole && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+            <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-slate-950 p-6 shadow-2xl space-y-4 text-slate-100">
+              <div className="flex items-center gap-3 text-rose-400">
+                <div className="h-10 w-10 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Delete Custom Role</h3>
+                  <p className="text-xs text-rose-400/80">This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-300">
+                Are you sure you want to permanently delete the custom role <strong className="text-white font-bold">"{deletingRole.name}"</strong>?
+              </p>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setDeletingRole(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-900 text-slate-400 font-semibold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteCustomRole}
+                  disabled={isSubmittingDelete}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs disabled:opacity-50 flex items-center gap-1.5"
+                >
+                  <Trash2 className="h-4 w-4" /> {isSubmittingDelete ? 'Deleting...' : 'Confirm Delete'}
+                </button>
+              </div>
             </div>
           </div>
         )}
