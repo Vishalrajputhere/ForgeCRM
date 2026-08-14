@@ -22,6 +22,7 @@ import { EmailInsightsPanel } from '@/components/ai/email-insights-panel';
 import { EmailTranslationPanel } from '@/components/ai/email-translation-panel';
 import { useCRM } from '@/hooks/use-crm';
 import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useAIFetch } from '@/hooks/use-ai-fetch';
 
 interface SkillMessage {
   id: string;
@@ -55,6 +56,7 @@ const EMAIL_SUGGESTIONS: PromptSuggestion[] = [
 export default function AIEmailPage() {
   const { contacts, isLoadingContacts } = useCRM();
   const { currentWorkspace } = useWorkspaceStore();
+  const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
 
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
@@ -117,23 +119,15 @@ export default function AIEmailPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/v1/ai/email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Workspace-ID': currentWorkspace?.id || '',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          skill: skillKey,
-          question: prompt,
-          entity_type: 'contact',
-          entity_id: selectedContactId,
-          entity_name: selectedContactName,
-          recipient_email: selectedContactObj?.email ?? '',
-          focus_areas: selectedTone,
-          workspace_id: currentWorkspace?.id,
-        }),
+      const res = await aiFetch('/api/v1/ai/email', {
+        skill: skillKey,
+        question: prompt,
+        entity_type: 'contact',
+        entity_id: selectedContactId,
+        entity_name: selectedContactName,
+        recipient_email: selectedContactObj?.email ?? '',
+        focus_areas: selectedTone,
+        workspace_id: currentWorkspace?.id,
       });
 
       if (res.ok) {

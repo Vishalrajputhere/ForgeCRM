@@ -9,8 +9,9 @@ Endpoints:
   GET /api/v1/ai/admin/prompts      — List prompt version histories & templates
   GET /api/v1/ai/admin/evaluations  — List evaluation benchmarks & quality scores
   GET /api/v1/ai/admin/cost         — Get workspace cost breakdown & budget alerts
-  GET /api/v1/ai/admin/security     — List security audit logs & firewall incidents
+  GET /api/v1/ai/admin/security     — Prompt Firewall status & injection detection config
   GET /api/v1/ai/admin/health       — Get AI provider health & circuit breaker statuses
+  GET /api/v1/ai/admin/audit        — Security audit log & incident register
 
 Documentation: docs/03_Backend/302_API_DESIGN.md
 """
@@ -20,12 +21,16 @@ from __future__ import annotations
 from typing import Any
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, desc
 
 from app.core.dependencies import get_current_user_and_workspace
 from app.db.engine import get_db
 from app.modules.ai.evaluation.datasets import GoldenDatasetManager
+from app.modules.ai.governance.firewall import PromptFirewall
+from app.modules.ai.governance.pii_dlp import PIIRedactionEngine
 from app.modules.ai.lifecycle.failover import ProviderFailoverManager
 from app.modules.ai.lifecycle.registry import ModelRegistry
+from app.modules.ai.models import AISecurityAuditLog
 from app.modules.ai.ops.cost import CostAnalyticsEngine
 from app.modules.ai.skills.shared.prompt_registry import PromptRegistry
 from app.modules.identity.models import User
@@ -104,11 +109,13 @@ async def get_admin_evaluations(
 )
 async def get_admin_cost(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
 ) -> dict[str, Any]:
     """Returns workspace cost analytics, budget usage, and savings."""
     user, workspace = auth
     ws_id = workspace.id if workspace else user.id
-    summary = CostAnalyticsEngine.calculate_workspace_summary(ws_id)
+    engine = CostAnalyticsEngine(db)
+    summary = await engine.calculate_workspace_summary_async(ws_id)
     return {
         "workspace_id": summary.workspace_id,
         "total_spend_usd": summary.total_spend_usd,
@@ -134,3 +141,67 @@ async def get_admin_health(
         "openai": ProviderFailoverManager.get_healthy_provider("openai"),
         "ollama": ProviderFailoverManager.get_healthy_provider("ollama"),
     }
+
+
+@router.get(
+    "/security",
+    status_code=status.HTTP_200_OK,
+    summary="Prompt Firewall & PII Redaction Configuration",
+)
+async def get_admin_security(
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+) -> dict[str, Any]:
+    """Returns active Prompt Firewall detection rules and PII masking field list."""
+    injection_rules = [tag for tag, _ in PromptFirewall._INJECTION_PATTERNS]
+    pii_fields = list(PIIRedactionEngine._PII_PATTERNS.keys())
+    return {
+        "firewall_status": "active",
+        "injection_defense": True,
+        "jailbreak_detection": True,
+        "pii_masking": True,
+        "injection_rule_count": len(injection_rules),
+        "injection_rules": injection_rules,
+        "pii_masked_fields": pii_fields,
+        "risk_threshold": 0.50,
+    }
+
+
+@router.get(
+    "/audit",
+    status_code=status.HTTP_200_OK,
+    summary="Security Audit Log & Incident Register",
+)
+async def get_admin_audit(
+    limit: int = 50,
+    auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
+    db: AsyncSession = Depends(get_db),
+) -> dict[str, Any]:
+    """Returns recent security audit events for the workspace from AISecurityAuditLog."""
+    user, workspace = auth
+    ws_id = workspace.id if workspace else user.id
+
+    stmt = (
+        select(AISecurityAuditLog)
+        .where(AISecurityAuditLog.workspace_id == ws_id)
+        .order_by(desc(AISecurityAuditLog.created_at))
+        .limit(limit)
+    )
+    result = await db.execute(stmt)
+    logs = result.scalars().all()
+
+    return {
+        "workspace_id": str(ws_id),
+        "total_events": len(logs),
+        "events": [
+            {
+                "id": str(log.id),
+                "event_type": log.event_type,
+                "severity": log.severity,
+                "blocked": log.blocked,
+                "created_at": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+        ],
+        "no_violations": len(logs) == 0,
+    }
+

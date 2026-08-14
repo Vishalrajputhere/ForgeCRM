@@ -17,7 +17,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.modules.identity.models import Role
+from app.modules.identity.models import Role, User
 from app.modules.workspace.models import (
     Team,
     Workspace,
@@ -94,7 +94,7 @@ class WorkspaceMemberRepository:
             select(WorkspaceMember)
             .options(
                 selectinload(WorkspaceMember.role).selectinload(Role.permissions),
-                selectinload(WorkspaceMember.user),
+                selectinload(WorkspaceMember.user).selectinload(User.roles).selectinload(Role.permissions),
             )
             .where(
                 WorkspaceMember.workspace_id == workspace_id,
@@ -111,7 +111,7 @@ class WorkspaceMemberRepository:
             select(WorkspaceMember)
             .options(
                 selectinload(WorkspaceMember.role).selectinload(Role.permissions),
-                selectinload(WorkspaceMember.user),
+                selectinload(WorkspaceMember.user).selectinload(User.roles).selectinload(Role.permissions),
             )
             .where(WorkspaceMember.id == member_id, WorkspaceMember.deleted_at.is_(None))
         )
@@ -124,7 +124,7 @@ class WorkspaceMemberRepository:
             select(WorkspaceMember)
             .options(
                 selectinload(WorkspaceMember.role).selectinload(Role.permissions),
-                selectinload(WorkspaceMember.user),
+                selectinload(WorkspaceMember.user).selectinload(User.roles).selectinload(Role.permissions),
             )
             .where(
                 WorkspaceMember.workspace_id == workspace_id,
@@ -192,6 +192,23 @@ class InvitationRepository:
             )
             .where(
                 WorkspaceInvitation.invitation_token_hash == token_hash,
+                WorkspaceInvitation.accepted_at.is_(None),
+                WorkspaceInvitation.expires_at > datetime.now(UTC),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_by_id(self, invitation_id: UUID) -> WorkspaceInvitation | None:
+        """Fetch invitation by UUID ID."""
+        stmt = (
+            select(WorkspaceInvitation)
+            .options(
+                selectinload(WorkspaceInvitation.workspace),
+                selectinload(WorkspaceInvitation.role),
+            )
+            .where(
+                WorkspaceInvitation.id == invitation_id,
                 WorkspaceInvitation.accepted_at.is_(None),
                 WorkspaceInvitation.expires_at > datetime.now(UTC),
             )

@@ -15,7 +15,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import CurrentUser
+from app.core.dependencies import CurrentUser, require_workspace_permission
 from app.db.session import get_db_session
 from app.modules.workspace.schemas import (
     AcceptInvitationRequest,
@@ -120,6 +120,7 @@ async def get_workspace(
     status_code=status.HTTP_200_OK,
     summary="Update Workspace",
     description="Updates workspace details.",
+    dependencies=[Depends(require_workspace_permission("workspace.update"))],
 )
 async def update_workspace(
     workspace_id: UUID,
@@ -137,6 +138,7 @@ async def update_workspace(
     status_code=status.HTTP_200_OK,
     summary="List Workspace Members",
     description="Returns all active members in the specified workspace.",
+    dependencies=[Depends(require_workspace_permission("users.read"))],
 )
 async def list_members(
     workspace_id: UUID,
@@ -153,6 +155,7 @@ async def list_members(
     status_code=status.HTTP_201_CREATED,
     summary="Invite Member to Workspace",
     description="Generates an invitation token for a user to join the workspace.",
+    dependencies=[Depends(require_workspace_permission("users.invite"))],
 )
 async def invite_member(
     workspace_id: UUID,
@@ -170,6 +173,7 @@ async def invite_member(
     status_code=status.HTTP_200_OK,
     summary="List Teams",
     description="Returns all teams within the specified workspace.",
+    dependencies=[Depends(require_workspace_permission("teams.read"))],
 )
 async def list_teams(
     workspace_id: UUID,
@@ -186,6 +190,7 @@ async def list_teams(
     status_code=status.HTTP_201_CREATED,
     summary="Create Team",
     description="Creates a new organizational team in the workspace.",
+    dependencies=[Depends(require_workspace_permission("teams.create"))],
 )
 async def create_team(
     workspace_id: UUID,
@@ -203,6 +208,7 @@ async def create_team(
     status_code=status.HTTP_200_OK,
     summary="Get Workspace Settings",
     description="Returns settings for the workspace.",
+    dependencies=[Depends(require_workspace_permission("workspace.read"))],
 )
 async def get_settings(
     workspace_id: UUID,
@@ -219,6 +225,7 @@ async def get_settings(
     status_code=status.HTTP_200_OK,
     summary="Update Workspace Settings",
     description="Updates workspace settings.",
+    dependencies=[Depends(require_workspace_permission("workspace.update"))],
 )
 async def update_settings(
     workspace_id: UUID,

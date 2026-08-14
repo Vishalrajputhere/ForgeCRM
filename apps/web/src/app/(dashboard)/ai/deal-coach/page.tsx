@@ -17,6 +17,7 @@ import { RiskPanel } from '@/components/ai/risk-panel';
 
 import { useCRM } from '@/hooks/use-crm';
 import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useAIFetch } from '@/hooks/use-ai-fetch';
 
 interface SkillMessage {
   id: string;
@@ -49,6 +50,7 @@ const DEAL_COACH_SUGGESTIONS: PromptSuggestion[] = [
 export default function AIDealCoachPage() {
   const { deals, isLoadingDeals } = useCRM();
   const { currentWorkspace } = useWorkspaceStore();
+  const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
 
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
@@ -106,21 +108,13 @@ export default function AIDealCoachPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/v1/ai/deal-coach', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Workspace-ID': currentWorkspace?.id || '',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          skill: skillKey,
-          question: prompt,
-          entity_type: 'deal',
-          entity_id: selectedDealId,
-          entity_name: selectedDealName,
-          workspace_id: currentWorkspace?.id,
-        }),
+      const res = await aiFetch('/api/v1/ai/deal-coach', {
+        skill: skillKey,
+        question: prompt,
+        entity_type: 'deal',
+        entity_id: selectedDealId,
+        entity_name: selectedDealName,
+        workspace_id: currentWorkspace?.id,
       });
 
       if (res.ok) {

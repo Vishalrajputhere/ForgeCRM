@@ -13,6 +13,7 @@ import { ReasoningPanel, type ReasoningChain } from '@/components/ai/reasoning-p
 import { RecommendationCard } from '@/components/ai/recommendation-card';
 import { ActionCard } from '@/components/ai/action-card';
 import { PromptSuggestionBar, type PromptSuggestion } from '@/components/ai/prompt-suggestion-bar';
+import { useAIFetch } from '@/hooks/use-ai-fetch';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -311,6 +312,7 @@ function ContextPanel({ message }: { message: SkillMessage | null }) {
 
 export default function AICopilotPage() {
   const { currentWorkspace } = useWorkspaceStore();
+  const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
   const [conversations, setConversations] = React.useState<Conversation[]>(() => {
     if (typeof window === 'undefined') return INITIAL_CONVERSATIONS;
     const stored = localStorage.getItem('forge-copilot-conversations');
@@ -371,19 +373,11 @@ export default function AICopilotPage() {
     setIsLoading(true);
 
     try {
-      // Single unified API endpoint (Rule 7)
-      const res = await fetch('/api/v1/ai/copilot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Workspace-ID': currentWorkspace?.id || '',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          skill: skillType,
-          question: prompt,
-          workspace_id: currentWorkspace?.id,
-        }),
+      // Single unified API endpoint — uses useAIFetch for Authorization header
+      const res = await aiFetch('/api/v1/ai/copilot', {
+        skill: skillType,
+        question: prompt,
+        workspace_id: currentWorkspace?.id,
       });
 
       if (res.ok) {

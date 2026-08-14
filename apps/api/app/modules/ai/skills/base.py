@@ -34,6 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.ai.context import EnterpriseContextBuilder
 from app.modules.ai.mcp import MCPToolRegistry
 from app.modules.ai.memory import AIMemoryManager
+from app.modules.ai.ops.cost import CostAnalyticsEngine
 from app.modules.ai.rag import RAGRetrievalEngine
 from app.modules.ai.router import AIRouterEngine
 from app.modules.ai.schemas import AIChatRequest, AIMessageTurn
@@ -77,42 +78,84 @@ class BaseAISkill(ABC):
         user_id: uuid.UUID,
         user_role: str = "member",
     ) -> SkillResponse:
-        """Standard execution pipeline for all AI Skills."""
+        """Standard execution pipeline for all AI Skills — with full debug logging."""
+        import traceback as _tb
         skill_name = request.skill or request.skill_type or self.skill_type
         goal = request.question or f"Execute {skill_name} analysis"
 
+        print(f"[AI] > SkillRegistry dispatched -> {type(self).__name__} | skill={skill_name}")
+        print(f"[AI]   workspace_id={workspace_id} | user_id={user_id} | role={user_role}")
+        print(f"[AI]   entity_type={request.entity_type} | entity_id={request.entity_id}")
+        print(f"[AI]   question={goal[:120]}")
+
         # 1. Build context
+        print("[AI] --- STAGE 1: Building enterprise context...")
         crm_context_str = await self.build_context(
             workspace_id, workspace_name, user_id, user_role,
             request.entity_type, request.entity_id, goal
         )
+        print(f"[AI]   Context built (len={len(crm_context_str)})")
 
         # 2. Retrieve RAG snippets
+        print("[AI] --- STAGE 2: Retrieving RAG snippets...")
         rag_snippets = await self.retrieve_rag(
             workspace_id, request.question or goal, request.entity_type
         )
+        print(f"[AI]   RAG returned {len(rag_snippets)} snippets")
 
         # 3. Load memory
+        print("[AI] --- STAGE 3: Loading memory...")
         memory_context = await self.load_memory(
             workspace_id, user_id, request.question or goal
         )
+        print(f"[AI]   Memory loaded: {len(memory_context)} items")
 
         # 4. Collect tool data
+        print("[AI] --- STAGE 4: Collecting MCP tool data...")
         tool_calls_used = await self.collect_tool_data(
             workspace_id, user_id, skill_name, request
         )
+        print(f"[AI]   Tool calls resolved: {tool_calls_used}")
 
-        # 5. Build prompt (Overridden or default from PromptRegistry)
+        # 5. Build prompt
+        print("[AI] --- STAGE 5: Building prompt...")
         system_prompt, user_message, template_id = self.build_prompt(
             request, workspace_name, crm_context_str, rag_snippets, memory_context
         )
+        print(f"[AI]   Template: {template_id} | system_len={len(system_prompt)} | user_len={len(user_message)}")
 
         # 6. Call LLM via AI Router
-        llm_text, prompt_tokens, completion_tokens, cost, provider, model = await self.call_llm(
-            system_prompt, user_message, request.provider, request.model
-        )
+        print(f"[AI] --- STAGE 6: Calling Gemini LLM (provider={request.provider or 'default'}, model={request.model or 'default'})...")
+        try:
+            llm_text, prompt_tokens, completion_tokens, cost, provider, model = await self.call_llm(
+                system_prompt, user_message, request.provider, request.model
+            )
+        except Exception as e:
+            print(f"[AI] [ERROR] STAGE 6 FAILED - Gemini call raised exception:")
+            _tb.print_exc()
+            raise RuntimeError(f"LLM call failed in {type(self).__name__}.call_llm(): {e}") from e
+
+        print(f"[AI]   Gemini returned: provider={provider} model={model} prompt_tok={prompt_tokens} completion_tok={completion_tokens} cost=${cost:.6f}")
+        print(f"[AI]   Response preview: {llm_text[:120]}")
+
+        # 6b. Persist token usage & cost analytics in DB
+        try:
+            cost_engine = CostAnalyticsEngine(self.db)
+            await cost_engine.record_usage(
+                workspace_id=workspace_id,
+                user_id=user_id,
+                skill_type=skill_name,
+                provider=provider,
+                model=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+            )
+            print("[AI]   Cost recorded to DB")
+        except Exception:
+            print("[AI]   [WARN] Cost recording failed (non-fatal)")
 
         # 7–11. Build final SkillResponse using ResponseBuilder
+        print("[AI] --- STAGE 7: Building SkillResponse...")
         builder = (
             ResponseBuilder(skill_name, goal)
             .set_summary(llm_text)
@@ -124,8 +167,9 @@ class BaseAISkill(ABC):
             .set_template_id(template_id)
             .set_entity(request.entity_type, request.entity_id)
         )
-
-        return builder.build()
+        response = builder.build()
+        print(f"[AI] [OK] SkillResponse built: skill={response.skill} confidence={response.confidence:.2f} summary_len={len(response.summary)}")
+        return response
 
     # ─── Standard Pipeline Methods ────────────────────────────────────────────
 
@@ -149,7 +193,7 @@ class BaseAISkill(ABC):
                 entity_type=entity_type,
                 entity_id=entity_id,
                 user_prompt=user_prompt,
-                model_name="gemini-1.5-flash",
+                model_name="gemini-flash-latest",
             )
             lines = [f"Workspace: {workspace_name}"]
             if entity_type and entity_id:
@@ -158,6 +202,9 @@ class BaseAISkill(ABC):
                 lines.append(f"Entity Details: {payload.entity_context}")
             return "\n".join(lines)
         except Exception:
+            import traceback as _tb
+            print("[AI]   [WARN] build_context raised (non-fatal, continuing with minimal context):")
+            _tb.print_exc()
             return f"Workspace: {workspace_name}"
 
     async def retrieve_rag(
@@ -176,6 +223,9 @@ class BaseAISkill(ABC):
                 top_k=top_k,
             )
         except Exception:
+            import traceback as _tb
+            print("[AI]   [WARN] retrieve_rag raised (non-fatal, returning empty):")
+            _tb.print_exc()
             return []
 
     async def load_memory(
@@ -195,6 +245,9 @@ class BaseAISkill(ABC):
             )
             return [m.value if hasattr(m, "value") else str(m) for m in memories]
         except Exception:
+            import traceback as _tb
+            print("[AI]   [WARN] load_memory raised (non-fatal, returning []):")
+            _tb.print_exc()
             return []
 
     async def collect_tool_data(

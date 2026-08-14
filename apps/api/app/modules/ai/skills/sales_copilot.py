@@ -150,8 +150,10 @@ SkillRegistry.register_many(
         "timeline_summary",
         "explain_pipeline",
         "pipeline_analysis",
+        "pipeline",          # frontend alias
         "show_blockers",
         "blocker_analysis",
+        "blockers",          # frontend alias
     ],
     SalesCopilotSkill,
 )

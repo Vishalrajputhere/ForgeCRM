@@ -170,10 +170,11 @@ class Settings(BaseSettings):
     SMTP_TLS: bool = Field(default=True)
 
     # ── AI Providers ──────────────────────────────────────────────────────────
+    GEMINI_API_KEY: SecretStr | None = Field(default=None, description="Google Gemini API key")
     OPENAI_API_KEY: SecretStr | None = Field(default=None, description="OpenAI API key")
     ANTHROPIC_API_KEY: SecretStr | None = Field(default=None)
-    AI_DEFAULT_PROVIDER: str = Field(default="openai")
-    AI_DEFAULT_MODEL: str = Field(default="gpt-4o")
+    AI_DEFAULT_PROVIDER: str = Field(default="gemini")
+    AI_DEFAULT_MODEL: str = Field(default="gemini-flash-latest")
 
     # ── Google OAuth ──────────────────────────────────────────────────────────
     GOOGLE_CLIENT_ID: str | None = Field(default=None)

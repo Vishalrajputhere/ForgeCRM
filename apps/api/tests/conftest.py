@@ -14,7 +14,7 @@ import os
 # Set test environment variables BEFORE importing app modules
 os.environ["APP_ENV"] = "testing"
 os.environ["APP_SECRET_KEY"] = "test_secret_key_that_is_at_least_32_characters_long"
-os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///./test.db")
+os.environ["DATABASE_URL"] = os.getenv("TEST_DATABASE_URL", "sqlite+aiosqlite:///:memory:")
 os.environ["REDIS_URL"] = "redis://:forgecrm_dev_password@localhost:6379/1"
 os.environ["JWT_SECRET_KEY"] = "test_jwt_secret_key_that_is_at_least_32_characters_long"
 

@@ -117,6 +117,9 @@ class AuthorizationError(ForgeCRMError):
     message = "You do not have permission to perform this action."
 
 
+ForbiddenError = AuthorizationError
+
+
 class WorkspaceAccessError(AuthorizationError):
     """User is not a member of the requested workspace."""
 
@@ -213,6 +216,7 @@ __all__ = [
     "DatabaseError",
     "DuplicateError",
     "ExternalServiceError",
+    "ForbiddenError",
     "ForgeCRMError",
     "InsufficientPermissionsError",
     "InvalidCredentialsError",

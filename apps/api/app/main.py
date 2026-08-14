@@ -204,6 +204,33 @@ def _register_middleware(app: FastAPI, settings: Any) -> None:
         expose_headers=["X-Request-ID", "X-Correlation-ID"],
     )
 
+    # CORS safety-net middleware: FastAPI's CORSMiddleware does NOT add headers
+    # to responses returned by @app.exception_handler (they bypass the ASGI stack).
+    # This middleware ensures CORS headers are present on ALL responses including 5xx.
+    from starlette.middleware.base import BaseHTTPMiddleware
+    from starlette.requests import Request as StarletteRequest
+    from starlette.responses import Response as StarletteResponse
+
+    cors_origins_set = set(settings.cors_origins)
+
+    class CORSSafetyNetMiddleware(BaseHTTPMiddleware):
+        async def dispatch(
+            self,
+            request: StarletteRequest,
+            call_next: Any,
+        ) -> StarletteResponse:
+            origin = request.headers.get("origin", "")
+            response = await call_next(request)
+            # Only inject if the origin is allowed and header is missing
+            if origin and origin.rstrip("/") in {o.rstrip("/") for o in cors_origins_set}:
+                if "access-control-allow-origin" not in response.headers:
+                    response.headers["Access-Control-Allow-Origin"] = origin
+                    response.headers["Access-Control-Allow-Credentials"] = "true"
+                    response.headers["Vary"] = "Origin"
+            return response
+
+    app.add_middleware(CORSSafetyNetMiddleware)
+
 
 def _register_exception_handlers(app: FastAPI) -> None:
     """Register centralized exception handlers."""
@@ -265,6 +292,7 @@ def _register_exception_handlers(app: FastAPI) -> None:
 
         Never returns internal stack traces to clients.
         """
+        import traceback
         request_id = getattr(request.state, "request_id", None)
         logger = get_logger(__name__)
         logger.exception(
@@ -272,11 +300,14 @@ def _register_exception_handlers(app: FastAPI) -> None:
             error=str(exc),
             error_type=type(exc).__name__,
         )
+        # Print full traceback so root cause is visible in server logs
+        print(f"[500] Unhandled exception on {request.method} {request.url.path}:")
+        traceback.print_exc()
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ErrorResponse(
                 error_code="INTERNAL_ERROR",
-                message="An unexpected error occurred. Please try again later.",
+                message=f"[{type(exc).__name__}] {exc}",
                 request_id=request_id,
             ).model_dump(),
         )

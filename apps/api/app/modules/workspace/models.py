@@ -10,7 +10,7 @@ Documentation: docs/02_Database/203_WORKSPACE_SCHEMA.md
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -24,7 +24,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, BaseModel, TimestampMixin, UUIDPrimaryKeyMixin
@@ -164,11 +164,76 @@ class WorkspaceSettings(Base, TimestampMixin):
     workspace: Mapped[Workspace] = relationship("Workspace", back_populates="settings")
 
 
+class AuditEvent(Base, UUIDPrimaryKeyMixin):
+    """Unified enterprise audit log for sensitive workspace administrative actions."""
+
+    __tablename__ = "audit_events"
+
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    actor_user_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    action: Mapped[str] = mapped_column(VARCHAR(100), nullable=False, index=True)
+    resource_type: Mapped[str] = mapped_column(VARCHAR(50), nullable=False, index=True)
+    resource_id: Mapped[str | None] = mapped_column(VARCHAR(255), nullable=True)
+    ip_address: Mapped[str | None] = mapped_column(VARCHAR(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(VARCHAR(20), default="success", server_default="success", nullable=False)
+    changes_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
+
+    # Relationships
+    workspace: Mapped[Workspace] = relationship("Workspace")
+    actor_user: Mapped[User | None] = relationship("User", foreign_keys=[actor_user_id])
+
+
+class WorkspaceSecuritySettings(Base, TimestampMixin):
+    """Enterprise security policies for a workspace."""
+
+    __tablename__ = "workspace_security_settings"
+
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), primary_key=True)
+    min_password_length: Mapped[int] = mapped_column(Integer, default=12, server_default="12", nullable=False)
+    require_special_char: Mapped[bool] = mapped_column(BOOLEAN, default=True, server_default="true", nullable=False)
+    session_timeout_minutes: Mapped[int] = mapped_column(Integer, default=1440, server_default="1440", nullable=False)
+    mfa_required: Mapped[bool] = mapped_column(BOOLEAN, default=False, server_default="false", nullable=False)
+    max_failed_logins: Mapped[int] = mapped_column(Integer, default=5, server_default="5", nullable=False)
+    ip_whitelist_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
+    # Relationships
+    workspace: Mapped[Workspace] = relationship("Workspace")
+
+
+class EnterpriseIntegration(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Enterprise integration connection registry and administration."""
+
+    __tablename__ = "enterprise_integrations"
+
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(VARCHAR(50), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(VARCHAR(100), nullable=False)
+    status: Mapped[str] = mapped_column(VARCHAR(30), default="Not configured", server_default="Not configured", nullable=False)
+    connected_by: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    config_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "provider", name="uq_workspace_integration_provider"),
+    )
+
+    # Relationships
+    workspace: Mapped[Workspace] = relationship("Workspace")
+    connector_user: Mapped[User | None] = relationship("User", foreign_keys=[connected_by])
+
+
 __all__ = [
+    "AuditEvent",
+    "EnterpriseIntegration",
     "Team",
     "TeamMember",
     "Workspace",
     "WorkspaceInvitation",
     "WorkspaceMember",
+    "WorkspaceSecuritySettings",
     "WorkspaceSettings",
 ]
+

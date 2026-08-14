@@ -47,7 +47,9 @@ from app.modules.identity.schemas import (
     PasswordChangeRequest,
     PasswordResetConfirm,
     PasswordResetRequest,
+    PermissionResponse,
     RegisterRequest,
+    RoleResponse,
     SessionResponse,
     TokenResponse,
     UserProfileUpdate,
@@ -433,7 +435,25 @@ class IdentityService:
     async def list_roles(self) -> list[RoleResponse]:
         """Fetch all system roles."""
         roles = await self.role_repo.list_roles()
-        return [RoleResponse.model_validate(r) for r in roles]
+        if not roles:
+            await self.role_repo.seed_system_roles_and_permissions()
+            roles = await self.role_repo.list_roles()
+
+        res = []
+        for r in roles:
+            perm_dtos = [
+                PermissionResponse.model_validate(p) for p in (r.permissions or [])
+            ]
+            res.append(
+                RoleResponse(
+                    id=r.id,
+                    name=r.name,
+                    description=r.description,
+                    is_system=r.is_system,
+                    permissions=perm_dtos,
+                )
+            )
+        return res
 
 
 __all__ = ["IdentityService", "hash_token"]

@@ -12,8 +12,9 @@ Documentation: docs/03_Backend/302_API_DESIGN.md
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+import traceback
 
 from app.core.dependencies import get_current_user_and_workspace
 from app.db.engine import get_db
@@ -43,6 +44,9 @@ async def execute_copilot_skill(
     """
     user, workspace = auth
     ws_id = workspace.id if workspace else user.id
+    ws_name = getattr(workspace, "name", "Default Workspace")
+
+    print(f"[Copilot] > POST /ai/copilot | skill={payload.skill} | ws={ws_id} | user={user.id}")
 
     skill_req = SkillRequest(
         skill=payload.skill,
@@ -57,14 +61,23 @@ async def execute_copilot_skill(
         model=payload.model,
     )
 
-    return await SkillRegistry.dispatch(
-        request=skill_req,
-        workspace_id=ws_id,
-        workspace_name=getattr(workspace, "name", "Workspace"),
-        user_id=user.id,
-        user_role=getattr(user, "role", "member"),
-        db=db,
-    )
+    try:
+        result = await SkillRegistry.dispatch(
+            request=skill_req,
+            workspace_id=ws_id,
+            workspace_name=ws_name,
+            user_id=user.id,
+            user_role=getattr(user, "role", "member"),
+            db=db,
+        )
+        print(f"[Copilot] [OK] dispatch complete | skill={result.skill} | confidence={result.confidence:.2f}")
+        return result
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"[{type(e).__name__}] {e}",
+        ) from e
 
 
 # ─── Available Skills Discovery Endpoint ──────────────────────────────────────

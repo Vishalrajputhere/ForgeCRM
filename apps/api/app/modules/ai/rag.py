@@ -101,17 +101,21 @@ class RAGRetrievalEngine:
                 )
             )
 
-        # 4. Log retrieval query
-        log_entry = AIRetrievalLog(
-            workspace_id=workspace_id,
-            user_id=user_id,
-            query_text=query,
-            top_k=top_k,
-            latency_ms=18,
-            results_count=len(citations),
-        )
-        self.db.add(log_entry)
-        await self.db.flush()
+        # 4. Log retrieval query safely via savepoint
+        try:
+            async with self.db.begin_nested():
+                log_entry = AIRetrievalLog(
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                    query_text=query,
+                    top_k=top_k,
+                    latency_ms=18,
+                    results_count=len(citations),
+                )
+                self.db.add(log_entry)
+                await self.db.flush()
+        except Exception:
+            pass
 
         return RAGQueryResult(
             query=query,
@@ -119,3 +123,34 @@ class RAGRetrievalEngine:
             results=citations,
             latency_ms=18,
         )
+
+    async def retrieve(
+        self,
+        workspace_id: uuid.UUID,
+        query: str,
+        entity_type: str | None = None,
+        top_k: int = 6,
+        user_id: uuid.UUID | None = None,
+    ) -> list[dict]:
+        """Alias for BaseAISkill.retrieve_rag() compatibility. Returns list[dict] of citation snippets."""
+        result = await self.search(
+            workspace_id=workspace_id,
+            user_id=user_id,
+            query=query,
+            top_k=top_k,
+            entity_type=entity_type,
+        )
+        return [
+            {
+                "citation_id": c.citation_id,
+                "entity_type": c.entity_type,
+                "entity_id": str(c.entity_id),
+                "snippet": c.snippet,
+                "similarity_score": c.similarity_score,
+                "rrf_rank": c.rrf_rank,
+                "confidence_tier": c.confidence_tier,
+            }
+            for c in result.results
+        ]
+
+

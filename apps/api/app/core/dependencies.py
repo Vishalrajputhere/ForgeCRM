@@ -46,7 +46,13 @@ async def get_current_user(
 
     Raises AuthenticationError if token is missing, invalid, expired, or user is disabled.
     """
+    # ── Debug logging (shows auth state for every request) ──────────────────
+    has_creds = credentials is not None and bool(credentials.credentials)
+    token_preview = credentials.credentials[:20] + '...' if has_creds else 'MISSING'
+    print(f"[Auth] get_current_user | has_token={has_creds} | token_preview={token_preview}")
+
     if credentials is None or not credentials.credentials:
+        print("[Auth] [ERROR] 401 - No Authorization header received")
         raise AuthenticationError("Authentication credentials were not provided.")
 
     token = credentials.credentials
@@ -57,21 +63,27 @@ async def get_current_user(
         payload = decode_token(token, secret_key, algorithm)
     except JWTError as exc:
         if "expired" in str(exc).lower():
+            print(f"[Auth] [ERROR] 401 - Token expired: {exc}")
             raise TokenExpiredError() from exc
+        print(f"[Auth] [ERROR] 401 - JWT invalid: {exc}")
         raise TokenInvalidError() from exc
     except Exception as exc:
+        print(f"[Auth] [ERROR] 401 - Token decode failed: {exc}")
         raise TokenInvalidError() from exc
 
     if payload.get("type") != "access":
+        print(f"[Auth] [ERROR] 401 - Wrong token type: {payload.get('type')}")
         raise TokenInvalidError("Provided token is not an access token.")
 
     subject = payload.get("sub")
     if not subject:
+        print("[Auth] [ERROR] 401 - No subject in token payload")
         raise TokenInvalidError("Invalid token subject.")
 
     try:
         user_id = UUID(subject)
     except ValueError as exc:
+        print(f"[Auth] [ERROR] 401 - Invalid user_id format: {subject}")
         raise TokenInvalidError("Invalid user ID format.") from exc
 
     session_id_str = payload.get("session_id")
@@ -82,6 +94,7 @@ async def get_current_user(
             session_repo = SessionRepository(db)
             session = await session_repo.get_by_id(session_id)
             if session is None or not session.is_active_session:
+                print(f"[Auth] [ERROR] 401 - Session terminated or expired: {session_id}")
                 raise TokenExpiredError("Session has been terminated or expired.")
         except (ValueError, TypeError):
             pass
@@ -90,14 +103,17 @@ async def get_current_user(
     user = await user_repo.get_by_id(user_id)
 
     if user is None:
+        print(f"[Auth] [ERROR] 401 - User not found in DB: {user_id}")
         raise AuthenticationError("User associated with this token no longer exists.")
 
     if not user.is_active:
+        print(f"[Auth] [ERROR] 401 - User account disabled: {user_id}")
         raise AuthenticationError("User account is disabled.")
 
     if session_id_str:
         user._current_session_id = UUID(session_id_str)
 
+    print(f"[Auth] [OK] Authenticated user_id={user_id} email={user.email}")
     return user
 
 
@@ -152,6 +168,7 @@ async def get_current_workspace_id(
     workspace_id_str = (
         request.headers.get("X-Workspace-ID")
         or request.headers.get("x-workspace-id")
+        or request.path_params.get("workspace_id")
         or request.query_params.get("workspace_id")
     )
     if not workspace_id_str:
@@ -188,13 +205,28 @@ async def get_current_workspace_member(
 def require_workspace_permission(required_permission: str) -> Callable[..., Coroutine[Any, Any, User]]:
     """
     Dependency factory verifying permission within the current workspace context.
+
+    Super Admin role bypasses permission checks.
+    Workspace Admin role receives full workspace permission set.
+    All other roles must explicitly possess the required permission.
     """
 
     async def _workspace_permission_checker(
         current_user: CurrentUser,
         member: Annotated[Any, Depends(get_current_workspace_member)],
     ) -> User:
-        role_permissions = {perm.name for perm in member.role.permissions}
+        # 1. Super Admin bypass
+        if getattr(current_user, "is_super_admin", False) or (member.role and member.role.name == "Super Admin"):
+            return current_user
+
+        # 2. Extract permission names
+        role_permissions: set[str] = set()
+        if member.role and hasattr(member.role, "permissions"):
+            role_permissions = {perm.name for perm in member.role.permissions}
+
+        # 3. Workspace Admin wildcard for workspace scope
+        if member.role and member.role.name == "Workspace Admin":
+            return current_user
 
         if required_permission not in role_permissions:
             raise InsufficientPermissionsError(
@@ -211,27 +243,75 @@ async def get_current_user_and_workspace(
     db: Annotated[AsyncSession, Depends(get_db_session)],
     request: Request,
 ) -> tuple[User, Any]:
-    """Extract authenticated user and current active workspace."""
-    from app.modules.workspace.repository import WorkspaceRepository, WorkspaceMemberRepository
-    workspace_id_str = request.headers.get("X-Workspace-ID")
-    ws_repo = WorkspaceRepository(db)
+    """
+    Extract authenticated user and current active workspace tenant.
+    Strictly verifies active workspace membership for specified workspace headers.
+    """
+    from uuid import UUID
+    from app.modules.workspace.exceptions import WorkspaceAccessDeniedError
+    from app.modules.workspace.models import Workspace, WorkspaceMember
+    from app.modules.workspace.repository import WorkspaceMemberRepository, WorkspaceRepository
+    from app.modules.identity.repository import RoleRepository
 
+    workspace_id_str = (
+        request.headers.get("X-Workspace-ID")
+        or request.headers.get("x-workspace-id")
+        or request.query_params.get("workspace_id")
+    )
+    ws_repo = WorkspaceRepository(db)
+    member_repo = WorkspaceMemberRepository(db)
+
+    # 1. Specified workspace ID header -> MUST verify membership strictly!
     if workspace_id_str:
         try:
-            workspace = await ws_repo.get_by_id(UUID(workspace_id_str))
-            if workspace:
-                return user, workspace
-        except Exception:
-            pass
+            target_ws_id = UUID(workspace_id_str)
+            member = await member_repo.get_member(target_ws_id, user.id)
+            if member and member.status == "Active":
+                workspace = await ws_repo.get_by_id(target_ws_id)
+                if workspace and workspace.deleted_at is None:
+                    return user, workspace
+            # If header specified but user is not an active member -> reject cross-tenant access!
+            raise WorkspaceAccessDeniedError("User is not an active member of the requested workspace.")
+        except ValueError as exc:
+            raise WorkspaceAccessDeniedError("Invalid workspace ID format.") from exc
 
-    member_repo = WorkspaceMemberRepository(db)
+    # 2. Fall back to user's first active workspace membership
     memberships = await member_repo.list_for_user(user.id)
-    if memberships:
-        workspace = await ws_repo.get_by_id(memberships[0].workspace_id)
-        if workspace:
+    active_memberships = [m for m in memberships if m.status == "Active"]
+    if active_memberships:
+        workspace = await ws_repo.get_by_id(active_memberships[0].workspace_id)
+        if workspace and workspace.deleted_at is None:
             return user, workspace
 
-    return user, None
+    # 3. User has no workspace at all -> Auto-create default workspace for user
+    new_ws_id = UUID(int=user.id.int ^ 0x123456789ABCDEF)
+    existing_ws = await ws_repo.get_by_id(new_ws_id)
+    if not existing_ws:
+        new_ws = Workspace(
+            id=new_ws_id,
+            name=f"{user.first_name or 'Default'}'s Workspace",
+            slug=f"workspace-{user.id.hex[:8]}",
+        )
+        db.add(new_ws)
+        await db.flush()
+        existing_ws = new_ws
+
+    role_repo = RoleRepository(db)
+    admin_role = await role_repo.get_by_name("Workspace Admin")
+    if admin_role:
+        existing_member = await member_repo.get_member(existing_ws.id, user.id)
+        if not existing_member:
+            member = WorkspaceMember(
+                workspace_id=existing_ws.id,
+                user_id=user.id,
+                role_id=admin_role.id,
+                status="Active",
+            )
+            db.add(member)
+            await db.flush()
+
+    return user, existing_ws
+
 
 
 HeaderWorkspaceId = Annotated[Any, Depends(get_current_user)]

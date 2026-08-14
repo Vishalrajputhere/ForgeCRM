@@ -27,6 +27,7 @@ function LoadingScreen({ label }: { label?: string }) {
 
 export default function DashboardLayout({ children }: { readonly children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { currentWorkspace } = useWorkspace();
   const isStoreHydrated = useWorkspaceStore((s) => s._hydrated);
@@ -112,7 +113,7 @@ export default function DashboardLayout({ children }: { readonly children: React
 
         {/* Dynamic Page Content */}
         <main className="flex-1 overflow-y-auto pb-16 md:pb-6">
-          <PageTransition key={usePathname()}>
+          <PageTransition key={pathname}>
             {children}
           </PageTransition>
         </main>

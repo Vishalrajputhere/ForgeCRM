@@ -163,7 +163,12 @@ class Session(BaseModel):
     def is_active_session(self) -> bool:
         """Check if session is active (not revoked and not expired)."""
         now = datetime.now(UTC)
-        return self.revoked_at is None and self.expires_at > now
+        # Normalize expires_at: SQLite returns timezone-naive datetimes even for
+        # DateTime(timezone=True) columns; attach UTC so comparison is safe.
+        expires = self.expires_at
+        if expires is not None and expires.tzinfo is None:
+            expires = expires.replace(tzinfo=UTC)
+        return self.revoked_at is None and expires is not None and expires > now
 
 
 class RefreshToken(BaseModel):
@@ -183,7 +188,12 @@ class RefreshToken(BaseModel):
     def is_valid(self) -> bool:
         """Check if refresh token is valid."""
         now = datetime.now(UTC)
-        return self.revoked_at is None and self.expires_at > now
+        # Normalize expires_at: SQLite returns timezone-naive datetimes even for
+        # DateTime(timezone=True) columns; attach UTC so comparison is safe.
+        expires = self.expires_at
+        if expires is not None and expires.tzinfo is None:
+            expires = expires.replace(tzinfo=UTC)
+        return self.revoked_at is None and expires is not None and expires > now
 
 
 class OAuthAccount(BaseModel):

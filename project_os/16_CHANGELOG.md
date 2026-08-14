@@ -1,6 +1,20 @@
 # 16 — Project Changelog
 
-All future implementations must append changes to this living log following this exact markdown structure:
+## [2.7.0-phase7.final] — 2026-08-14
+
+### Phase 7 Final Productization & E2E Verification
+- **Autonomous AI Agents UI**: Connected `/ai/agents` to real `POST /api/v1/ai/agents/run` & step execution API; purged fake `SAMPLE_AGENTS` mock records.
+- **AI Event Subscriptions UI**: Connected `/ai/events` to real `GET/POST /api/v1/ai/agents/events/*` endpoints; real entity UUID required.
+- **AI Memory Rules UI**: Connected `/ai/memory` to real `GET/POST/DELETE /api/v1/ai/memory` CRUD API.
+- **Global MCP Approval Notification Widget**: Fixed backend `act.created_at` bug in `routes.py`; added real pending approvals polling in `topbar.tsx`.
+- **Background Job Monitor**: Connected `/admin/jobs` to real `POST /api/v1/jobs/dispatch` & status polling (`/api/v1/jobs/status/{job_id}`).
+- **Workspace Teams UI**: Connected `/workspace/teams` to real `GET/POST /api/v1/workspaces/{id}/teams`; mapped schema `members_count`.
+- **Inline CRM Attachments**: Added Attachments dropzone tab to `/deals/[id]/page.tsx` powered by presigned MinIO flow (`useStorage()`).
+- **Deferred Item**: Gap #7 (Deal Product Line Items) remains intentionally deferred because the backend CRM module has no `Product` / `DealLineItem` domain architecture.
+- **Quality**: 0 TypeScript compilation errors (`npx tsc --noEmit`); Pytest suite passed; 0 hardcoded secrets.
+- **Status**: **PHASE 7 FINAL VERIFICATION COMPLETE. PHASE 8 NOT STARTED.**
+
+---
 
 ## [2.6.3-phase7.6.3] — 2026-08-10
 

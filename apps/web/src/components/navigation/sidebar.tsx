@@ -9,7 +9,6 @@ import {
   Building2,
   Users,
   TrendingUp,
-  CheckSquare2,
   HardDrive,
   Cpu,
   Settings2,
@@ -23,16 +22,33 @@ import {
   Crown,
   Terminal,
   Shield,
+  Bot,
+  Radio,
+  Brain,
+  Server,
+  FolderTree,
+  Puzzle,
+  FileText,
+  BarChart3,
 } from 'lucide-react';
 
 import { useNavigationStore } from '@/stores/navigation-store';
+import { usePermissions } from '@/hooks/use-permissions';
 import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 import { Caption } from '@/components/ui/typography';
 import { cn } from '@/lib/cn';
 
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ElementType;
+  count?: number;
+  permission?: string;
+}
+
 interface NavGroup {
   label: string;
-  items: { name: string; href: string; icon: React.ElementType; count?: number }[];
+  items: NavItem[];
 }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -43,31 +59,42 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'CRM Directory',
     items: [
-      { name: 'Leads', href: '/leads', icon: Zap, count: 14 },
-      { name: 'Companies', href: '/companies', icon: Building2, count: 128 },
-      { name: 'Contacts', href: '/contacts', icon: Users, count: 342 },
-      { name: 'Deals', href: '/deals', icon: TrendingUp, count: 24 },
+      { name: 'Leads', href: '/leads', icon: Zap, count: 14, permission: 'leads.read' },
+      { name: 'Companies', href: '/companies', icon: Building2, count: 128, permission: 'companies.read' },
+      { name: 'Contacts', href: '/contacts', icon: Users, count: 342, permission: 'contacts.read' },
+      { name: 'Deals', href: '/deals', icon: TrendingUp, count: 24, permission: 'deals.read' },
     ],
   },
   {
     label: 'AI Subsystem',
     items: [
-      { name: 'Sales Copilot', href: '/ai/copilot', icon: Sparkles },
-      { name: 'Deal Coach', href: '/ai/deal-coach', icon: ShieldAlert },
-      { name: 'Lead Qualification', href: '/ai/lead-qualification', icon: Target },
-      { name: 'Forecast AI', href: '/ai/forecast', icon: TrendingUp },
-      { name: 'Email Assistant', href: '/ai/email', icon: Mail },
-      { name: 'Executive Copilot', href: '/ai/executive', icon: Crown },
-      { name: 'AI Debug Console', href: '/ai/debug', icon: Terminal },
-      { name: 'AI Governance Admin', href: '/ai/admin', icon: Shield },
+      { name: 'Sales Copilot', href: '/ai', icon: Sparkles, permission: 'ai.use' },
+      { name: 'Deal Coach', href: '/ai/deal-coach', icon: ShieldAlert, permission: 'ai.use' },
+      { name: 'Lead Qualification', href: '/ai/lead-qualification', icon: Target, permission: 'ai.use' },
+      { name: 'Forecast AI', href: '/ai/forecast', icon: TrendingUp, permission: 'ai.use' },
+      { name: 'Email Assistant', href: '/ai/email', icon: Mail, permission: 'ai.use' },
+      { name: 'Executive Copilot', href: '/ai/executive', icon: Crown, permission: 'ai.use' },
+      { name: 'Autonomous Agents', href: '/ai/agents', icon: Bot, permission: 'ai.agents.run' },
+      { name: 'AI Event Center', href: '/ai/events', icon: Radio, permission: 'ai.use' },
+      { name: 'AI Memory Manager', href: '/ai/memory', icon: Brain, permission: 'ai.memory.manage' },
+      { name: 'AI Debug Console', href: '/ai/debug', icon: Terminal, permission: 'ai.admin.view' },
+      { name: 'AI Governance Admin', href: '/ai/admin', icon: Shield, permission: 'ai.admin.manage' },
     ],
   },
   {
-    label: 'Operations & Tools',
+    label: 'Enterprise Administration',
     items: [
-      { name: 'Tasks', href: '/tasks', icon: CheckSquare2, count: 5 },
-      { name: 'Storage', href: '/storage', icon: HardDrive },
-      { name: 'Automations', href: '/automations', icon: Cpu },
+      { name: 'Workspace Console', href: '/workspace/admin', icon: Building2, permission: 'workspace.read' },
+      { name: 'Members & Invites', href: '/workspace/members', icon: Users, permission: 'users.read' },
+      { name: 'Teams & Hierarchy', href: '/workspace/teams', icon: FolderTree, permission: 'teams.read' },
+      { name: 'Roles & Permissions', href: '/workspace/roles', icon: Shield, permission: 'roles.read' },
+      { name: 'Integrations', href: '/workspace/integrations', icon: Puzzle, permission: 'integrations.read' },
+      { name: 'Security Controls', href: '/workspace/security', icon: ShieldAlert, permission: 'security.read' },
+      { name: 'Audit Logs', href: '/workspace/audit', icon: FileText, permission: 'audit.read' },
+      { name: 'Usage & Limits', href: '/workspace/usage', icon: BarChart3, permission: 'usage.read' },
+      { name: 'Background Jobs', href: '/admin/jobs', icon: Server, permission: 'jobs.read' },
+      { name: 'Storage', href: '/storage', icon: HardDrive, permission: 'storage.read' },
+      { name: 'Automations', href: '/automations', icon: Cpu, permission: 'automations.read' },
     ],
   },
 ];
@@ -75,6 +102,7 @@ const NAV_GROUPS: NavGroup[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, favorites } = useNavigationStore();
+  const { can } = usePermissions();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -133,40 +161,48 @@ export function Sidebar() {
         )}
 
         {/* Groups */}
-        {NAV_GROUPS.map((group) => (
-          <div key={group.label} className="space-y-1">
-            {!isCollapsed && (
-              <Caption color="muted" className="px-2 font-semibold uppercase tracking-wider text-[10px]">
-                {group.label}
-              </Caption>
-            )}
-            {group.items.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    'group flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-xs font-medium transition-all duration-150',
-                    isActive
-                      ? 'bg-accent/15 text-accent font-semibold'
-                      : 'text-secondary hover:text-primary hover:bg-hover'
-                  )}
-                  title={isCollapsed ? item.name : undefined}
-                >
-                  <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-accent' : 'text-muted group-hover:text-primary')} />
-                  {!isCollapsed && <span className="truncate flex-1">{item.name}</span>}
-                  {!isCollapsed && item.count !== undefined && (
-                    <span className={cn('rounded px-1.5 py-0.2 font-mono text-[10px]', isActive ? 'bg-accent/20 text-accent font-bold' : 'bg-subtle text-muted')}>
-                      {item.count}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+        {NAV_GROUPS.map((group) => {
+          const visibleItems = group.items.filter(
+            (item) => !item.permission || can(item.permission)
+          );
+
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={group.label} className="space-y-1">
+              {!isCollapsed && (
+                <Caption color="muted" className="px-2 font-semibold uppercase tracking-wider text-[10px]">
+                  {group.label}
+                </Caption>
+              )}
+              {visibleItems.map((item) => {
+                const isActive = pathname.startsWith(item.href);
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={cn(
+                      'group flex h-8 items-center gap-2.5 rounded-lg px-2.5 text-xs font-medium transition-all duration-150',
+                      isActive
+                        ? 'bg-accent/15 text-accent font-semibold'
+                        : 'text-secondary hover:text-primary hover:bg-hover'
+                    )}
+                    title={isCollapsed ? item.name : undefined}
+                  >
+                    <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-accent' : 'text-muted group-hover:text-primary')} />
+                    {!isCollapsed && <span className="truncate flex-1">{item.name}</span>}
+                    {!isCollapsed && item.count !== undefined && (
+                      <span className={cn('rounded px-1.5 py-0.2 font-mono text-[10px]', isActive ? 'bg-accent/20 text-accent font-bold' : 'bg-subtle text-muted')}>
+                        {item.count}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer Settings */}

@@ -291,12 +291,21 @@ class WorkspaceService:
         full_inv = await self.invitation_repo.get_by_token_hash(token_h)
         res = WorkspaceInvitationResponse.model_validate(full_inv)
         res.raw_token = raw_token
+        res.token = raw_token
         return res
 
     async def accept_invitation(self, user_id: UUID, token_str: str) -> WorkspaceMemberResponse:
-        """Accept a workspace invitation with token."""
+        """Accept a workspace invitation with token or UUID."""
         token_h = hash_token(token_str)
         invitation = await self.invitation_repo.get_by_token_hash(token_h)
+
+        if invitation is None:
+            # Fallback: check if token_str is an invitation UUID ID directly
+            try:
+                inv_uuid = UUID(token_str)
+                invitation = await self.invitation_repo.get_by_id(inv_uuid)
+            except (ValueError, AttributeError):
+                invitation = None
 
         if invitation is None:
             raise InvitationNotFoundError()

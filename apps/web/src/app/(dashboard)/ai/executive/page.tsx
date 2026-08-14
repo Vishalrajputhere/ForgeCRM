@@ -54,9 +54,11 @@ const EXECUTIVE_SUGGESTIONS: PromptSuggestion[] = [
 ];
 
 import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useAIFetch } from '@/hooks/use-ai-fetch';
 
 export default function AIExecutivePage() {
   const { currentWorkspace } = useWorkspaceStore();
+  const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
@@ -102,20 +104,12 @@ export default function AIExecutivePage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/v1/ai/executive', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Workspace-ID': currentWorkspace?.id || '',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          skill: skillKey,
-          question: prompt,
-          entity_type: 'workspace',
-          time_window: selectedPeriod,
-          workspace_id: currentWorkspace?.id,
-        }),
+      const res = await aiFetch('/api/v1/ai/executive', {
+        skill: skillKey,
+        question: prompt,
+        entity_type: 'workspace',
+        time_window: selectedPeriod,
+        workspace_id: currentWorkspace?.id,
       });
 
       if (res.ok) {

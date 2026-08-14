@@ -25,6 +25,35 @@ class SkillRegistry:
     _registry: dict[str, Type[BaseAISkill]] = {}
 
     @classmethod
+    def _ensure_loaded(cls) -> None:
+        """Auto-imports all AI skill implementation modules to trigger registration."""
+        if not cls._registry:
+            try:
+                import app.modules.ai.skills.sales_copilot  # noqa
+            except Exception:
+                pass
+            try:
+                import app.modules.ai.skills.deal_coach  # noqa
+            except Exception:
+                pass
+            try:
+                import app.modules.ai.skills.lead_qualification  # noqa
+            except Exception:
+                pass
+            try:
+                import app.modules.ai.skills.forecast  # noqa
+            except Exception:
+                pass
+            try:
+                import app.modules.ai.skills.email  # noqa
+            except Exception:
+                pass
+            try:
+                import app.modules.ai.skills.executive  # noqa
+            except Exception:
+                pass
+
+    @classmethod
     def register(cls, skill_key: str, skill_cls: Type[BaseAISkill]) -> None:
         """Registers a skill class under a specific skill key."""
         cls._registry[skill_key.lower()] = skill_cls
@@ -38,6 +67,7 @@ class SkillRegistry:
     @classmethod
     def get(cls, skill_key: str) -> Type[BaseAISkill]:
         """Retrieves a skill class by key. Raises KeyError if not found."""
+        cls._ensure_loaded()
         key = skill_key.lower() if skill_key else "crm_qa"
         if key not in cls._registry:
             # Fallback to CRM Q&A if registered, else raise

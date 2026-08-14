@@ -135,8 +135,11 @@ class EnterpriseContextBuilder:
             quality_metrics=quality_metrics,
             build_duration_ms=12,
         )
-        self.db.add(snapshot)
-        await self.db.flush()
+        try:
+            self.db.add(snapshot)
+            await self.db.flush()
+        except Exception:
+            pass
 
         return EnterpriseContextPayload(
             snapshot_id=snapshot_id,

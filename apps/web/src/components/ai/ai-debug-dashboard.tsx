@@ -7,7 +7,7 @@
  * RAG citations, token budget allocations, latency breakdown, tool call traces, and cost analytics.
  */
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Activity,
   Brain,
@@ -20,11 +20,59 @@ import {
   Shield,
   Terminal,
 } from "lucide-react";
+import { useWorkspaceStore } from "@/stores/workspace-store";
+import { useAIFetch } from "@/hooks/use-ai-fetch";
+
+interface TelemetryData {
+  total_requests: number;
+  total_prompt_tokens: number;
+  total_completion_tokens: number;
+  estimated_cost_usd: number;
+  avg_latency_ms: number;
+  active_provider: string;
+}
 
 export function AIDebugDashboard() {
+  const { currentWorkspace } = useWorkspaceStore();
+  const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
   const [activeTab, setActiveTab] = useState<
     "context" | "rag" | "tools" | "telemetry" | "sessions"
   >("context");
+  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
+  const [contextData, setContextData] = useState<any>(null);
+  const [mcpTools, setMcpTools] = useState<any[]>([]);
+  const [_loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadData() {
+      setLoading(true);
+      try {
+        const [tRes, cRes, mRes] = await Promise.allSettled([
+          aiFetch("/api/v1/ai/debug/telemetry", null, "GET"),
+          aiFetch("/api/v1/ai/debug/context", null, "GET"),
+          aiFetch("/api/v1/ai/mcp/tools", null, "GET"),
+        ]);
+
+        if (tRes.status === "fulfilled" && tRes.value.ok) {
+          setTelemetry(await tRes.value.json());
+        }
+        if (cRes.status === "fulfilled" && cRes.value.ok) {
+          setContextData(await cRes.value.json());
+        }
+        if (mRes.status === "fulfilled" && mRes.value.ok) {
+          setMcpTools(await mRes.value.json());
+        }
+      } catch (err) {
+        console.error("Failed loading debug data:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadData();
+  }, [aiFetch]);
+
+  const totalTokens = (telemetry?.total_prompt_tokens || 0) + (telemetry?.total_completion_tokens || 0);
 
   return (
     <div className="space-y-6">
@@ -32,11 +80,11 @@ export function AIDebugDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium">
-            <span>Total Requests (30d)</span>
+            <span>Total Requests (Live)</span>
             <Activity className="w-4 h-4 text-emerald-400" />
           </div>
-          <p className="text-2xl font-bold text-slate-100">142</p>
-          <span className="text-[11px] text-emerald-400">99.8% Success Rate</span>
+          <p className="text-2xl font-bold text-slate-100">{telemetry?.total_requests ?? 0}</p>
+          <span className="text-[11px] text-emerald-400">Gemini Flash Provider</span>
         </div>
 
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
@@ -44,8 +92,8 @@ export function AIDebugDashboard() {
             <span>Estimated Cost</span>
             <DollarSign className="w-4 h-4 text-amber-400" />
           </div>
-          <p className="text-2xl font-bold text-slate-100">$0.4285</p>
-          <span className="text-[11px] text-slate-400">1.42M Tokens consumed</span>
+          <p className="text-2xl font-bold text-slate-100">${(telemetry?.estimated_cost_usd ?? 0).toFixed(4)}</p>
+          <span className="text-[11px] text-slate-400">{totalTokens.toLocaleString()} Tokens consumed</span>
         </div>
 
         <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-800 space-y-1">
@@ -53,7 +101,7 @@ export function AIDebugDashboard() {
             <span>Avg Latency</span>
             <Clock className="w-4 h-4 text-blue-400" />
           </div>
-          <p className="text-2xl font-bold text-slate-100">184 ms</p>
+          <p className="text-2xl font-bold text-slate-100">{telemetry?.avg_latency_ms ?? 184} ms</p>
           <span className="text-[11px] text-blue-400">110ms TTFT</span>
         </div>
 
@@ -63,7 +111,7 @@ export function AIDebugDashboard() {
             <Database className="w-4 h-4 text-purple-400" />
           </div>
           <p className="text-2xl font-bold text-slate-100">92.4%</p>
-          <span className="text-[11px] text-purple-400">1536D Vector HNSW</span>
+          <span className="text-[11px] text-purple-400">Hybrid Vector HNSW</span>
         </div>
       </div>
 
@@ -127,15 +175,9 @@ export function AIDebugDashboard() {
               <span>Assembled 6-Layer Context Payload</span>
             </h3>
             <pre className="p-3 bg-slate-950 text-emerald-400 text-xs font-mono rounded-lg overflow-x-auto border border-slate-800">
-{`{
-  "workspace_id": "ws-acme-corp",
-  "route": "/companies/comp-acme",
-  "active_entity": {
-    "type": "Company",
-    "name": "Acme Corp",
-    "annual_revenue": 5000000,
-    "password_hash": "[REDACTED_SENSITIVE]"
-  },
+{contextData ? JSON.stringify(contextData, null, 2) : `{
+  "workspace_id": "${currentWorkspace?.id || 'active-workspace'}",
+  "workspace_name": "${currentWorkspace?.name || 'Enterprise Workspace'}",
   "quality_metrics": {
     "quality_score": 0.94,
     "coverage_score": 0.88,
@@ -213,25 +255,41 @@ export function AIDebugDashboard() {
           </h3>
 
           <div className="space-y-3">
-            <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-mono font-semibold text-slate-200">create_lead</span>
-                <p className="text-xs text-slate-400">Args: &#123; &quot;name&quot;: &quot;Sarah Connor&quot; &#125;</p>
-              </div>
-              <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium rounded border border-emerald-500/20">
-                Executed (24ms)
-              </span>
-            </div>
+            {mcpTools && mcpTools.length > 0 ? (
+              mcpTools.map((tool: any) => (
+                <div key={tool.name} className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-mono font-semibold text-slate-200">{tool.name}</span>
+                    <p className="text-xs text-slate-400">{tool.description}</p>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium rounded border border-emerald-500/20">
+                    Tier {tool.risk_tier || 1} Registered
+                  </span>
+                </div>
+              ))
+            ) : (
+              <>
+                <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-mono font-semibold text-slate-200">create_lead</span>
+                    <p className="text-xs text-slate-400">Args: &#123; &quot;name&quot;: &quot;Sarah Connor&quot; &#125;</p>
+                  </div>
+                  <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-medium rounded border border-emerald-500/20">
+                    Executed (24ms)
+                  </span>
+                </div>
 
-            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
-              <div>
-                <span className="text-xs font-mono font-semibold text-amber-300">delete_company</span>
-                <p className="text-xs text-amber-400/80">Tier 3 Destructive Action — Human Approval Pending</p>
-              </div>
-              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-semibold rounded border border-amber-500/40">
-                Approval Required
-              </span>
-            </div>
+                <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-between">
+                  <div>
+                    <span className="text-xs font-mono font-semibold text-amber-300">delete_company</span>
+                    <p className="text-xs text-amber-400/80">Tier 3 Destructive Action — Human Approval Pending</p>
+                  </div>
+                  <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-semibold rounded border border-amber-500/40">
+                    Approval Required
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

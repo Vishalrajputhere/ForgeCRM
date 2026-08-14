@@ -2,16 +2,32 @@
 
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { TimelineWidget } from '@/components/crm/timeline-widget';
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
 import { useFormatters } from '@/hooks/use-formatters';
+import { useStorage } from '@/hooks/use-storage';
 import type { DealUpdate } from '@/types';
+import { Paperclip, Upload, Trash2, Download, File, ImageIcon, FileText, Film, Archive } from 'lucide-react';
 
 const inputCls = 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-forge-500 transition-colors';
 const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1.5';
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileIcon(mimeType: string) {
+  if (mimeType.startsWith('image/')) return <ImageIcon className="h-4 w-4 text-blue-400" />;
+  if (mimeType.startsWith('video/')) return <Film className="h-4 w-4 text-purple-400" />;
+  if (mimeType.includes('pdf')) return <FileText className="h-4 w-4 text-rose-400" />;
+  if (mimeType.includes('zip') || mimeType.includes('tar') || mimeType.includes('gz')) return <Archive className="h-4 w-4 text-amber-400" />;
+  return <File className="h-4 w-4 text-slate-400" />;
+}
 
 export default function DealDetailPage(): React.JSX.Element {
   const params = useParams();
@@ -32,6 +48,15 @@ export default function DealDetailPage(): React.JSX.Element {
     contacts,
   } = useCRM();
 
+  const {
+    requestUploadUrl,
+    confirmUpload,
+    getDownloadUrl,
+    deleteAttachment,
+    isDeletingAttachment,
+    useEntityAttachments,
+  } = useStorage();
+
   const { data: deal, isLoading } = useDeal(dealId);
 
   const pipeline = pipelines.find((p) => p.id === deal?.pipeline_id);
@@ -39,7 +64,96 @@ export default function DealDetailPage(): React.JSX.Element {
   const company = companies.find((c) => c.id === deal?.company_id);
   const contact = contacts.find((c) => c.id === deal?.primary_contact_id);
 
-  const [tab, setTab] = useState<'overview' | 'timeline'>('overview');
+  const [tab, setTab] = useState<'overview' | 'timeline' | 'attachments'>('overview');
+
+  // ── Attachments ───────────────────────────────────────────────────────────
+  const { data: attachments = [], refetch: refetchAttachments } = useEntityAttachments('Deal', dealId);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files.item(0);
+    if (!file) return;
+
+    if (file.size > 26_214_400) {
+      setUploadError('File exceeds the 25 MB maximum size limit.');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      // Step 1: Request presigned upload URL from backend
+      const presigned = await requestUploadUrl({
+        entity_type: 'Deal',
+        entity_id: dealId as unknown as import('@/types').UUID,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type || 'application/octet-stream',
+      });
+
+      // Step 2: Upload directly to storage provider via presigned URL
+      const uploadRes = await fetch(presigned.upload_url, {
+        method: 'PUT',
+        body: file as BodyInit,
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(`Storage upload failed (HTTP ${uploadRes.status})`);
+      }
+
+      // Step 3: Confirm upload to backend — creates DocumentAttachment record
+      await confirmUpload({
+        storage_key: presigned.storage_key,
+        entity_type: 'Deal',
+        entity_id: dealId as unknown as import('@/types').UUID,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type || 'application/octet-stream',
+      });
+
+      toast('success', 'File Uploaded', `"${file.name}" attached to this deal.`);
+      await refetchAttachments();
+    } catch (err: any) {
+      setUploadError(err.message || 'Upload failed. Please try again.');
+      toast('error', 'Upload Failed', err.message || 'Failed to upload file');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [dealId, requestUploadUrl, confirmUpload, refetchAttachments, toast]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    handleFileUpload(e.dataTransfer.files);
+  }, [handleFileUpload]);
+
+  const handleDownload = async (attachmentId: string, fileName: string) => {
+    try {
+      const { download_url } = await getDownloadUrl(attachmentId);
+      const a = document.createElement('a');
+      a.href = download_url;
+      a.download = fileName;
+      a.target = '_blank';
+      a.click();
+    } catch (err: any) {
+      toast('error', 'Download Failed', err.message || 'Failed to generate download link');
+    }
+  };
+
+  const handleDelete = async (attachmentId: string, fileName: string) => {
+    try {
+      await deleteAttachment(attachmentId);
+      toast('success', 'Attachment Removed', `"${fileName}" has been deleted.`);
+    } catch (err: any) {
+      toast('error', 'Delete Failed', err.message || 'Failed to delete attachment');
+    }
+  };
 
   // ── Edit ──────────────────────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(false);
@@ -81,7 +195,7 @@ export default function DealDetailPage(): React.JSX.Element {
 
   // ── Delete ────────────────────────────────────────────────────────────────
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const handleDelete = async () => {
+  const handleDelete2 = async () => {
     try {
       await deleteDeal(dealId);
       toast('success', 'Deal cancelled');
@@ -175,9 +289,7 @@ export default function DealDetailPage(): React.JSX.Element {
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-center">
           <p className="text-xs text-slate-500 uppercase font-semibold tracking-wide mb-1">Close Date</p>
-          <p className="text-xl font-bold text-white">
-            {formatDate(deal.expected_close_date)}
-          </p>
+          <p className="text-xl font-bold text-white">{formatDate(deal.expected_close_date)}</p>
         </div>
       </div>
 
@@ -223,7 +335,7 @@ export default function DealDetailPage(): React.JSX.Element {
               : 'border-transparent text-slate-400 hover:text-white'
           }`}
         >
-          Overview & Details
+          Overview &amp; Details
         </button>
         <button
           onClick={() => setTab('timeline')}
@@ -234,6 +346,22 @@ export default function DealDetailPage(): React.JSX.Element {
           }`}
         >
           Activity Timeline
+        </button>
+        <button
+          onClick={() => setTab('attachments')}
+          className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
+            tab === 'attachments'
+              ? 'border-forge-500 text-forge-400 font-semibold'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Paperclip className="h-3.5 w-3.5" />
+          Attachments
+          {attachments.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-forge-500/20 text-forge-400 text-[10px] font-bold">
+              {attachments.length}
+            </span>
+          )}
         </button>
       </div>
 
@@ -304,6 +432,105 @@ export default function DealDetailPage(): React.JSX.Element {
         </div>
       )}
 
+      {/* Attachments Tab */}
+      {tab === 'attachments' && (
+        <div className="space-y-4">
+          {/* Dropzone */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`rounded-xl border-2 border-dashed p-10 text-center cursor-pointer transition-all ${
+              isDragging
+                ? 'border-forge-500 bg-forge-500/10 scale-[1.01]'
+                : isUploading
+                  ? 'border-slate-700 bg-slate-900/40 opacity-60 cursor-not-allowed'
+                  : 'border-slate-700 bg-slate-900/40 hover:border-forge-500/50 hover:bg-slate-900/60'
+            }`}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => handleFileUpload(e.target.files)}
+              disabled={isUploading}
+              accept="*/*"
+            />
+            <div className="flex flex-col items-center gap-3">
+              {isUploading ? (
+                <>
+                  <div className="h-10 w-10 rounded-full border-2 border-forge-500 border-t-transparent animate-spin" />
+                  <p className="text-sm font-medium text-slate-300">Uploading...</p>
+                </>
+              ) : (
+                <>
+                  <Upload className="h-8 w-8 text-slate-500" />
+                  <div>
+                    <p className="text-sm font-medium text-slate-300">
+                      {isDragging ? 'Drop file here' : 'Drag & drop or click to upload'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">Maximum file size: 25 MB</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {uploadError && (
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">
+              {uploadError}
+            </div>
+          )}
+
+          {/* Attachments List */}
+          {attachments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center text-slate-500 space-y-2">
+              <Paperclip className="h-8 w-8 text-slate-700" />
+              <p className="text-sm">No attachments yet — upload a file above</p>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+              <div className="px-6 py-3 bg-slate-950/60 border-b border-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center justify-between">
+                <span>{attachments.length} {attachments.length === 1 ? 'File' : 'Files'} Attached</span>
+              </div>
+              <div className="divide-y divide-slate-800/60">
+                {attachments.map((att) => (
+                  <div key={String(att.id)} className="flex items-center justify-between px-6 py-4 hover:bg-slate-800/20 transition-colors group">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {fileIcon(att.mime_type)}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white truncate">{att.file_name}</p>
+                        <p className="text-xs text-slate-500">
+                          {formatBytes(att.file_size)} · {new Date(att.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-4">
+                      <button
+                        onClick={() => handleDownload(String(att.id), att.file_name)}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-700 transition-colors"
+                        title="Download"
+                      >
+                        <Download className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(String(att.id), att.file_name)}
+                        disabled={isDeletingAttachment}
+                        className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors disabled:opacity-40"
+                        title="Delete attachment"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Edit Modal */}
       {isEditing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -351,7 +578,7 @@ export default function DealDetailPage(): React.JSX.Element {
             <p className="text-xs text-slate-400">Are you sure you want to mark this deal as cancelled?</p>
             <div className="flex justify-center gap-3 pt-2">
               <button onClick={() => setConfirmDelete(false)} className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white">Back</button>
-              <button onClick={handleDelete} disabled={isDeletingDeal} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 disabled:opacity-40">
+              <button onClick={handleDelete2} disabled={isDeletingDeal} className="rounded-lg bg-rose-500 px-4 py-2 text-xs font-semibold text-white hover:bg-rose-400 disabled:opacity-40">
                 {isDeletingDeal ? 'Cancelling…' : 'Confirm Cancel'}
               </button>
             </div>

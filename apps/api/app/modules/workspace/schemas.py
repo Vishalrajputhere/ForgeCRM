@@ -95,6 +95,7 @@ class WorkspaceInvitationResponse(BaseModel):
     expires_at: datetime
     created_at: datetime
     raw_token: str | None = None
+    token: str | None = None
 
 
 # ── Request DTOs ──────────────────────────────────────────────────────────────
@@ -170,9 +171,127 @@ class TeamUpdate(BaseModel):
     manager_member_id: UUID | None = None
 
 
+# ── Phase 8.1 Enterprise Administration Schemas ────────────────────────────────
+
+
+class AuditEventResponse(BaseModel):
+    """Audit log entry DTO."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    actor_user_id: UUID | None = None
+    actor_email: str | None = None
+    actor_name: str | None = None
+    action: str
+    resource_type: str
+    resource_id: str | None = None
+    ip_address: str | None = None
+    user_agent: str | None = None
+    status: str
+    changes_json: dict | None = None
+    created_at: datetime
+
+
+class WorkspaceSecuritySettingsResponse(BaseModel):
+    """Security settings DTO."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    workspace_id: UUID
+    min_password_length: int = 12
+    require_special_char: bool = True
+    session_timeout_minutes: int = 1440
+    mfa_required: bool = False
+    max_failed_logins: int = 5
+    ip_whitelist_json: dict | None = None
+
+
+class WorkspaceSecuritySettingsUpdate(BaseModel):
+    """Security settings update request DTO."""
+
+    min_password_length: int | None = Field(None, ge=8, le=64)
+    require_special_char: bool | None = None
+    session_timeout_minutes: int | None = Field(None, ge=15, le=10080)
+    mfa_required: bool | None = None
+    max_failed_logins: int | None = Field(None, ge=3, le=20)
+    ip_whitelist_json: dict | None = None
+
+
+class EnterpriseIntegrationResponse(BaseModel):
+    """Enterprise integration provider DTO."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID | None = None
+    workspace_id: UUID
+    provider: str
+    name: str
+    status: str
+    connected_by: UUID | None = None
+    connector_name: str | None = None
+    connected_at: datetime | None = None
+    last_sync_at: datetime | None = None
+    config_json: dict | None = None
+
+
+class EnterpriseIntegrationToggleRequest(BaseModel):
+    """Integration connect/disconnect request DTO."""
+
+    status: str = Field(..., description="Connected or Disconnected")
+    config_json: dict | None = None
+
+
+class WorkspaceUsageMetricsResponse(BaseModel):
+    """Enterprise usage metrics & limits DTO."""
+
+    workspace_id: UUID
+    subscription_plan: str
+    members_count: int
+    members_limit: int
+    teams_count: int
+    teams_limit: int
+    companies_count: int
+    contacts_count: int
+    leads_count: int
+    deals_count: int
+    deals_total_value: float
+    tasks_count: int
+    storage_bytes_used: int
+    storage_limit_bytes: int
+    ai_tokens_used: int
+    ai_token_budget: int
+    ai_cost_usd: float
+
+
+class PermissionResponse(BaseModel):
+    """Permission DTO."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    module: str
+    description: str | None = None
+
+
+class CustomRoleCreate(BaseModel):
+    """Custom role creation request DTO."""
+
+    name: str = Field(..., min_length=2, max_length=100)
+    description: str | None = None
+    permission_ids: list[UUID] = Field(default_factory=list)
+
+
 __all__ = [
     "AcceptInvitationRequest",
+    "AuditEventResponse",
+    "CustomRoleCreate",
+    "EnterpriseIntegrationResponse",
+    "EnterpriseIntegrationToggleRequest",
     "InviteMemberRequest",
+    "PermissionResponse",
     "TeamCreate",
     "TeamResponse",
     "TeamUpdate",
@@ -181,7 +300,11 @@ __all__ = [
     "WorkspaceMemberResponse",
     "WorkspaceMemberUpdate",
     "WorkspaceResponse",
+    "WorkspaceSecuritySettingsResponse",
+    "WorkspaceSecuritySettingsUpdate",
     "WorkspaceSettingsResponse",
     "WorkspaceSettingsUpdate",
     "WorkspaceUpdate",
+    "WorkspaceUsageMetricsResponse",
 ]
+

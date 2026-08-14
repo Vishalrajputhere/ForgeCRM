@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { useAuthStore } from '@/stores/auth-store';
 
 export interface AIMessage {
   id: string;
@@ -56,12 +57,24 @@ export function useAI() {
       ]);
 
       try {
+        // Build auth headers — mirrors api-client.ts interceptor logic
+        let token = useAuthStore.getState().accessToken;
+        if (!token && typeof window !== 'undefined') {
+          try {
+            const raw = localStorage.getItem('forge_auth_storage');
+            if (raw) token = JSON.parse(raw)?.state?.accessToken ?? null;
+          } catch { /* ignore */ }
+        }
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'X-Workspace-ID': currentWorkspace?.id || '',
+        };
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+
         const response = await fetch('/api/v1/ai/chat', {
           method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Workspace-ID': currentWorkspace?.id || '',
-            },
+          headers,
+          credentials: 'include',
           body: JSON.stringify({
             messages: [...messages, userMsg].map((m) => ({ role: m.role, content: m.content })),
             provider: selectedProvider,
@@ -79,7 +92,7 @@ export function useAI() {
             msg.id === assistantMsgId ? { ...msg, content: data.message.content } : msg
           )
         );
-      } catch (err) {
+      } catch (_err) {
         setMessages((prev) =>
           prev.map((msg) =>
             msg.id === assistantMsgId

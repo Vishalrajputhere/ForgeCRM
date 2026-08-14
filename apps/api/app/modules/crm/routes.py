@@ -19,6 +19,7 @@ from app.core.dependencies import (
     CurrentUser,
     get_current_workspace_id,
     get_current_workspace_member,
+    require_workspace_permission,
 )
 from app.db.session import get_db_session
 from app.modules.crm.schemas import (
@@ -79,6 +80,7 @@ WorkspaceMemberDep = Annotated[Any, Depends(get_current_workspace_member)]
     status_code=status.HTTP_201_CREATED,
     summary="Create Company",
     description="Creates a new company account within the active workspace.",
+    dependencies=[Depends(require_workspace_permission("companies.create"))],
 )
 async def create_company(
     payload: CompanyCreate,
@@ -97,6 +99,7 @@ async def create_company(
     status_code=status.HTTP_200_OK,
     summary="List Companies",
     description="Returns all active companies within the active workspace.",
+    dependencies=[Depends(require_workspace_permission("companies.read"))],
 )
 async def list_companies(
     workspace_id: WorkspaceIdDep,
@@ -113,6 +116,7 @@ async def list_companies(
     status_code=status.HTTP_200_OK,
     summary="Get Company Details",
     description="Returns company account details.",
+    dependencies=[Depends(require_workspace_permission("companies.read"))],
 )
 async def get_company(
     company_id: UUID,
@@ -130,6 +134,7 @@ async def get_company(
     status_code=status.HTTP_200_OK,
     summary="Update Company",
     description="Updates company account details.",
+    dependencies=[Depends(require_workspace_permission("companies.update"))],
 )
 async def update_company(
     company_id: UUID,
@@ -151,6 +156,7 @@ async def update_company(
     status_code=status.HTTP_201_CREATED,
     summary="Create Contact",
     description="Creates a new individual contact associated with a company.",
+    dependencies=[Depends(require_workspace_permission("contacts.create"))],
 )
 async def create_contact(
     payload: ContactCreate,
@@ -168,6 +174,7 @@ async def create_contact(
     status_code=status.HTTP_200_OK,
     summary="List Contacts",
     description="Returns contacts in the active workspace.",
+    dependencies=[Depends(require_workspace_permission("contacts.read"))],
 )
 async def list_contacts(
     workspace_id: WorkspaceIdDep,
@@ -185,6 +192,7 @@ async def list_contacts(
     status_code=status.HTTP_200_OK,
     summary="Get Contact Details",
     description="Returns contact details.",
+    dependencies=[Depends(require_workspace_permission("contacts.read"))],
 )
 async def get_contact(
     contact_id: UUID,
@@ -202,6 +210,7 @@ async def get_contact(
     status_code=status.HTTP_200_OK,
     summary="Update Contact",
     description="Updates contact details.",
+    dependencies=[Depends(require_workspace_permission("contacts.update"))],
 )
 async def update_contact(
     contact_id: UUID,
@@ -220,6 +229,7 @@ async def update_contact(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Contact",
     description="Soft-deletes a contact (sets status to Inactive).",
+    dependencies=[Depends(require_workspace_permission("contacts.delete"))],
 )
 async def delete_contact(
     contact_id: UUID,
@@ -241,6 +251,7 @@ async def delete_contact(
     status_code=status.HTTP_201_CREATED,
     summary="Create Lead",
     description="Creates an unqualified sales lead.",
+    dependencies=[Depends(require_workspace_permission("leads.create"))],
 )
 async def create_lead(
     payload: LeadCreate,
@@ -258,6 +269,7 @@ async def create_lead(
     status_code=status.HTTP_200_OK,
     summary="List Leads",
     description="Returns active leads in the workspace.",
+    dependencies=[Depends(require_workspace_permission("leads.read"))],
 )
 async def list_leads(
     workspace_id: WorkspaceIdDep,
@@ -274,6 +286,7 @@ async def list_leads(
     status_code=status.HTTP_200_OK,
     summary="Get Lead Details",
     description="Returns lead details.",
+    dependencies=[Depends(require_workspace_permission("leads.read"))],
 )
 async def get_lead(
     lead_id: UUID,
@@ -291,6 +304,7 @@ async def get_lead(
     status_code=status.HTTP_200_OK,
     summary="Update Lead",
     description="Updates lead details.",
+    dependencies=[Depends(require_workspace_permission("leads.update"))],
 )
 async def update_lead(
     lead_id: UUID,
@@ -309,6 +323,7 @@ async def update_lead(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Lead",
     description="Soft-deletes a lead (marks as disqualified).",
+    dependencies=[Depends(require_workspace_permission("leads.delete"))],
 )
 async def delete_lead(
     lead_id: UUID,
@@ -327,6 +342,7 @@ async def delete_lead(
     status_code=status.HTTP_200_OK,
     summary="Convert Lead",
     description="Transactionally converts a lead into a Company, Primary Contact, and optional Deal.",
+    dependencies=[Depends(require_workspace_permission("leads.convert"))],
 )
 async def convert_lead(
     lead_id: UUID,
@@ -348,6 +364,7 @@ async def convert_lead(
     status_code=status.HTTP_201_CREATED,
     summary="Create Pipeline",
     description="Creates a sales pipeline with stages.",
+    dependencies=[Depends(require_workspace_permission("workspace.update"))],
 )
 async def create_pipeline(
     payload: PipelineCreate,
@@ -365,6 +382,7 @@ async def create_pipeline(
     status_code=status.HTTP_200_OK,
     summary="List Pipelines",
     description="Returns sales pipelines in workspace.",
+    dependencies=[Depends(require_workspace_permission("deals.read"))],
 )
 async def list_pipelines(
     workspace_id: WorkspaceIdDep,
@@ -381,6 +399,7 @@ async def list_pipelines(
     status_code=status.HTTP_200_OK,
     summary="Update Pipeline",
     description="Updates a sales pipeline name, description, or default status.",
+    dependencies=[Depends(require_workspace_permission("workspace.update"))],
 )
 async def update_pipeline(
     pipeline_id: UUID,
@@ -398,6 +417,7 @@ async def update_pipeline(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Archive Pipeline",
     description="Soft archives a sales pipeline if no active deals are assigned to it.",
+    dependencies=[Depends(require_workspace_permission("workspace.update"))],
 )
 async def delete_pipeline(
     pipeline_id: UUID,
@@ -415,6 +435,7 @@ async def delete_pipeline(
     status_code=status.HTTP_201_CREATED,
     summary="Duplicate Pipeline",
     description="Duplicates a sales pipeline along with all its stages.",
+    dependencies=[Depends(require_workspace_permission("workspace.update"))],
 )
 async def duplicate_pipeline(
     pipeline_id: UUID,
@@ -432,6 +453,7 @@ async def duplicate_pipeline(
     status_code=status.HTTP_201_CREATED,
     summary="Create Stage",
     description="Adds a new stage to a sales pipeline.",
+    dependencies=[Depends(require_workspace_permission("workspace.update"))],
 )
 async def create_stage(
     pipeline_id: UUID,
@@ -504,6 +526,7 @@ async def reorder_stages(
     status_code=status.HTTP_201_CREATED,
     summary="Create Deal",
     description="Creates a sales opportunity deal.",
+    dependencies=[Depends(require_workspace_permission("deals.create"))],
 )
 async def create_deal(
     payload: DealCreate,
@@ -521,6 +544,7 @@ async def create_deal(
     status_code=status.HTTP_200_OK,
     summary="List Deals",
     description="Returns active sales deals in workspace.",
+    dependencies=[Depends(require_workspace_permission("deals.read"))],
 )
 async def list_deals(
     workspace_id: WorkspaceIdDep,
@@ -538,6 +562,7 @@ async def list_deals(
     status_code=status.HTTP_200_OK,
     summary="Get Deal Details",
     description="Returns deal details.",
+    dependencies=[Depends(require_workspace_permission("deals.read"))],
 )
 async def get_deal(
     deal_id: UUID,
@@ -555,6 +580,7 @@ async def get_deal(
     status_code=status.HTTP_200_OK,
     summary="Update Deal",
     description="Updates deal details.",
+    dependencies=[Depends(require_workspace_permission("deals.update"))],
 )
 async def update_deal(
     deal_id: UUID,
@@ -573,6 +599,7 @@ async def update_deal(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Deal",
     description="Soft-deletes a deal (sets status to Cancelled).",
+    dependencies=[Depends(require_workspace_permission("deals.delete"))],
 )
 async def delete_deal(
     deal_id: UUID,
@@ -591,6 +618,7 @@ async def delete_deal(
     status_code=status.HTTP_200_OK,
     summary="Move Deal Stage",
     description="Moves a deal to a new stage in its pipeline.",
+    dependencies=[Depends(require_workspace_permission("deals.move_stage"))],
 )
 async def move_deal_stage(
     deal_id: UUID,
@@ -612,6 +640,7 @@ async def move_deal_stage(
     status_code=status.HTTP_201_CREATED,
     summary="Create Task",
     description="Creates an actionable task item.",
+    dependencies=[Depends(require_workspace_permission("tasks.create"))],
 )
 async def create_task(
     payload: TaskCreate,
@@ -629,6 +658,7 @@ async def create_task(
     status_code=status.HTTP_200_OK,
     summary="List Tasks",
     description="Returns tasks in workspace.",
+    dependencies=[Depends(require_workspace_permission("tasks.read"))],
 )
 async def list_tasks(
     workspace_id: WorkspaceIdDep,
@@ -645,6 +675,7 @@ async def list_tasks(
     status_code=status.HTTP_200_OK,
     summary="Get Task Details",
     description="Returns task details.",
+    dependencies=[Depends(require_workspace_permission("tasks.read"))],
 )
 async def get_task(
     task_id: UUID,
@@ -662,6 +693,7 @@ async def get_task(
     status_code=status.HTTP_200_OK,
     summary="Update Task",
     description="Updates task details.",
+    dependencies=[Depends(require_workspace_permission("tasks.update"))],
 )
 async def update_task(
     task_id: UUID,
@@ -680,6 +712,7 @@ async def update_task(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Task",
     description="Soft-deletes a task (sets status to Cancelled).",
+    dependencies=[Depends(require_workspace_permission("tasks.delete"))],
 )
 async def delete_task(
     task_id: UUID,
@@ -698,6 +731,7 @@ async def delete_task(
     status_code=status.HTTP_200_OK,
     summary="Complete Task",
     description="Marks task as completed.",
+    dependencies=[Depends(require_workspace_permission("tasks.update"))],
 )
 async def complete_task(
     task_id: UUID,
@@ -718,6 +752,7 @@ async def complete_task(
     status_code=status.HTTP_200_OK,
     summary="Get Entity Timeline",
     description="Returns immutable timeline activities for a CRM entity.",
+    dependencies=[Depends(require_workspace_permission("companies.read"))],
 )
 async def list_timeline(
     entity_type: str,
@@ -739,6 +774,7 @@ async def list_timeline(
     status_code=status.HTTP_200_OK,
     summary="Bulk Delete Records",
     description="Batch deletes records with Protected Records dependency validation.",
+    dependencies=[Depends(require_workspace_permission("deals.delete"))],
 )
 async def bulk_delete(
     payload: BulkDeleteRequest,
@@ -754,6 +790,7 @@ async def bulk_delete(
     "/bulk/archive",
     status_code=status.HTTP_200_OK,
     summary="Bulk Archive Records",
+    dependencies=[Depends(require_workspace_permission("deals.delete"))],
 )
 async def bulk_archive(
     payload: BulkArchiveRequest,
@@ -770,6 +807,7 @@ async def bulk_archive(
     "/bulk/restore",
     status_code=status.HTTP_200_OK,
     summary="Bulk Restore Records",
+    dependencies=[Depends(require_workspace_permission("deals.update"))],
 )
 async def bulk_restore(
     payload: BulkRestoreRequest,
@@ -786,6 +824,7 @@ async def bulk_restore(
     "/bulk/assign-owner",
     status_code=status.HTTP_200_OK,
     summary="Bulk Reassign Owner",
+    dependencies=[Depends(require_workspace_permission("tasks.assign"))],
 )
 async def bulk_assign_owner(
     payload: BulkAssignOwnerRequest,
@@ -802,6 +841,7 @@ async def bulk_assign_owner(
     "/bulk/update-status",
     status_code=status.HTTP_200_OK,
     summary="Bulk Update Status",
+    dependencies=[Depends(require_workspace_permission("deals.update"))],
 )
 async def bulk_update_status(
     payload: BulkUpdateStatusRequest,
@@ -818,6 +858,7 @@ async def bulk_update_status(
     "/bulk/move-stage",
     status_code=status.HTTP_200_OK,
     summary="Bulk Move Deal Stage",
+    dependencies=[Depends(require_workspace_permission("deals.move_stage"))],
 )
 async def bulk_move_stage(
     payload: BulkMoveStageRequest,
@@ -838,6 +879,7 @@ async def bulk_move_stage(
     response_model=CSVImportSummaryResponse,
     status_code=status.HTTP_200_OK,
     summary="Process CSV Import",
+    dependencies=[Depends(require_workspace_permission("companies.create"))],
 )
 async def import_csv(
     payload: CSVImportRequest,
@@ -853,6 +895,7 @@ async def import_csv(
     "/export/dataset",
     status_code=status.HTTP_200_OK,
     summary="Export Dataset",
+    dependencies=[Depends(require_workspace_permission("companies.export"))],
 )
 async def export_dataset(
     payload: ExportRequest,

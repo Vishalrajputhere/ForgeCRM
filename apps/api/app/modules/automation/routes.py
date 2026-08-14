@@ -31,6 +31,7 @@ from app.core.dependencies import (
     get_current_user,
     get_current_workspace_id,
     get_current_workspace_member,
+    require_workspace_permission,
 )
 from app.db.session import get_db_session
 from app.modules.automation.schemas import (
@@ -62,6 +63,7 @@ WorkspaceMemberDep = Annotated[Any, Depends(get_current_workspace_member)]
     status_code=status.HTTP_200_OK,
     summary="Get Automation Schema Registry",
     description="Get single source of truth metadata schema for all entity trigger events, fields, and allowed operators.",
+    dependencies=[Depends(require_workspace_permission("automations.read"))],
 )
 async def get_automation_schema(
     _user: Annotated[Any, Depends(get_current_user)],
@@ -80,6 +82,7 @@ async def get_automation_schema(
     status_code=status.HTTP_200_OK,
     summary="List Automation Rules",
     description="List all automation rules for the current workspace with pagination.",
+    dependencies=[Depends(require_workspace_permission("automations.read"))],
 )
 async def list_automations(
     workspace_id: WorkspaceIdDep,
@@ -106,6 +109,7 @@ async def list_automations(
     status_code=status.HTTP_201_CREATED,
     summary="Create Automation Rule",
     description="Create a new automation rule with trigger, conditions, and actions.",
+    dependencies=[Depends(require_workspace_permission("automations.create"))],
 )
 async def create_automation(
     workspace_id: WorkspaceIdDep,
@@ -127,6 +131,7 @@ async def create_automation(
     status_code=status.HTTP_200_OK,
     summary="Get Automation Rule",
     description="Fetch a single automation rule with all conditions and actions.",
+    dependencies=[Depends(require_workspace_permission("automations.read"))],
 )
 async def get_automation(
     rule_id: UUID,
@@ -144,6 +149,7 @@ async def get_automation(
     status_code=status.HTTP_200_OK,
     summary="Update Automation Rule",
     description="Partially update an automation rule. Providing conditions/actions replaces the existing set.",
+    dependencies=[Depends(require_workspace_permission("automations.update"))],
 )
 async def update_automation(
     rule_id: UUID,
@@ -166,6 +172,7 @@ async def update_automation(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Automation Rule",
     description="Soft-delete an automation rule. Run history is preserved.",
+    dependencies=[Depends(require_workspace_permission("automations.delete"))],
 )
 async def delete_automation(
     rule_id: UUID,
@@ -183,6 +190,7 @@ async def delete_automation(
     status_code=status.HTTP_200_OK,
     summary="Toggle Automation Rule",
     description="Enable or disable an automation rule.",
+    dependencies=[Depends(require_workspace_permission("automations.update"))],
 )
 async def toggle_automation(
     rule_id: UUID,
@@ -204,6 +212,7 @@ async def toggle_automation(
     status_code=status.HTTP_200_OK,
     summary="Test Automation Rule",
     description="Manually trigger an automation rule with simulated data to verify behavior.",
+    dependencies=[Depends(require_workspace_permission("automations.execute"))],
 )
 async def test_automation(
     rule_id: UUID,
@@ -230,6 +239,7 @@ async def test_automation(
     status_code=status.HTTP_200_OK,
     summary="Get Automation Run History",
     description="List execution runs for an automation rule.",
+    dependencies=[Depends(require_workspace_permission("automations.read"))],
 )
 async def list_automation_runs(
     rule_id: UUID,
@@ -254,6 +264,7 @@ async def list_automation_runs(
     status_code=status.HTTP_200_OK,
     summary="Get Automation Run Detail",
     description="Fetch a single automation run with per-step action logs.",
+    dependencies=[Depends(require_workspace_permission("automations.read"))],
 )
 async def get_automation_run(
     rule_id: UUID,
@@ -279,6 +290,7 @@ async def get_automation_run(
     status_code=status.HTTP_200_OK,
     summary="List Automation Templates",
     description="List all available pre-built automation templates.",
+    dependencies=[Depends(require_workspace_permission("automations.read"))],
 )
 async def list_automation_templates(
     workspace_id: WorkspaceIdDep,
@@ -296,6 +308,7 @@ async def list_automation_templates(
     status_code=status.HTTP_201_CREATED,
     summary="Create Rule from Template",
     description="Create a new automation rule by copying a pre-built template.",
+    dependencies=[Depends(require_workspace_permission("automations.create"))],
 )
 async def use_automation_template(
     template_id: UUID,

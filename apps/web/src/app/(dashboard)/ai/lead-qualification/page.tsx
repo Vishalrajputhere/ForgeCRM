@@ -20,6 +20,7 @@ import { FollowUpRecommendations } from '@/components/ai/follow-up-recommendatio
 import { QualificationReasoningPanel } from '@/components/ai/qualification-reasoning-panel';
 import { useCRM } from '@/hooks/use-crm';
 import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useAIFetch } from '@/hooks/use-ai-fetch';
 
 interface SkillMessage {
   id: string;
@@ -52,6 +53,7 @@ const LEAD_QUALIFICATION_SUGGESTIONS: PromptSuggestion[] = [
 export default function AILeadQualificationPage() {
   const { leads, isLoadingLeads } = useCRM();
   const { currentWorkspace } = useWorkspaceStore();
+  const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
 
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
@@ -111,21 +113,13 @@ export default function AILeadQualificationPage() {
     setIsLoading(true);
 
     try {
-      const res = await fetch('/api/v1/ai/lead-qualification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Workspace-ID': currentWorkspace?.id || '',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          skill: skillKey,
-          question: prompt,
-          entity_type: 'lead',
-          entity_id: selectedLeadId,
-          entity_name: selectedLeadName,
-          workspace_id: currentWorkspace?.id,
-        }),
+      const res = await aiFetch('/api/v1/ai/lead-qualification', {
+        skill: skillKey,
+        question: prompt,
+        entity_type: 'lead',
+        entity_id: selectedLeadId,
+        entity_name: selectedLeadName,
+        workspace_id: currentWorkspace?.id,
       });
 
       if (res.ok) {

@@ -9,6 +9,8 @@ Documentation: docs/02_Database/201_DATABASE_OVERVIEW.md
 
 from __future__ import annotations
 
+from typing import Any
+
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -180,6 +182,13 @@ def _json_serializer(obj: object) -> str:
     import orjson
 
     return orjson.dumps(obj).decode()
+
+
+def _json_deserializer(obj: str | bytes) -> Any:
+    """Deserialize JSON to Python objects using orjson for performance."""
+    import orjson
+
+    return orjson.loads(obj)
 
 
 async def get_db():

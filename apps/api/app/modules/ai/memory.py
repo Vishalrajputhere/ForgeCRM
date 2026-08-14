@@ -129,3 +129,34 @@ class AIMemoryManager:
             memory_type="workspace",
         )
         return summary_fact
+
+    async def get_relevant_memories(
+        self,
+        workspace_id: uuid.UUID,
+        user_id: uuid.UUID,
+        query: str,
+        limit: int = 5,
+    ) -> list[AIMemoryItem]:
+        """Returns the most recent memories for this workspace/user (keyword relevance not yet implemented — returns pinned + recent)."""
+        stmt = (
+            select(AIMemory)
+            .where(AIMemory.workspace_id == workspace_id)
+            .order_by(AIMemory.is_pinned.desc(), AIMemory.created_at.desc())  # type: ignore[attr-defined]
+            .limit(limit)
+        )
+        res = await self.db.execute(stmt)
+        memories = res.scalars().all()
+        return [
+            AIMemoryItem(
+                id=m.id,
+                workspace_id=m.workspace_id,
+                user_id=m.user_id,
+                memory_type=m.memory_type,
+                key=m.key,
+                value=m.value,
+                is_pinned=m.is_pinned,
+                created_at=m.created_at,
+            )
+            for m in memories
+        ]
+

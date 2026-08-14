@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import (
     get_current_workspace_id,
     get_current_workspace_member,
+    require_workspace_permission,
 )
 from app.db.session import get_db_session
 from app.modules.storage.schemas import (
@@ -41,6 +42,7 @@ WorkspaceMemberDep = Annotated[Any, Depends(get_current_workspace_member)]
     status_code=status.HTTP_200_OK,
     summary="Request Presigned Upload URL",
     description="Validates upload metadata (max 25 MB) and generates presigned URL & storage key.",
+    dependencies=[Depends(require_workspace_permission("storage.upload"))],
 )
 async def request_upload_url(
     payload: RequestUploadUrlRequest,
@@ -58,6 +60,7 @@ async def request_upload_url(
     status_code=status.HTTP_201_CREATED,
     summary="Confirm File Upload",
     description="Confirms file upload completion and creates DocumentAttachment metadata record.",
+    dependencies=[Depends(require_workspace_permission("storage.upload"))],
 )
 async def confirm_upload(
     payload: ConfirmUploadRequest,
@@ -75,6 +78,7 @@ async def confirm_upload(
     status_code=status.HTTP_200_OK,
     summary="List Document Attachments",
     description="Lists active document attachments for a workspace, with optional entity or search filters.",
+    dependencies=[Depends(require_workspace_permission("storage.read"))],
 )
 async def list_attachments(
     workspace_id: WorkspaceIdDep,
@@ -96,6 +100,7 @@ async def list_attachments(
     status_code=status.HTTP_200_OK,
     summary="Get Presigned Download URL",
     description="Generates short-lived presigned download URL for a document attachment.",
+    dependencies=[Depends(require_workspace_permission("storage.read"))],
 )
 async def get_download_url(
     attachment_id: UUID,
@@ -112,6 +117,7 @@ async def get_download_url(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete Attachment",
     description="Soft deletes a document attachment record.",
+    dependencies=[Depends(require_workspace_permission("storage.delete"))],
 )
 async def delete_attachment(
     attachment_id: UUID,

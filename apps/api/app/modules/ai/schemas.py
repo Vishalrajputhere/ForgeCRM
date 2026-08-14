@@ -56,6 +56,7 @@ class AIChatResponse(BaseModel):
     prompt_tokens: int
     completion_tokens: int
     estimated_cost_usd: float
+    latency_ms: int = 0
 
 
 class AIStreamChunk(BaseModel):

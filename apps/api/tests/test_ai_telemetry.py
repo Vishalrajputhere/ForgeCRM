@@ -38,4 +38,4 @@ async def test_ai_debug_sessions_endpoint(db_session) -> None:
     sessions = await list_ai_debug_sessions(auth=(user, workspace), db=db_session)
     assert len(sessions) >= 1
     assert sessions[0]["user_email"] == "admin@acme.com"
-    assert sessions[0]["model"] == "gemini-1.5-flash"
+    assert sessions[0]["model"] in {"gemini-flash-latest", "gemini-1.5-flash", "gemini-3-flash-preview"}

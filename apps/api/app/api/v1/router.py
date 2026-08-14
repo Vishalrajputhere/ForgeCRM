@@ -28,8 +28,10 @@ api_v1_router.include_router(auth_routes.router)
 
 # Workspace Isolation & Multi-Tenancy
 from app.modules.workspace import routes as workspace_routes  # noqa: E402
+from app.modules.workspace import admin_routes as workspace_admin_routes  # noqa: E402
 
 api_v1_router.include_router(workspace_routes.router)
+api_v1_router.include_router(workspace_admin_routes.router)
 
 # CRM Core Operational
 from app.modules.crm import routes as crm_routes  # noqa: E402
