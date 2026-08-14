@@ -68,10 +68,23 @@ async def generate_dataset_export(
         res = await db.execute(stmt)
         records = res.scalars().all()
 
+    elif entity_type in ("storage", "file", "files", "document", "documents", "attachment", "attachments"):
+        from app.modules.storage.models import DocumentAttachment
+        stmt = select(DocumentAttachment).where(DocumentAttachment.workspace_id == workspace_id, DocumentAttachment.deleted_at.is_(None))
+        if payload.selected_ids:
+            stmt = stmt.where(DocumentAttachment.id.in_(payload.selected_ids))
+        res = await db.execute(stmt)
+        records = res.scalars().all()
+
     headers = ["id", "name", "status", "created_at"]
     rows_data: list[list[str]] = []
     for r in records:
-        r_name = getattr(r, "name", None) or f"{getattr(r, 'first_name', '')} {getattr(r, 'last_name', '')}".strip() or getattr(r, "title", "Record")
+        r_name = (
+            getattr(r, "name", None)
+            or getattr(r, "file_name", None)
+            or f"{getattr(r, 'first_name', '')} {getattr(r, 'last_name', '')}".strip()
+            or getattr(r, "title", "Record")
+        )
         r_status = getattr(r, "status", "Active")
         r_date = str(getattr(r, "created_at", ""))
         rows_data.append([str(r.id), r_name, r_status, r_date])

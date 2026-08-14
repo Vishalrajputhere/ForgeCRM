@@ -895,19 +895,44 @@ async def import_csv(
     "/export/dataset",
     status_code=status.HTTP_200_OK,
     summary="Export Dataset",
-    dependencies=[Depends(require_workspace_permission("companies.export"))],
 )
 async def export_dataset(
     payload: ExportRequest,
     workspace_id: WorkspaceIdDep,
     member: WorkspaceMemberDep,
+    current_user: CurrentUser,
     db: Annotated[AsyncSession, Depends(get_db_session)],
 ):
     from fastapi.responses import Response
     from app.modules.crm.export_service import generate_dataset_export
+    from app.core.exceptions import InsufficientPermissionsError
+
+    # Dynamic permission validation based on entity_type
+    is_super = any(r.name == "Super Admin" for r in (getattr(current_user, "roles", []) or []))
+    is_admin = is_super or (member.role and member.role.name in ("Super Admin", "Workspace Admin"))
+
+    if not is_admin:
+        raw_entity = payload.entity_type.lower()
+        entity_base = "companies" if raw_entity in ("company", "companies") else (
+            "contacts" if raw_entity in ("contact", "contacts") else (
+                "leads" if raw_entity in ("lead", "leads") else (
+                    "deals" if raw_entity in ("deal", "deals") else (
+                        "tasks" if raw_entity in ("task", "tasks") else (
+                            "storage" if raw_entity in ("storage", "file", "files", "document", "documents", "attachment", "attachments") else "workspace"
+                        )
+                    )
+                )
+            )
+        )
+        required_read = f"{entity_base}.read"
+        required_export = f"{entity_base}.export"
+        member_perms = {p.name for p in (member.role.permissions or [])} if (member.role and hasattr(member.role, "permissions")) else set()
+
+        if required_read not in member_perms and required_export not in member_perms:
+            raise InsufficientPermissionsError(f"Missing required permission to export {payload.entity_type}.")
 
     file_bytes, media_type, _ = await generate_dataset_export(db, workspace_id, member.id, payload)
-    filename = f"{payload.entity_type}_export.{payload.format}"
+    filename = f"{payload.entity_type.lower()}_export.{payload.format}"
 
     return Response(
         content=file_bytes,
