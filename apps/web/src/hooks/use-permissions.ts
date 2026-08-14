@@ -99,8 +99,12 @@ export function usePermissions(): UsePermissionsReturn {
     }
   }, [isAuthenticated, currentWorkspace?.id, setEffectiveAuthorization, getToken]);
 
+  // Tracks whether SSE streaming is supported / active (disables on 404/failure)
+  const sseDisabledRef = useRef<boolean>(false);
+
   // ── Lightweight version check ─────────────────────────────────────────────
-  // Used by polling fallback — only fetches full permissions when version changes
+  // Used by polling fallback — checks server version and fetches perms if changed.
+  // Falls back to full permission fetch if authorization-version endpoint is unavailable.
   const checkAuthorizationVersion = useCallback(async () => {
     if (!isAuthenticated) return;
     const token = getToken();
@@ -125,15 +129,18 @@ export function usePermissions(): UsePermissionsReturn {
         if (serverVersion !== lastKnownVersionRef.current) {
           await fetchEffectivePermissions();
         }
+      } else if (res.status === 404) {
+        // Version endpoint unavailable — fall back to standard permissions fetch
+        await fetchEffectivePermissions();
       }
     } catch {
-      // Silently ignore — will retry on next interval
+      // Silently ignore network glitches — will retry on next interval
     }
   }, [isAuthenticated, currentWorkspace?.id, fetchEffectivePermissions, getToken]);
 
   // ── Phase 8.X: SSE primary real-time channel ─────────────────────────────
   useEffect(() => {
-    if (!isAuthenticated || typeof window === 'undefined') return;
+    if (!isAuthenticated || typeof window === 'undefined' || sseDisabledRef.current) return;
 
     const token = getToken();
     if (!token) return;
@@ -156,7 +163,15 @@ export function usePermissions(): UsePermissionsReturn {
           credentials: 'include',
         });
 
-        if (!response.ok || !response.body) return;
+        if (!response.ok) {
+          // Endpoint not found (404) or disallowed — disable SSE for session and use polling
+          if (response.status === 404 || response.status === 405) {
+            sseDisabledRef.current = true;
+          }
+          return;
+        }
+
+        if (!response.body) return;
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -198,7 +213,7 @@ export function usePermissions(): UsePermissionsReturn {
           }
         }
       } catch {
-        // SSE connection failed or was aborted — polling fallback handles eventual consistency
+        // Connection aborted or stream closed — polling fallback handles consistency
       }
     };
 
