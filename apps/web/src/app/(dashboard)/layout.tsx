@@ -29,6 +29,7 @@ export default function DashboardLayout({ children }: { readonly children: React
   const router = useRouter();
   const pathname = usePathname();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const isAuthHydrated = useAuthStore((s) => s._hydrated);
   const { currentWorkspace } = useWorkspace();
   const isStoreHydrated = useWorkspaceStore((s) => s._hydrated);
 
@@ -94,11 +95,11 @@ export default function DashboardLayout({ children }: { readonly children: React
   }, [router]);
 
   useEffect(() => {
-    if (!isAuthenticated) router.replace('/login');
-  }, [isAuthenticated, router]);
+    if (isAuthHydrated && !isAuthenticated) router.replace('/login');
+  }, [isAuthHydrated, isAuthenticated, router]);
 
+  if (!isAuthHydrated || !isStoreHydrated) return <LoadingScreen label="Restoring session…" />;
   if (!isAuthenticated) return <LoadingScreen />;
-  if (!isStoreHydrated) return <LoadingScreen label="Restoring session…" />;
   if (!currentWorkspace) return <LoadingScreen label="Loading workspace…" />;
 
   return (

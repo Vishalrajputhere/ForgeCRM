@@ -172,9 +172,13 @@ export function Topbar({ onOpenCmdK }: { onOpenCmdK: () => void }) {
                   </span>
                 </div>
               </div>
-              <a href="/workspace" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-secondary hover:text-primary hover:bg-hover transition-colors">
+              <Link
+                href="/workspace"
+                onClick={() => setUserMenuOpen(false)}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-secondary hover:text-primary hover:bg-hover transition-colors"
+              >
                 <Settings className="h-3.5 w-3.5 text-muted" /> Workspace Admin
-              </a>
+              </Link>
               <Link
                 href="/accept-invitation"
                 onClick={() => setUserMenuOpen(false)}

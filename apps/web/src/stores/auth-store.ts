@@ -42,11 +42,14 @@ interface AuthStore {
   effectiveRoles: { id: string; name: string }[];
   authorizationVersion: number;
   isSuperAdmin: boolean;
+  /** True once Zustand has finished reading from localStorage. */
+  _hydrated: boolean;
 
   setAuth: (user: UserState, accessToken: string, refreshToken: string) => void;
   setUser: (user: UserState) => void;
   setEffectiveAuthorization: (data: EffectiveAuthData) => void;
   clearAuth: () => void;
+  _setHydrated: () => void;
 }
 
 export const useAuthStore = create<AuthStore>()(
@@ -60,6 +63,7 @@ export const useAuthStore = create<AuthStore>()(
       effectiveRoles: [],
       authorizationVersion: 1,
       isSuperAdmin: false,
+      _hydrated: false,
 
       setAuth: (user, accessToken, refreshToken) =>
         set({
@@ -99,12 +103,27 @@ export const useAuthStore = create<AuthStore>()(
           authorizationVersion: 1,
           isSuperAdmin: false,
         }),
+
+      _setHydrated: () => set({ _hydrated: true }),
     }),
     {
       name: 'forge_auth_storage',
       storage: createJSONStorage(() =>
         typeof window !== 'undefined' ? localStorage : ({} as Storage),
       ),
+      partialize: (state) => ({
+        user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+        isAuthenticated: state.isAuthenticated,
+        effectivePermissions: state.effectivePermissions,
+        effectiveRoles: state.effectiveRoles,
+        authorizationVersion: state.authorizationVersion,
+        isSuperAdmin: state.isSuperAdmin,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?._setHydrated();
+      },
     },
   ),
 );
