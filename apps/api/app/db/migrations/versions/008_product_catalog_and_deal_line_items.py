@@ -1,6 +1,6 @@
 """Product Catalog and Deal Line Items Schema
 
-Revision ID: 008_product_catalog_and_deal_line_items
+Revision ID: 008_products_and_line_items
 Revises: 007_harden_automation_schema
 Create Date: 2026-08-14 18:00:00.000000
 """
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision: str = "008_product_catalog_and_deal_line_items"
+revision: str = "008_products_and_line_items"
 down_revision: str | None = "007_harden_automation_schema"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
