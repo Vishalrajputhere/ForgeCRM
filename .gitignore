@@ -18,6 +18,11 @@ scratch/
 # ── Internal Working Docs & Audits ──────────────────────────────────────────
 FORGECRM_*.md
 walkthrough.md
+docs/
+planning/
+project_os/
+standards/
+
 
 
 # ── Python ───────────────────────────────────────────────────────────────────
