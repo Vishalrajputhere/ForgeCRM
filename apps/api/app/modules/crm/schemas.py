@@ -298,16 +298,121 @@ class PipelineUpdate(BaseModel):
     is_active: bool | None = None
 
 
-class DealProductSchema(BaseModel):
-    """Deal product line item DTO."""
+# ── Product Catalog Schemas ───────────────────────────────────────────────────
+
+
+class ProductResponse(BaseModel):
+    """Product catalog item response DTO."""
 
     model_config = ConfigDict(from_attributes=True)
 
-    product_name: str = Field(..., min_length=1, max_length=255)
-    quantity: float = Field(1.0, ge=0.01)
+    id: UUID
+    workspace_id: UUID
+    name: str
+    sku: str | None = None
+    description: str | None = None
+    category: str | None = None
+    unit_price: float
+    currency: str
+    tax_rate: float
+    is_active: bool
+    created_by_member_id: UUID | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ProductCreate(BaseModel):
+    """Product creation request DTO."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    sku: str | None = Field(None, max_length=100)
+    description: str | None = None
+    category: str | None = Field(None, max_length=100)
     unit_price: float = Field(0.0, ge=0.0)
+    currency: str = Field("USD", max_length=20)
+    tax_rate: float = Field(0.0, ge=0.0, le=100.0)
+    is_active: bool = True
+
+
+class ProductUpdate(BaseModel):
+    """Product update request DTO."""
+
+    name: str | None = Field(None, min_length=1, max_length=255)
+    sku: str | None = Field(None, max_length=100)
+    description: str | None = None
+    category: str | None = Field(None, max_length=100)
+    unit_price: float | None = Field(None, ge=0.0)
+    currency: str | None = Field(None, max_length=20)
+    tax_rate: float | None = Field(None, ge=0.0, le=100.0)
+    is_active: bool | None = None
+
+
+class ProductListResponse(BaseModel):
+    """Paginated product list response DTO."""
+
+    items: list[ProductResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+# ── Deal Line Item Schemas ────────────────────────────────────────────────────
+
+
+class DealLineItemResponse(BaseModel):
+    """Deal line item response DTO with calculated financials."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    deal_id: UUID
+    product_id: UUID | None = None
+    product_name_snapshot: str
+    sku_snapshot: str | None = None
+    quantity: float
+    unit_price: float
+    discount_percent: float
+    discount_amount: float
+    tax_rate: float
+    subtotal: float
+    taxable_amount: float
+    tax_amount: float
+    total: float
+    created_at: datetime
+    updated_at: datetime
+
+
+class DealLineItemCreate(BaseModel):
+    """Deal line item creation request DTO."""
+
+    product_id: UUID | None = None
+    product_name: str | None = Field(None, min_length=1, max_length=255)
+    sku: str | None = Field(None, max_length=100)
+    quantity: float = Field(1.0, gt=0.0)
+    unit_price: float | None = Field(None, ge=0.0)
     discount_percent: float = Field(0.0, ge=0.0, le=100.0)
-    line_total: float = Field(0.0, ge=0.0)
+    tax_rate: float | None = Field(None, ge=0.0, le=100.0)
+
+
+class DealLineItemUpdate(BaseModel):
+    """Deal line item update request DTO."""
+
+    quantity: float | None = Field(None, gt=0.0)
+    unit_price: float | None = Field(None, ge=0.0)
+    discount_percent: float | None = Field(None, ge=0.0, le=100.0)
+    tax_rate: float | None = Field(None, ge=0.0, le=100.0)
+
+
+class DealLineItemBulkCreate(BaseModel):
+    """Bulk replace / set deal line items request DTO."""
+
+    line_items: list[DealLineItemCreate]
+
+
+# Legacy Schema Alias for backward compatibility
+DealProductSchema = DealLineItemResponse
 
 
 class DealResponse(BaseModel):
@@ -330,7 +435,8 @@ class DealResponse(BaseModel):
     loss_reason: str | None = None
     description: str | None = None
     created_at: datetime
-    products: list[DealProductSchema] = []
+    line_items: list[DealLineItemResponse] = []
+    products: list[DealLineItemResponse] = []
 
 
 class DealCreate(BaseModel):
@@ -346,7 +452,8 @@ class DealCreate(BaseModel):
     probability: int | None = Field(None, ge=0, le=100)
     description: str | None = None
     owner_member_id: UUID | None = None
-    products: list[DealProductSchema] = []
+    line_items: list[DealLineItemCreate] = []
+    products: list[DealLineItemCreate] = []
 
 
 class DealUpdate(BaseModel):
@@ -584,6 +691,10 @@ __all__ = [
     "ContactResponse",
     "ContactUpdate",
     "DealCreate",
+    "DealLineItemBulkCreate",
+    "DealLineItemCreate",
+    "DealLineItemResponse",
+    "DealLineItemUpdate",
     "DealProductSchema",
     "DealResponse",
     "DealStageMoveRequest",
@@ -598,6 +709,10 @@ __all__ = [
     "LeadUpdate",
     "PipelineCreate",
     "PipelineResponse",
+    "ProductCreate",
+    "ProductListResponse",
+    "ProductResponse",
+    "ProductUpdate",
     "StageCreate",
     "StageResponse",
     "TaskCreate",

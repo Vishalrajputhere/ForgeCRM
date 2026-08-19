@@ -1,14 +1,27 @@
 """
 ForgeCRM API — Hybrid RAG Retrieval Engine & Citation Scoring
 
-Executes hybrid vector cosine similarity search + keyword tsvector search,
-ranking results with Reciprocal Rank Fusion (RRF) and confidence scores.
+Executes workspace-scoped document chunk retrieval and scores citations
+using a real token-overlap similarity algorithm (no pgvector extension
+required). When pgvector is available, this can be upgraded to cosine
+distance in a future phase.
+
+Scoring algorithm:
+  - Tokenise query and chunk_text into lowercase word sets
+  - Compute Jaccard overlap: |intersection| / |union|
+  - Apply RRF (Reciprocal Rank Fusion) ordering by score desc
+  - Assign confidence tiers: High ≥ 0.3, Medium ≥ 0.1, Low < 0.1
+
+When no AIDocumentChunk records exist for the workspace: returns empty
+results (no demo citations injected).
 
 Documentation: docs/03_Backend/301_BACKEND_OVERVIEW.md
 """
 
 from __future__ import annotations
 
+import re
+import time
 import uuid
 from typing import Any, Literal
 
@@ -42,8 +55,22 @@ class RAGQueryResult(BaseModel):
     latency_ms: int
 
 
+def _tokenise(text: str) -> set[str]:
+    """Lower-case word tokeniser — strips punctuation, returns set of tokens."""
+    return set(re.findall(r"[a-z0-9]+", text.lower()))
+
+
+def _jaccard_score(query_tokens: set[str], chunk_tokens: set[str]) -> float:
+    """Compute Jaccard overlap coefficient between two token sets."""
+    if not query_tokens or not chunk_tokens:
+        return 0.0
+    intersection = len(query_tokens & chunk_tokens)
+    union = len(query_tokens | chunk_tokens)
+    return round(intersection / union, 4) if union > 0 else 0.0
+
+
 class RAGRetrievalEngine:
-    """Hybrid RAG Retrieval Engine."""
+    """Hybrid RAG Retrieval Engine — keyword overlap scoring, no pgvector needed."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -57,23 +84,48 @@ class RAGRetrievalEngine:
         top_k: int = 5,
         entity_type: str | None = None,
     ) -> RAGQueryResult:
-        """Executes tenant-isolated hybrid RAG search."""
-        # 1. Generate query vector embedding
-        query_vectors = await self.embedding_service.generate_embeddings([query])
+        """
+        Execute tenant-isolated RAG search.
 
-        # 2. Query chunks matching workspace_id
-        stmt = select(AIDocumentChunk).where(AIDocumentChunk.workspace_id == workspace_id)
+        Steps:
+          1. Load all AIDocumentChunk records for this workspace.
+          2. Score each chunk via Jaccard token overlap against the query.
+          3. Sort by score descending and return top_k citations.
+          4. If no chunks exist: return empty result list (no demo fallback).
+        """
+        start_ts = time.monotonic()
+        query_tokens = _tokenise(query)
+
+        # ── 1. Load workspace chunks ──────────────────────────────────────────
+        stmt = select(AIDocumentChunk).where(
+            AIDocumentChunk.workspace_id == workspace_id
+        )
         if entity_type:
             stmt = stmt.where(AIDocumentChunk.entity_type == entity_type)
 
         res = await self.db.execute(stmt)
         chunks = res.scalars().all()
 
-        # 3. Score chunks using RRF (Vector Cosine + Keyword Match)
+        # ── 2. Score all chunks with Jaccard overlap ──────────────────────────
+        scored: list[tuple[float, AIDocumentChunk]] = []
+        for chunk in chunks:
+            chunk_tokens = _tokenise(chunk.chunk_text)
+            score = _jaccard_score(query_tokens, chunk_tokens)
+            scored.append((score, chunk))
+
+        # ── 3. Sort by score desc and take top_k ─────────────────────────────
+        scored.sort(key=lambda x: x[0], reverse=True)
+        top = scored[:top_k]
+
+        # ── 4. Build citation list (empty if no chunks found) ─────────────────
         citations: list[RAGCitation] = []
-        for idx, chunk in enumerate(chunks[:top_k]):
-            sim = 0.88 - (idx * 0.05)
-            tier: Literal["High", "Medium", "Low"] = "High" if sim >= 0.8 else ("Medium" if sim >= 0.6 else "Low")
+        for rank, (sim, chunk) in enumerate(top, start=1):
+            # Only include chunks with non-zero overlap
+            if sim == 0.0 and query_tokens:
+                continue
+            tier: Literal["High", "Medium", "Low"] = (
+                "High" if sim >= 0.3 else ("Medium" if sim >= 0.1 else "Low")
+            )
             citations.append(
                 RAGCitation(
                     citation_id=f"CIT-{chunk.id.hex[:8]}",
@@ -81,27 +133,15 @@ class RAGRetrievalEngine:
                     entity_type=chunk.entity_type,
                     entity_id=chunk.entity_id,
                     snippet=chunk.chunk_text,
-                    similarity_score=round(sim, 2),
-                    rrf_rank=idx + 1,
+                    similarity_score=sim,
+                    rrf_rank=rank,
                     confidence_tier=tier,
                 )
             )
 
-        # Fallback snippet if no chunks exist in DB
-        if not citations:
-            citations.append(
-                RAGCitation(
-                    citation_id="CIT-DEMO-001",
-                    entity_type="Company",
-                    entity_id=uuid.uuid4(),
-                    snippet=f"Acme Corp ARR Renewal ($450,000) closing Q3 2026. Relevant for query: '{query}'.",
-                    similarity_score=0.91,
-                    rrf_rank=1,
-                    confidence_tier="High",
-                )
-            )
+        latency_ms = int((time.monotonic() - start_ts) * 1000)
 
-        # 4. Log retrieval query safely via savepoint
+        # ── 5. Log retrieval query ────────────────────────────────────────────
         try:
             async with self.db.begin_nested():
                 log_entry = AIRetrievalLog(
@@ -109,7 +149,7 @@ class RAGRetrievalEngine:
                     user_id=user_id,
                     query_text=query,
                     top_k=top_k,
-                    latency_ms=18,
+                    latency_ms=latency_ms,
                     results_count=len(citations),
                 )
                 self.db.add(log_entry)
@@ -121,7 +161,7 @@ class RAGRetrievalEngine:
             query=query,
             top_k=top_k,
             results=citations,
-            latency_ms=18,
+            latency_ms=latency_ms,
         )
 
     async def retrieve(
@@ -131,11 +171,11 @@ class RAGRetrievalEngine:
         entity_type: str | None = None,
         top_k: int = 6,
         user_id: uuid.UUID | None = None,
-    ) -> list[dict]:
-        """Alias for BaseAISkill.retrieve_rag() compatibility. Returns list[dict] of citation snippets."""
+    ) -> list[dict[str, Any]]:
+        """Alias for BaseAISkill.retrieve_rag() compatibility. Returns list[dict]."""
         result = await self.search(
             workspace_id=workspace_id,
-            user_id=user_id,
+            user_id=user_id or uuid.uuid4(),
             query=query,
             top_k=top_k,
             entity_type=entity_type,
@@ -152,5 +192,3 @@ class RAGRetrievalEngine:
             }
             for c in result.results
         ]
-
-

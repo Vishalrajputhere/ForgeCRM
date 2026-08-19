@@ -18,6 +18,7 @@ import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useAuthStore } from '@/stores/auth-store';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useAIFetch } from '@/hooks/use-ai-fetch';
+import { useFormatters } from '@/hooks/use-formatters';
 import { useToast } from '@/components/ui/toast';
 import { WorkspaceAdminNav } from '@/components/navigation/workspace-admin-nav';
 
@@ -43,6 +44,7 @@ export default function WorkspaceAdminMainPage(): React.JSX.Element {
   const user = useAuthStore((state) => state.user);
   const { isSuperAdmin, isWorkspaceAdmin, roles, can } = usePermissions();
   const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
+  const { formatCurrency } = useFormatters();
   const { toast } = useToast();
 
   const [metrics, setMetrics] = useState<UsageMetrics | null>(null);
@@ -215,7 +217,7 @@ export default function WorkspaceAdminMainPage(): React.JSX.Element {
             <BarChart3 className="h-4 w-4 text-amber-400" />
           </div>
           <p className="text-2xl font-bold text-white">{(metrics?.ai_tokens_used ?? 0).toLocaleString()}</p>
-          <p className="text-[11px] text-slate-500">Estimated cost: ${(metrics?.ai_cost_usd ?? 0).toFixed(4)}</p>
+          <p className="text-[11px] text-slate-500">Estimated cost: {formatCurrency(metrics?.ai_cost_usd ?? 0)}</p>
         </div>
       </div>
 

@@ -30,10 +30,13 @@ import {
   Puzzle,
   FileText,
   BarChart3,
+  Package,
 } from 'lucide-react';
 
 import { useNavigationStore } from '@/stores/navigation-store';
 import { usePermissions } from '@/hooks/use-permissions';
+import { useCRM } from '@/hooks/use-crm';
+import { useProducts } from '@/hooks/use-products';
 import { WorkspaceSwitcher } from '@/components/workspace/workspace-switcher';
 import { Caption } from '@/components/ui/typography';
 import { cn } from '@/lib/cn';
@@ -59,10 +62,11 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'CRM Directory',
     items: [
-      { name: 'Leads', href: '/leads', icon: Zap, count: 14, permission: 'leads.read' },
-      { name: 'Companies', href: '/companies', icon: Building2, count: 128, permission: 'companies.read' },
-      { name: 'Contacts', href: '/contacts', icon: Users, count: 342, permission: 'contacts.read' },
-      { name: 'Deals', href: '/deals', icon: TrendingUp, count: 24, permission: 'deals.read' },
+      { name: 'Leads', href: '/leads', icon: Zap, permission: 'leads.read' },
+      { name: 'Companies', href: '/companies', icon: Building2, permission: 'companies.read' },
+      { name: 'Contacts', href: '/contacts', icon: Users, permission: 'contacts.read' },
+      { name: 'Deals', href: '/deals', icon: TrendingUp, permission: 'deals.read' },
+      { name: 'Products', href: '/products', icon: Package, permission: 'products.read' },
     ],
   },
   {
@@ -103,6 +107,8 @@ export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, favorites } = useNavigationStore();
   const { can } = usePermissions();
+  const { leads = [], companies = [], contacts = [], deals = [] } = useCRM();
+  const { total: productsTotal, products = [] } = useProducts();
   const [mounted, setMounted] = React.useState(false);
 
   React.useEffect(() => {
@@ -110,6 +116,14 @@ export function Sidebar() {
   }, []);
 
   const isCollapsed = mounted ? sidebarCollapsed : false;
+
+  const dynamicCounts: Record<string, number | undefined> = {
+    '/leads': leads.length,
+    '/companies': companies.length,
+    '/contacts': contacts.length,
+    '/deals': deals.length,
+    '/products': productsTotal ?? products.length,
+  };
 
   return (
     <aside
@@ -178,6 +192,7 @@ export function Sidebar() {
               {visibleItems.map((item) => {
                 const isActive = pathname.startsWith(item.href);
                 const Icon = item.icon;
+                const count = dynamicCounts[item.href] !== undefined ? dynamicCounts[item.href] : item.count;
                 return (
                   <Link
                     key={item.name}
@@ -192,9 +207,9 @@ export function Sidebar() {
                   >
                     <Icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-accent' : 'text-muted group-hover:text-primary')} />
                     {!isCollapsed && <span className="truncate flex-1">{item.name}</span>}
-                    {!isCollapsed && item.count !== undefined && (
+                    {!isCollapsed && count !== undefined && (
                       <span className={cn('rounded px-1.5 py-0.2 font-mono text-[10px]', isActive ? 'bg-accent/20 text-accent font-bold' : 'bg-subtle text-muted')}>
-                        {item.count}
+                        {count}
                       </span>
                     )}
                   </Link>

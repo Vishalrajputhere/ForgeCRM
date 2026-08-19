@@ -21,10 +21,13 @@ from app.modules.automation.trigger_dispatcher import dispatch_trigger
 from app.modules.crm.exceptions import (
     CompanyNotFoundError,
     ContactNotFoundError,
+    DealLineItemNotFoundError,
     DealNotFoundError,
+    DuplicateProductSKUError,
     LeadAlreadyConvertedError,
     LeadNotFoundError,
     PipelineNotFoundError,
+    ProductNotFoundError,
     TaskNotFoundError,
 )
 from app.modules.crm.models import (
@@ -32,20 +35,25 @@ from app.modules.crm.models import (
     Company,
     Contact,
     Deal,
+    DealLineItem,
     DealProduct,
     Lead,
     LeadConversion,
     Pipeline,
     PipelineStage,
+    Product,
     Task,
 )
+from app.modules.crm.pricing import calculate_deal_totals, calculate_line_item
 from app.modules.crm.repository import (
     ActivityRepository,
     CompanyRepository,
     ContactRepository,
+    DealLineItemRepository,
     DealRepository,
     LeadRepository,
     PipelineRepository,
+    ProductRepository,
     TaskRepository,
 )
 from app.modules.crm.schemas import (
@@ -64,6 +72,10 @@ from app.modules.crm.schemas import (
     ContactResponse,
     ContactUpdate,
     DealCreate,
+    DealLineItemBulkCreate,
+    DealLineItemCreate,
+    DealLineItemResponse,
+    DealLineItemUpdate,
     DealResponse,
     DealStageMoveRequest,
     DealUpdate,
@@ -76,6 +88,10 @@ from app.modules.crm.schemas import (
     LeadUpdate,
     PipelineCreate,
     PipelineResponse,
+    ProductCreate,
+    ProductListResponse,
+    ProductResponse,
+    ProductUpdate,
     StageCreate,
     StageReorderItem,
     StageResponse,
@@ -85,7 +101,7 @@ from app.modules.crm.schemas import (
     TaskUpdate,
 )
 
-logger = get_logger(__name__)
+logger = get_logger("forgecrm.crm")
 
 
 class CRMService:
@@ -100,6 +116,8 @@ class CRMService:
         self.deal_repo = DealRepository(db)
         self.task_repo = TaskRepository(db)
         self.activity_repo = ActivityRepository(db)
+        self.product_repo = ProductRepository(db)
+        self.line_item_repo = DealLineItemRepository(db)
         from app.modules.crm.repository import BulkRepository
         self.bulk_repo = BulkRepository(db)
 
@@ -955,17 +973,53 @@ class CRMService:
         )
         deal = await self.deal_repo.create(deal)
 
-        if payload.products:
-            for prd in payload.products:
-                dp = DealProduct(
-                    deal_id=deal.id,
-                    product_name=prd.product_name,
-                    quantity=prd.quantity,
-                    unit_price=prd.unit_price,
-                    discount_percent=prd.discount_percent,
-                    line_total=prd.quantity * prd.unit_price * (1 - prd.discount_percent / 100.0),
+        items_to_create = payload.line_items or payload.products or []
+        if items_to_create:
+            total_sum = 0.0
+            for item in items_to_create:
+                p_name = item.product_name or "Line Item"
+                p_sku = item.sku
+                u_price = item.unit_price if item.unit_price is not None else 0.0
+                t_rate = item.tax_rate if item.tax_rate is not None else 0.0
+
+                if item.product_id:
+                    prod = await self.product_repo.get_by_id(workspace_id, item.product_id)
+                    if prod:
+                        p_name = item.product_name or prod.name
+                        p_sku = item.sku or prod.sku
+                        if item.unit_price is None:
+                            u_price = float(prod.unit_price)
+                        if item.tax_rate is None:
+                            t_rate = float(prod.tax_rate)
+
+                calc = calculate_line_item(
+                    quantity=item.quantity,
+                    unit_price=u_price,
+                    discount_percent=item.discount_percent,
+                    tax_rate=t_rate,
                 )
-                self.db.add(dp)
+
+                line_item = DealLineItem(
+                    id=uuid4(),
+                    workspace_id=workspace_id,
+                    deal_id=deal.id,
+                    product_id=item.product_id,
+                    product_name_snapshot=p_name,
+                    sku_snapshot=p_sku,
+                    quantity=float(calc.quantity),
+                    unit_price=float(calc.unit_price),
+                    discount_percent=float(calc.discount_percent),
+                    discount_amount=float(calc.discount_amount),
+                    tax_rate=float(calc.tax_rate),
+                    subtotal=float(calc.subtotal),
+                    taxable_amount=float(calc.taxable_amount),
+                    tax_amount=float(calc.tax_amount),
+                    total=float(calc.total),
+                )
+                self.db.add(line_item)
+                total_sum += float(calc.total)
+
+            deal.value = total_sum
             await self.db.flush()
 
         await self._log_timeline_activity(
@@ -1399,6 +1453,459 @@ class CRMService:
         stmt = select(ExportJob).where(ExportJob.workspace_id == workspace_id).order_by(ExportJob.created_at.desc())
         res = await self.db.execute(stmt)
         return [ExportJobResponse.model_validate(j) for j in res.scalars().all()]
+
+    # ── Product Catalog ────────────────────────────────────────────────────────
+
+    async def create_product(
+        self, workspace_id: UUID, member_id: UUID, payload: ProductCreate
+    ) -> ProductResponse:
+        """Create a new product in the catalog."""
+        if payload.sku:
+            existing = await self.product_repo.get_by_sku(workspace_id, payload.sku)
+            if existing is not None:
+                raise DuplicateProductSKUError()
+
+        product = Product(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            name=payload.name,
+            sku=payload.sku,
+            description=payload.description,
+            category=payload.category,
+            unit_price=payload.unit_price,
+            currency=payload.currency,
+            tax_rate=payload.tax_rate,
+            is_active=payload.is_active,
+            created_by_member_id=member_id,
+        )
+        product = await self.product_repo.create(product)
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Product",
+            entity_id=product.id,
+            title="Product Created",
+            description=f"Added product '{product.name}' (SKU: {product.sku or 'N/A'}) to catalog with price ${product.unit_price:,.2f}",
+        )
+
+        await dispatch_trigger(
+            event_type="PRODUCT_CREATED",
+            entity_type="product",
+            entity_data={
+                "id": str(product.id),
+                "name": product.name,
+                "sku": product.sku,
+                "unit_price": float(product.unit_price),
+                "is_active": product.is_active,
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
+        return ProductResponse.model_validate(product)
+
+    async def list_products(
+        self,
+        workspace_id: UUID,
+        search: str | None = None,
+        category: str | None = None,
+        is_active: bool | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> ProductListResponse:
+        """List products with search, category filtering, and pagination."""
+        items, total = await self.product_repo.list_products(
+            workspace_id=workspace_id,
+            search=search,
+            category=category,
+            is_active=is_active,
+            page=page,
+            page_size=page_size,
+        )
+        total_pages = (total + page_size - 1) // page_size if total > 0 else 0
+        return ProductListResponse(
+            items=[ProductResponse.model_validate(p) for p in items],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=total_pages,
+        )
+
+    async def get_product(self, workspace_id: UUID, product_id: UUID) -> ProductResponse:
+        """Fetch a single product by ID."""
+        product = await self.product_repo.get_by_id(workspace_id, product_id)
+        if product is None:
+            raise ProductNotFoundError()
+        return ProductResponse.model_validate(product)
+
+    async def update_product(
+        self, workspace_id: UUID, member_id: UUID, product_id: UUID, payload: ProductUpdate
+    ) -> ProductResponse:
+        """Update a product in the catalog."""
+        product = await self.product_repo.get_by_id(workspace_id, product_id)
+        if product is None:
+            raise ProductNotFoundError()
+
+        if payload.sku and payload.sku != product.sku:
+            existing = await self.product_repo.get_by_sku(workspace_id, payload.sku)
+            if existing is not None:
+                raise DuplicateProductSKUError()
+
+        for field, value in payload.model_dump(exclude_unset=True).items():
+            if value is not None:
+                setattr(product, field, value)
+
+        await self.db.flush()
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Product",
+            entity_id=product.id,
+            title="Product Updated",
+            description=f"Updated product '{product.name}'",
+        )
+
+        await dispatch_trigger(
+            event_type="PRODUCT_UPDATED",
+            entity_type="product",
+            entity_data={
+                "id": str(product.id),
+                "name": product.name,
+                "sku": product.sku,
+                "unit_price": float(product.unit_price),
+                "is_active": product.is_active,
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
+        return ProductResponse.model_validate(product)
+
+    async def delete_product(
+        self, workspace_id: UUID, member_id: UUID, product_id: UUID
+    ) -> None:
+        """
+        Soft-archive or delete product.
+        If the product is referenced by historical deals, it is archived (is_active=False).
+        If unreferenced, it is deleted from the catalog.
+        """
+        product = await self.product_repo.get_by_id(workspace_id, product_id)
+        if product is None:
+            raise ProductNotFoundError()
+
+        ref_count = await self.product_repo.count_deal_references(workspace_id, product_id)
+        if ref_count > 0:
+            product.is_active = False
+            await self.db.flush()
+            event_type = "PRODUCT_ARCHIVED"
+            title = "Product Archived"
+            desc = f"Archived product '{product.name}' (referenced in {ref_count} deal line items)"
+        else:
+            await self.product_repo.delete(product)
+            event_type = "PRODUCT_ARCHIVED"
+            title = "Product Deleted"
+            desc = f"Deleted product '{product.name}' from catalog"
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Product",
+            entity_id=product.id,
+            title=title,
+            description=desc,
+        )
+
+        await dispatch_trigger(
+            event_type=event_type,
+            entity_type="product",
+            entity_data={"id": str(product.id), "name": product.name, "is_active": product.is_active},
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
+    # ── Deal Line Items & Calculations ────────────────────────────────────────
+
+    async def _sync_deal_totals(
+        self, workspace_id: UUID, member_id: UUID, deal_id: UUID
+    ) -> float:
+        """Recalculate and update deal.value based on sum of line item totals."""
+        deal = await self.deal_repo.get_by_id(workspace_id, deal_id)
+        if deal is None:
+            raise DealNotFoundError()
+
+        line_items = await self.line_item_repo.list_by_deal_id(workspace_id, deal_id)
+        total_sum = sum(float(item.total) for item in line_items)
+        old_val = deal.value
+        deal.value = total_sum
+        await self.db.flush()
+
+        if old_val != total_sum:
+            await dispatch_trigger(
+                event_type="DEAL_TOTAL_CHANGED",
+                entity_type="deal",
+                entity_data={
+                    "id": str(deal.id),
+                    "name": deal.name,
+                    "old_value": float(old_val or 0),
+                    "value": float(total_sum),
+                },
+                db=self.db,
+                workspace_id=workspace_id,
+                member_id=member_id,
+            )
+
+        return total_sum
+
+    async def list_deal_line_items(
+        self, workspace_id: UUID, deal_id: UUID
+    ) -> list[DealLineItemResponse]:
+        """List line items attached to a deal."""
+        deal = await self.deal_repo.get_by_id(workspace_id, deal_id)
+        if deal is None:
+            raise DealNotFoundError()
+        items = await self.line_item_repo.list_by_deal_id(workspace_id, deal_id)
+        return [DealLineItemResponse.model_validate(i) for i in items]
+
+    async def add_deal_line_item(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        deal_id: UUID,
+        payload: DealLineItemCreate,
+    ) -> DealLineItemResponse:
+        """Add a line item to a deal with real-time price snapshot and tax/discount calculation."""
+        deal = await self.deal_repo.get_by_id(workspace_id, deal_id)
+        if deal is None:
+            raise DealNotFoundError()
+
+        p_name = payload.product_name or "Line Item"
+        p_sku = payload.sku
+        u_price = payload.unit_price if payload.unit_price is not None else 0.0
+        t_rate = payload.tax_rate if payload.tax_rate is not None else 0.0
+
+        if payload.product_id:
+            prod = await self.product_repo.get_by_id(workspace_id, payload.product_id)
+            if prod:
+                p_name = payload.product_name or prod.name
+                p_sku = payload.sku or prod.sku
+                if payload.unit_price is None:
+                    u_price = float(prod.unit_price)
+                if payload.tax_rate is None:
+                    t_rate = float(prod.tax_rate)
+
+        calc = calculate_line_item(
+            quantity=payload.quantity,
+            unit_price=u_price,
+            discount_percent=payload.discount_percent,
+            tax_rate=t_rate,
+        )
+
+        line_item = DealLineItem(
+            id=uuid4(),
+            workspace_id=workspace_id,
+            deal_id=deal_id,
+            product_id=payload.product_id,
+            product_name_snapshot=p_name,
+            sku_snapshot=p_sku,
+            quantity=float(calc.quantity),
+            unit_price=float(calc.unit_price),
+            discount_percent=float(calc.discount_percent),
+            discount_amount=float(calc.discount_amount),
+            tax_rate=float(calc.tax_rate),
+            subtotal=float(calc.subtotal),
+            taxable_amount=float(calc.taxable_amount),
+            tax_amount=float(calc.tax_amount),
+            total=float(calc.total),
+        )
+        line_item = await self.line_item_repo.create(line_item)
+
+        await self._sync_deal_totals(workspace_id, member_id, deal_id)
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Deal",
+            entity_id=deal_id,
+            title="Line Item Added",
+            description=f"Added '{line_item.product_name_snapshot}' ({line_item.quantity} x ${line_item.unit_price:,.2f}) — total ${line_item.total:,.2f}",
+        )
+
+        await dispatch_trigger(
+            event_type="DEAL_LINE_ITEM_ADDED",
+            entity_type="deal_line_item",
+            entity_data={
+                "id": str(line_item.id),
+                "deal_id": str(deal_id),
+                "product_name": line_item.product_name_snapshot,
+                "total": float(line_item.total),
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
+        return DealLineItemResponse.model_validate(line_item)
+
+    async def update_deal_line_item(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        deal_id: UUID,
+        line_item_id: UUID,
+        payload: DealLineItemUpdate,
+    ) -> DealLineItemResponse:
+        """Update an existing deal line item and recalculate financials."""
+        line_item = await self.line_item_repo.get_by_id(workspace_id, deal_id, line_item_id)
+        if line_item is None:
+            raise DealLineItemNotFoundError()
+
+        new_qty = payload.quantity if payload.quantity is not None else line_item.quantity
+        new_price = payload.unit_price if payload.unit_price is not None else line_item.unit_price
+        new_disc = payload.discount_percent if payload.discount_percent is not None else line_item.discount_percent
+        new_tax = payload.tax_rate if payload.tax_rate is not None else line_item.tax_rate
+
+        calc = calculate_line_item(
+            quantity=new_qty,
+            unit_price=new_price,
+            discount_percent=new_disc,
+            tax_rate=new_tax,
+        )
+
+        line_item.quantity = float(calc.quantity)
+        line_item.unit_price = float(calc.unit_price)
+        line_item.discount_percent = float(calc.discount_percent)
+        line_item.discount_amount = float(calc.discount_amount)
+        line_item.tax_rate = float(calc.tax_rate)
+        line_item.subtotal = float(calc.subtotal)
+        line_item.taxable_amount = float(calc.taxable_amount)
+        line_item.tax_amount = float(calc.tax_amount)
+        line_item.total = float(calc.total)
+
+        await self.db.flush()
+        await self._sync_deal_totals(workspace_id, member_id, deal_id)
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Deal",
+            entity_id=deal_id,
+            title="Line Item Updated",
+            description=f"Updated '{line_item.product_name_snapshot}' — new total ${line_item.total:,.2f}",
+        )
+
+        await dispatch_trigger(
+            event_type="DEAL_LINE_ITEM_UPDATED",
+            entity_type="deal_line_item",
+            entity_data={
+                "id": str(line_item.id),
+                "deal_id": str(deal_id),
+                "product_name": line_item.product_name_snapshot,
+                "total": float(line_item.total),
+            },
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
+        return DealLineItemResponse.model_validate(line_item)
+
+    async def delete_deal_line_item(
+        self, workspace_id: UUID, member_id: UUID, deal_id: UUID, line_item_id: UUID
+    ) -> None:
+        """Remove a line item from a deal and recalculate totals."""
+        line_item = await self.line_item_repo.get_by_id(workspace_id, deal_id, line_item_id)
+        if line_item is None:
+            raise DealLineItemNotFoundError()
+
+        p_name = line_item.product_name_snapshot
+        await self.line_item_repo.delete(line_item)
+        await self._sync_deal_totals(workspace_id, member_id, deal_id)
+
+        await self._log_timeline_activity(
+            workspace_id=workspace_id,
+            actor_member_id=member_id,
+            entity_type="Deal",
+            entity_id=deal_id,
+            title="Line Item Removed",
+            description=f"Removed line item '{p_name}' from deal",
+        )
+
+        await dispatch_trigger(
+            event_type="DEAL_LINE_ITEM_REMOVED",
+            entity_type="deal_line_item",
+            entity_data={"id": str(line_item_id), "deal_id": str(deal_id), "product_name": p_name},
+            db=self.db,
+            workspace_id=workspace_id,
+            member_id=member_id,
+        )
+
+    async def set_deal_line_items(
+        self,
+        workspace_id: UUID,
+        member_id: UUID,
+        deal_id: UUID,
+        payload: DealLineItemBulkCreate,
+    ) -> list[DealLineItemResponse]:
+        """Atomically replace all line items for a deal."""
+        deal = await self.deal_repo.get_by_id(workspace_id, deal_id)
+        if deal is None:
+            raise DealNotFoundError()
+
+        await self.line_item_repo.delete_all_by_deal(workspace_id, deal_id)
+
+        created_items: list[DealLineItem] = []
+        for item in payload.line_items:
+            p_name = item.product_name or "Line Item"
+            p_sku = item.sku
+            u_price = item.unit_price if item.unit_price is not None else 0.0
+            t_rate = item.tax_rate if item.tax_rate is not None else 0.0
+
+            if item.product_id:
+                prod = await self.product_repo.get_by_id(workspace_id, item.product_id)
+                if prod:
+                    p_name = item.product_name or prod.name
+                    p_sku = item.sku or prod.sku
+                    if item.unit_price is None:
+                        u_price = float(prod.unit_price)
+                    if item.tax_rate is None:
+                        t_rate = float(prod.tax_rate)
+
+            calc = calculate_line_item(
+                quantity=item.quantity,
+                unit_price=u_price,
+                discount_percent=item.discount_percent,
+                tax_rate=t_rate,
+            )
+
+            line_item = DealLineItem(
+                id=uuid4(),
+                workspace_id=workspace_id,
+                deal_id=deal_id,
+                product_id=item.product_id,
+                product_name_snapshot=p_name,
+                sku_snapshot=p_sku,
+                quantity=float(calc.quantity),
+                unit_price=float(calc.unit_price),
+                discount_percent=float(calc.discount_percent),
+                discount_amount=float(calc.discount_amount),
+                tax_rate=float(calc.tax_rate),
+                subtotal=float(calc.subtotal),
+                taxable_amount=float(calc.taxable_amount),
+                tax_amount=float(calc.tax_amount),
+                total=float(calc.total),
+            )
+            self.db.add(line_item)
+            created_items.append(line_item)
+
+        await self.db.flush()
+        await self._sync_deal_totals(workspace_id, member_id, deal_id)
+
+        return [DealLineItemResponse.model_validate(i) for i in created_items]
 
 
 __all__ = ["CRMService"]

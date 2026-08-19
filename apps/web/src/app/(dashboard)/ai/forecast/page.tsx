@@ -13,12 +13,18 @@ import { type ReasoningChain } from '@/components/ai/reasoning-panel';
 import { RecommendationCard } from '@/components/ai/recommendation-card';
 import { PromptSuggestionBar, type PromptSuggestion } from '@/components/ai/prompt-suggestion-bar';
 import { RevenueForecastCard } from '@/components/ai/revenue-forecast-card';
-import { PipelineForecastChart } from '@/components/ai/pipeline-forecast-chart';
+import { PipelineForecastChart, type StageFunnel } from '@/components/ai/pipeline-forecast-chart';
 import { ForecastScenarioCard } from '@/components/ai/forecast-scenario-card';
 import { QuotaAttainmentCard } from '@/components/ai/quota-attainment-card';
 import { ForecastConfidencePanel } from '@/components/ai/forecast-confidence-panel';
 import { ForecastTimeline } from '@/components/ai/forecast-timeline';
 import { ForecastInsightsPanel } from '@/components/ai/forecast-insights-panel';
+import { useWorkspaceStore } from '@/stores/workspace-store';
+import { useAIFetch } from '@/hooks/use-ai-fetch';
+import { useAnalytics } from '@/hooks/use-analytics';
+import type { PipelineAnalyticsResponse } from '@/types';
+
+// toPipelineFunnelStages is defined below — PipelineAnalyticsResponse used there
 
 interface SkillMessage {
   id: string;
@@ -49,12 +55,33 @@ const FORECAST_SUGGESTIONS: PromptSuggestion[] = [
   { icon: <Award className="h-3.5 w-3.5" />, label: 'Executive forecast briefing', skill: 'executive_forecast' },
 ];
 
-import { useWorkspaceStore } from '@/stores/workspace-store';
-import { useAIFetch } from '@/hooks/use-ai-fetch';
+/** Transform PipelineAnalyticsResponse[] → StageFunnel[] for the chart. */
+function toPipelineFunnelStages(data: PipelineAnalyticsResponse[]): StageFunnel[] {
+  const stages: StageFunnel[] = [];
+  for (const pipeline of data) {
+    for (const stage of pipeline.stages) {
+      stages.push({
+        stage: stage.stage_name,
+        count: stage.deal_count,
+        value: `$${(stage.total_value / 1_000_000).toFixed(1)}M`,
+        conversionRate: Math.round(stage.probability),
+      });
+    }
+  }
+  return stages;
+}
 
 export default function AIForecastPage() {
   const { currentWorkspace } = useWorkspaceStore();
   const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
+
+  // ── Live pipeline analytics query ─────────────────────────────────────────
+  const { pipelines, isLoadingPipelines } = useAnalytics();
+  const livePipelineStages: StageFunnel[] = React.useMemo(() => {
+    if (!pipelines || pipelines.length === 0) return [];
+    return toPipelineFunnelStages(pipelines);
+  }, [pipelines]);
+
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
@@ -245,7 +272,13 @@ export default function AIForecastPage() {
         <RevenueForecastCard period={selectedPeriod} />
         <ForecastScenarioCard />
         <QuotaAttainmentCard />
-        <PipelineForecastChart />
+
+        {/* Live pipeline funnel from analytics API */}
+        <PipelineForecastChart
+          stages={livePipelineStages}
+          isLoading={isLoadingPipelines}
+        />
+
         <ForecastConfidencePanel />
         <ForecastTimeline />
         <ForecastInsightsPanel />

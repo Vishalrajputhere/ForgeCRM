@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,10 +22,12 @@ from app.modules.crm.models import (
     Company,
     Contact,
     Deal,
+    DealLineItem,
     Lead,
     LeadStatus,
     Pipeline,
     PipelineStage,
+    Product,
     Task,
 )
 
@@ -344,6 +346,7 @@ class DealRepository:
                 selectinload(Deal.company),
                 selectinload(Deal.stage),
                 selectinload(Deal.pipeline),
+                selectinload(Deal.line_items),
                 selectinload(Deal.products),
                 selectinload(Deal.owner_member),
             )
@@ -360,7 +363,12 @@ class DealRepository:
         """List active deals in workspace, optionally filtered by pipeline."""
         stmt = (
             select(Deal)
-            .options(selectinload(Deal.company), selectinload(Deal.stage), selectinload(Deal.products))
+            .options(
+                selectinload(Deal.company),
+                selectinload(Deal.stage),
+                selectinload(Deal.line_items),
+                selectinload(Deal.products),
+            )
             .where(Deal.workspace_id == workspace_id, Deal.deleted_at.is_(None))
         )
         if pipeline_id is not None:
@@ -369,6 +377,157 @@ class DealRepository:
         stmt = stmt.order_by(Deal.created_at.desc())
         result = await self.db.execute(stmt)
         return result.scalars().all()
+
+
+class ProductRepository:
+    """Repository for Product catalog operations with workspace isolation."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def create(self, product: Product) -> Product:
+        """Create a new Product record."""
+        self.db.add(product)
+        await self.db.flush()
+        return product
+
+    async def get_by_id(self, workspace_id: UUID, product_id: UUID) -> Product | None:
+        """Fetch Product by ID."""
+        stmt = (
+            select(Product)
+            .where(
+                Product.id == product_id,
+                Product.workspace_id == workspace_id,
+                Product.deleted_at.is_(None),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def get_by_sku(self, workspace_id: UUID, sku: str) -> Product | None:
+        """Fetch Product by workspace and SKU."""
+        stmt = (
+            select(Product)
+            .where(
+                Product.workspace_id == workspace_id,
+                Product.sku == sku,
+                Product.deleted_at.is_(None),
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def list_products(
+        self,
+        workspace_id: UUID,
+        search: str | None = None,
+        category: str | None = None,
+        is_active: bool | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> tuple[Sequence[Product], int]:
+        """List products with search, filtering, and pagination."""
+        base_stmt = select(Product).where(
+            Product.workspace_id == workspace_id,
+            Product.deleted_at.is_(None),
+        )
+
+        if is_active is not None:
+            base_stmt = base_stmt.where(Product.is_active.is_(is_active))
+
+        if category:
+            base_stmt = base_stmt.where(Product.category.ilike(f"%{category}%"))
+
+        if search:
+            search_filter = or_(
+                Product.name.ilike(f"%{search}%"),
+                Product.sku.ilike(f"%{search}%"),
+                Product.description.ilike(f"%{search}%"),
+            )
+            base_stmt = base_stmt.where(search_filter)
+
+        # Count total
+        count_stmt = select(func.count()).select_from(base_stmt.subquery())
+        total_res = await self.db.execute(count_stmt)
+        total = total_res.scalar() or 0
+
+        # Paginated results
+        offset = (page - 1) * page_size
+        items_stmt = base_stmt.order_by(Product.name.asc()).offset(offset).limit(page_size)
+        items_res = await self.db.execute(items_stmt)
+        items = items_res.scalars().all()
+
+        return items, total
+
+    async def count_deal_references(self, workspace_id: UUID, product_id: UUID) -> int:
+        """Count how many deal line items reference this product."""
+        stmt = (
+            select(func.count(DealLineItem.id))
+            .where(
+                DealLineItem.workspace_id == workspace_id,
+                DealLineItem.product_id == product_id,
+            )
+        )
+        res = await self.db.execute(stmt)
+        return res.scalar() or 0
+
+    async def delete(self, product: Product) -> None:
+        """Hard delete product if unreferenced."""
+        await self.db.delete(product)
+        await self.db.flush()
+
+
+class DealLineItemRepository:
+    """Repository for Deal Line Item operations."""
+
+    def __init__(self, db: AsyncSession) -> None:
+        self.db = db
+
+    async def create(self, line_item: DealLineItem) -> DealLineItem:
+        """Create a new DealLineItem."""
+        self.db.add(line_item)
+        await self.db.flush()
+        return line_item
+
+    async def get_by_id(
+        self, workspace_id: UUID, deal_id: UUID, line_item_id: UUID
+    ) -> DealLineItem | None:
+        """Fetch line item by ID and Deal."""
+        stmt = (
+            select(DealLineItem)
+            .where(
+                DealLineItem.id == line_item_id,
+                DealLineItem.deal_id == deal_id,
+                DealLineItem.workspace_id == workspace_id,
+            )
+        )
+        result = await self.db.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def list_by_deal_id(self, workspace_id: UUID, deal_id: UUID) -> Sequence[DealLineItem]:
+        """List all line items for a deal ordered by created_at."""
+        stmt = (
+            select(DealLineItem)
+            .where(
+                DealLineItem.workspace_id == workspace_id,
+                DealLineItem.deal_id == deal_id,
+            )
+            .order_by(DealLineItem.created_at.asc())
+        )
+        result = await self.db.execute(stmt)
+        return result.scalars().all()
+
+    async def delete(self, line_item: DealLineItem) -> None:
+        """Delete a line item."""
+        await self.db.delete(line_item)
+        await self.db.flush()
+
+    async def delete_all_by_deal(self, workspace_id: UUID, deal_id: UUID) -> None:
+        """Delete all line items for a deal."""
+        line_items = await self.list_by_deal_id(workspace_id, deal_id)
+        for item in line_items:
+            await self.db.delete(item)
+        await self.db.flush()
 
 
 class TaskRepository:

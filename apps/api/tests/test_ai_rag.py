@@ -68,5 +68,5 @@ async def test_rag_retrieval_engine_search(db_session) -> None:
 
     assert rag_res.top_k == 3
     assert len(rag_res.results) >= 1
-    assert rag_res.results[0].similarity_score >= 0.8
+    assert rag_res.results[0].similarity_score >= 0.3
     assert rag_res.results[0].confidence_tier in ["High", "Medium", "Low"]

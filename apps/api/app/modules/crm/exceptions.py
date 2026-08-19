@@ -88,15 +88,39 @@ class DuplicateStageNameError(ConflictError):
     message = "A stage with this name already exists in the pipeline."
 
 
+class ProductNotFoundError(NotFoundError):
+    """Raised when a product record is not found."""
+
+    error_code = "PRODUCT_NOT_FOUND"
+    message = "The requested product was not found."
+
+
+class DuplicateProductSKUError(ConflictError):
+    """Raised when creating or updating a product with an SKU already in use in this workspace."""
+
+    error_code = "DUPLICATE_PRODUCT_SKU"
+    message = "A product with this SKU already exists in this workspace."
+
+
+class DealLineItemNotFoundError(NotFoundError):
+    """Raised when a deal line item record is not found."""
+
+    error_code = "DEAL_LINE_ITEM_NOT_FOUND"
+    message = "The requested deal line item was not found."
+
+
 __all__ = [
     "CompanyNameAlreadyExistsError",
     "CompanyNotFoundError",
     "ContactNotFoundError",
+    "DealLineItemNotFoundError",
     "DealNotFoundError",
+    "DuplicateProductSKUError",
     "DuplicateStageNameError",
     "LeadAlreadyConvertedError",
     "LeadNotFoundError",
     "PipelineNotFoundError",
+    "ProductNotFoundError",
     "StageHasActiveDealsError",
     "StageNotFoundError",
     "TaskNotFoundError",

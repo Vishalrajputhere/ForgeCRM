@@ -10,6 +10,7 @@ import { Container, Stack, PageHeader, PageActions } from '@/components/ui/layou
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
 import { useFormatters } from '@/hooks/use-formatters';
+import { CURRENCY_SYMBOLS } from '@/lib/formatters';
 import { Button, Input, Select, Skeleton, Badge, FormField, Textarea } from '@/components/ui/primitives';
 import { cn } from '@/lib/cn';
 import type { LeadResponse, LeadUpdate } from '@/types';
@@ -169,6 +170,8 @@ export default function LeadsPage(): React.JSX.Element {
     pipelines,
   } = useCRM();
   const { toast } = useToast();
+  const { currency, formatCurrency } = useFormatters();
+  const currencySymbol = CURRENCY_SYMBOLS[currency.toUpperCase()] ?? '$';
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const [search, setSearch] = useState('');
@@ -324,7 +327,7 @@ export default function LeadsPage(): React.JSX.Element {
           <div>
             <Heading level="h1">Leads</Heading>
             <Text variant="body-m" color="secondary" tabular className="mt-0.5">
-              {activeLeads.length} active · {totalValue > 0 ? `$${totalValue.toLocaleString()} pipeline · ` : ''}{convertedCount} converted
+              {activeLeads.length} active · {totalValue > 0 ? `${formatCurrency(totalValue)} pipeline · ` : ''}{convertedCount} converted
             </Text>
           </div>
           <PageActions>
@@ -457,7 +460,7 @@ export default function LeadsPage(): React.JSX.Element {
               <FormField label="Job title" htmlFor="c_job_title">
                 <Input id="c_job_title" type="text" placeholder="VP Sales" value={createForm.job_title} onChange={(e) => setCreateForm({ ...createForm, job_title: e.target.value })} />
               </FormField>
-              <FormField label="Est. value ($)" htmlFor="c_value">
+              <FormField label={`Est. value (${currencySymbol})`} htmlFor="c_value">
                 <Input id="c_value" type="number" min={0} placeholder="0" value={createForm.estimated_value} onChange={(e) => setCreateForm({ ...createForm, estimated_value: e.target.value })} />
               </FormField>
               <FormField label="Priority" htmlFor="c_priority">
@@ -494,7 +497,7 @@ export default function LeadsPage(): React.JSX.Element {
               <FormField label="Company" htmlFor="e_company">
                 <Input id="e_company" value={editForm.company_name} onChange={(e) => setEditForm({ ...editForm, company_name: e.target.value })} />
               </FormField>
-              <FormField label="Est. value ($)" htmlFor="e_value">
+              <FormField label={`Est. value (${currencySymbol})`} htmlFor="e_value">
                 <Input id="e_value" type="number" min={0} value={editForm.estimated_value} onChange={(e) => setEditForm({ ...editForm, estimated_value: e.target.value })} />
               </FormField>
               <FormField label="Priority" htmlFor="e_priority">
@@ -552,7 +555,7 @@ export default function LeadsPage(): React.JSX.Element {
                   <FormField label="Deal name" htmlFor="conv_deal_name">
                     <Input id="conv_deal_name" value={convertForm.deal_name} onChange={(e) => setConvertForm({ ...convertForm, deal_name: e.target.value })} />
                   </FormField>
-                  <FormField label="Deal value ($)" htmlFor="conv_deal_value">
+                  <FormField label={`Deal value (${currencySymbol})`} htmlFor="conv_deal_value">
                     <Input id="conv_deal_value" type="number" min={0} value={convertForm.deal_value} onChange={(e) => setConvertForm({ ...convertForm, deal_value: Number(e.target.value) })} />
                   </FormField>
                 </div>

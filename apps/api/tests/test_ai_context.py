@@ -54,10 +54,24 @@ def test_route_context_prioritizer() -> None:
 
 @pytest.mark.asyncio
 async def test_enterprise_context_builder(db_session) -> None:
-    """Verifies 6-layer context payload assembly."""
+    """Verifies 6-layer context payload assembly with real DB-backed RAG."""
+    from app.modules.ai.models import AIDocumentChunk
+
     builder = EnterpriseContextBuilder(db_session)
     ws_id = uuid.uuid4()
     user_id = uuid.uuid4()
+
+    # Seed a real document chunk for this workspace
+    chunk = AIDocumentChunk(
+        id=uuid.uuid4(),
+        workspace_id=ws_id,
+        entity_type="Company",
+        entity_id=uuid.uuid4(),
+        chunk_text="Acme Corp Enterprise SaaS Annual Revenue Report and Contract Terms",
+        chunk_index=0,
+    )
+    db_session.add(chunk)
+    await db_session.flush()
 
     payload = await builder.build(
         workspace_id=ws_id,
@@ -67,6 +81,7 @@ async def test_enterprise_context_builder(db_session) -> None:
         active_route="/companies/comp-123",
         entity_type="Company",
         raw_entity_data={"name": "Acme Corp", "annual_revenue": 5000000, "password_hash": "secret"},
+        user_prompt="What is Acme Corp annual revenue?",
         model_name="gemini-1.5-flash",
     )
 

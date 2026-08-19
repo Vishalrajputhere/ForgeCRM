@@ -13,6 +13,7 @@ import { BarChart3, Users, Building2, HardDrive, RefreshCw, AlertTriangle, Zap }
 import { WorkspaceAdminNav } from '@/components/navigation/workspace-admin-nav';
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useAIFetch } from '@/hooks/use-ai-fetch';
+import { useFormatters } from '@/hooks/use-formatters';
 import { PagePermissionGuard } from '@/components/auth/permission-guard';
 
 interface WorkspaceUsage {
@@ -34,9 +35,10 @@ interface WorkspaceUsage {
   ai_cost_usd: number;
 }
 
-export default function WorkspaceUsagePage() {
+export default function WorkspaceUsagePage(): React.JSX.Element {
   const { currentWorkspace } = useWorkspaceStore();
   const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
+  const { formatCurrency } = useFormatters();
 
   const [usage, setUsage] = useState<WorkspaceUsage | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -144,7 +146,7 @@ export default function WorkspaceUsagePage() {
                   <div className="flex items-center gap-2 text-sm font-bold text-white">
                     <Zap className="h-4 w-4 text-amber-400" /> AI Tokens &amp; Cost
                   </div>
-                  <span className="text-xs font-mono text-amber-400">${usage.ai_cost_usd.toFixed(4)} USD</span>
+                  <span className="text-xs font-mono text-amber-400">{formatCurrency(usage.ai_cost_usd)}</span>
                 </div>
                 <div className="text-3xl font-bold text-white">
                   {usage.ai_tokens_used.toLocaleString()} <span className="text-xs font-normal text-slate-500">Tokens</span>
@@ -196,7 +198,7 @@ export default function WorkspaceUsagePage() {
                 <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-center space-y-1">
                   <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Deals</span>
                   <p className="text-2xl font-bold text-white">{usage.deals_count}</p>
-                  <p className="text-[10px] text-emerald-400 font-mono font-bold">${usage.deals_total_value.toLocaleString()}</p>
+                  <p className="text-[10px] text-emerald-400 font-mono font-bold">{formatCurrency(usage.deals_total_value)}</p>
                 </div>
 
                 <div className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 text-center space-y-1">

@@ -178,6 +178,10 @@ try:
     from app.modules.workspace import models as _workspace_models  # noqa: F401
     from app.modules.ai import models as _ai_models  # noqa: F401
     from app.modules.ai.agents import models as _ai_agent_models  # noqa: F401
+    from app.modules.analytics import models as _analytics_models  # noqa: F401
+    from app.modules.crm import models as _crm_models  # noqa: F401
+    from app.modules.automation import models as _automation_models  # noqa: F401
+    from app.modules.storage import models as _storage_models  # noqa: F401
 except ImportError:
     pass
 

@@ -15,6 +15,11 @@ secrets/
 .deps/
 scratch/
 
+# ── Internal Working Docs & Audits ──────────────────────────────────────────
+FORGECRM_*.md
+walkthrough.md
+
+
 # ── Python ───────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]

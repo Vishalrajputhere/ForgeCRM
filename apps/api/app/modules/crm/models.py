@@ -260,23 +260,62 @@ class Deal(BaseModel):
     stage: Mapped[PipelineStage] = relationship("PipelineStage")
     primary_contact: Mapped[Contact | None] = relationship("Contact")
     owner_member: Mapped[WorkspaceMember] = relationship("WorkspaceMember", foreign_keys=[owner_member_id])
-    products: Mapped[list[DealProduct]] = relationship("DealProduct", back_populates="deal", cascade="all, delete-orphan")
+    line_items: Mapped[list[DealLineItem]] = relationship("DealLineItem", back_populates="deal", cascade="all, delete-orphan", order_by="DealLineItem.created_at")
+    products: Mapped[list[DealLineItem]] = relationship("DealLineItem", cascade="all, delete-orphan", viewonly=True)
 
 
-class DealProduct(Base):
-    """Line item product Snapshot associated with a Deal."""
+class Product(BaseModel):
+    """Represents a sellable product / service in the workspace product catalog."""
 
-    __tablename__ = "deal_products"
+    __tablename__ = "products"
 
-    deal_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("deals.id", ondelete="CASCADE"), primary_key=True)
-    product_name: Mapped[str] = mapped_column(VARCHAR(255), primary_key=True)
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(VARCHAR(255), nullable=False, index=True)
+    sku: Mapped[str | None] = mapped_column(VARCHAR(100), nullable=True, index=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    category: Mapped[str | None] = mapped_column(VARCHAR(100), nullable=True, index=True)
+    unit_price: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
+    currency: Mapped[str] = mapped_column(VARCHAR(20), default="USD", server_default="USD", nullable=False)
+    tax_rate: Mapped[float] = mapped_column(NUMERIC(5, 2), default=0.0, server_default="0.0", nullable=False)
+    is_active: Mapped[bool] = mapped_column(BOOLEAN, default=True, server_default="true", nullable=False, index=True)
+    created_by_member_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspace_members.id", ondelete="SET NULL"), nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "sku", name="uq_workspace_product_sku"),
+    )
+
+    # Relationships
+    created_by_member: Mapped[WorkspaceMember | None] = relationship("WorkspaceMember", foreign_keys=[created_by_member_id])
+    line_items: Mapped[list[DealLineItem]] = relationship("DealLineItem", back_populates="product")
+
+
+class DealLineItem(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    """Line item with immutable price/SKU snapshots and tax/discount calculations."""
+
+    __tablename__ = "deal_line_items"
+
+    workspace_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False, index=True)
+    deal_id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("deals.id", ondelete="CASCADE"), nullable=False, index=True)
+    product_id: Mapped[UUID | None] = mapped_column(PG_UUID(as_uuid=True), ForeignKey("products.id", ondelete="SET NULL"), nullable=True, index=True)
+    product_name_snapshot: Mapped[str] = mapped_column(VARCHAR(255), nullable=False)
+    sku_snapshot: Mapped[str | None] = mapped_column(VARCHAR(100), nullable=True)
     quantity: Mapped[float] = mapped_column(NUMERIC(12, 2), default=1.0, server_default="1.0", nullable=False)
     unit_price: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
     discount_percent: Mapped[float] = mapped_column(NUMERIC(5, 2), default=0.0, server_default="0.0", nullable=False)
-    line_total: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
+    discount_amount: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
+    tax_rate: Mapped[float] = mapped_column(NUMERIC(5, 2), default=0.0, server_default="0.0", nullable=False)
+    subtotal: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
+    taxable_amount: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
+    tax_amount: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
+    total: Mapped[float] = mapped_column(NUMERIC(18, 2), default=0.0, server_default="0.0", nullable=False)
 
     # Relationships
-    deal: Mapped[Deal] = relationship("Deal", back_populates="products")
+    deal: Mapped[Deal] = relationship("Deal", back_populates="line_items")
+    product: Mapped[Product | None] = relationship("Product", back_populates="line_items")
+
+
+# Legacy alias
+DealProduct = DealLineItem
 
 
 # ── Activity & Task Entities ───────────────────────────────────────────────────
@@ -364,6 +403,7 @@ __all__ = [
     "CompanyIndustry",
     "Contact",
     "Deal",
+    "DealLineItem",
     "DealProduct",
     "ExportJob",
     "ImportJob",
@@ -373,5 +413,6 @@ __all__ = [
     "LeadStatus",
     "Pipeline",
     "PipelineStage",
+    "Product",
     "Task",
 ]

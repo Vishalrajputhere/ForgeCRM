@@ -4,6 +4,7 @@ import React from 'react';
 import { Bell, Check, Zap, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Heading, Text, Caption } from '@/components/ui/typography';
 import { IconButton } from '@/components/ui/button';
+import { useFormatters } from '@/hooks/use-formatters';
 
 export interface NotificationItem {
   id: string;
@@ -14,13 +15,15 @@ export interface NotificationItem {
   type: 'deal' | 'task' | 'system';
 }
 
-const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
-  { id: '1', title: 'Deal Closed Won', message: 'Enterprise Cloud Renewal worth $120,000 was moved to Closed Won.', time: '10m ago', read: false, type: 'deal' },
-  { id: '2', title: 'Task Due Soon', message: 'Follow up with Acme Corp VP of Engineering is due today.', time: '1h ago', read: false, type: 'task' },
-  { id: '3', title: 'Automation Triggered', message: 'High-Value Lead Routing rule dispatched successfully.', time: '3h ago', read: true, type: 'system' },
-];
-
 export function NotificationCenter({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { formatCurrency } = useFormatters();
+
+  const notifications: NotificationItem[] = [
+    { id: '1', title: 'Deal Closed Won', message: `Enterprise Cloud Renewal worth ${formatCurrency(120000)} was moved to Closed Won.`, time: '10m ago', read: false, type: 'deal' },
+    { id: '2', title: 'Task Due Soon', message: 'Follow up with Acme Corp VP of Engineering is due today.', time: '1h ago', read: false, type: 'task' },
+    { id: '3', title: 'Automation Triggered', message: 'High-Value Lead Routing rule dispatched successfully.', time: '3h ago', read: true, type: 'system' },
+  ];
+
   if (!open) return null;
 
   return (
@@ -34,7 +37,7 @@ export function NotificationCenter({ open, onClose }: { open: boolean; onClose: 
       </div>
 
       <div className="divide-y divide-border-subtle overflow-y-auto max-h-[calc(100vh-60px)]">
-        {SAMPLE_NOTIFICATIONS.map((n) => (
+        {notifications.map((n) => (
           <div key={n.id} className={`p-4 transition-colors hover:bg-hover ${!n.read ? 'bg-accent/5' : ''}`}>
             <div className="flex items-start gap-3">
               {n.type === 'deal' ? (

@@ -92,6 +92,9 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 );
 Textarea.displayName = 'Textarea';
 
+import { useFormatters } from '@/hooks/use-formatters';
+import { CURRENCY_SYMBOLS } from '@/lib/formatters';
+
 // ── Currency Input ───────────────────────────────────────────────────────────
 
 export interface CurrencyInputProps extends Omit<InputProps, 'onChange'> {
@@ -100,11 +103,14 @@ export interface CurrencyInputProps extends Omit<InputProps, 'onChange'> {
   currencyPrefix?: string;
 }
 
-export function CurrencyInput({ value, onChange, currencyPrefix = '$', ...props }: CurrencyInputProps) {
+export function CurrencyInput({ value, onChange, currencyPrefix, ...props }: CurrencyInputProps) {
+  const { currency } = useFormatters();
+  const activeSymbol = currencyPrefix ?? (CURRENCY_SYMBOLS[currency.toUpperCase()] ?? '$');
+
   return (
     <Input
       type="number"
-      leftIcon={<span className="font-mono text-xs text-muted">{currencyPrefix}</span>}
+      leftIcon={<span className="font-mono text-xs text-muted">{activeSymbol}</span>}
       value={value}
       onChange={(e) => onChange?.(Number(e.target.value))}
       {...props}

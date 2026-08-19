@@ -3,6 +3,9 @@
 import * as React from 'react';
 import { DollarSign, TrendingUp } from 'lucide-react';
 
+import { useFormatters } from '@/hooks/use-formatters';
+import { CURRENCY_SYMBOLS } from '@/lib/formatters';
+
 interface RevenueForecastCardProps {
   period?: string | undefined;
   predictedRevenue?: string | undefined;
@@ -12,10 +15,16 @@ interface RevenueForecastCardProps {
 
 export function RevenueForecastCard({
   period = 'Q3 2026',
-  predictedRevenue = '$1,250,000',
-  quotaTarget = '$1,000,000',
+  predictedRevenue,
+  quotaTarget,
   attainmentPercent = 125,
 }: RevenueForecastCardProps) {
+  const { currency } = useFormatters();
+  const symbol = CURRENCY_SYMBOLS[currency.toUpperCase()] ?? '$';
+
+  const defaultPredicted = `${symbol}1,250,000`;
+  const defaultQuota = `${symbol}1,000,000`;
+
   return (
     <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-3">
       <div className="flex items-center justify-between">
@@ -30,8 +39,8 @@ export function RevenueForecastCard({
 
       <div className="space-y-1 pt-1">
         <div className="flex items-baseline justify-between">
-          <span className="text-2xl font-extrabold text-primary tabular-nums">{predictedRevenue}</span>
-          <span className="text-xs text-muted">Target: {quotaTarget}</span>
+          <span className="text-2xl font-extrabold text-primary tabular-nums">{predictedRevenue ?? defaultPredicted}</span>
+          <span className="text-xs text-muted">Target: {quotaTarget ?? defaultQuota}</span>
         </div>
         <div className="w-full h-2 rounded-full bg-elevated overflow-hidden border border-border-subtle">
           <div

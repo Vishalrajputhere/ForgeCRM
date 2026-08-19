@@ -13,13 +13,34 @@ interface ForecastTimelineProps {
   projections?: MonthlyProjection[] | undefined;
 }
 
-const DEFAULT_PROJECTIONS: MonthlyProjection[] = [
-  { month: 'July 2026', projected: '$380,000', status: 'actual' },
-  { month: 'August 2026', projected: '$410,000', status: 'forecast' },
-  { month: 'September 2026', projected: '$460,000', status: 'projected' },
-];
+import { useFormatters } from '@/hooks/use-formatters';
+import { CURRENCY_SYMBOLS } from '@/lib/formatters';
 
-export function ForecastTimeline({ projections = DEFAULT_PROJECTIONS }: ForecastTimelineProps) {
+export interface MonthlyProjection {
+  month: string;
+  projected: string;
+  status: 'actual' | 'forecast' | 'projected';
+}
+
+interface ForecastTimelineProps {
+  projections?: MonthlyProjection[] | undefined;
+}
+
+export function ForecastTimeline({ projections }: ForecastTimelineProps) {
+  const { currency } = useFormatters();
+  const symbol = CURRENCY_SYMBOLS[currency.toUpperCase()] ?? '$';
+
+  const defaultProjections: MonthlyProjection[] = [
+    { month: 'July 2026', projected: `${symbol}380,000`, status: 'actual' },
+    { month: 'August 2026', projected: `${symbol}410,000`, status: 'forecast' },
+    { month: 'September 2026', projected: `${symbol}460,000`, status: 'projected' },
+  ];
+
+  const activeProjections = (projections ?? defaultProjections).map((p) => ({
+    ...p,
+    projected: p.projected.startsWith('$') ? `${symbol}${p.projected.slice(1)}` : p.projected,
+  }));
+
   return (
     <div className="p-4 rounded-xl bg-surface border border-border-subtle space-y-3">
       <div className="flex items-center gap-2">
@@ -28,7 +49,7 @@ export function ForecastTimeline({ projections = DEFAULT_PROJECTIONS }: Forecast
       </div>
 
       <div className="space-y-2">
-        {projections.map((p, i) => (
+        {activeProjections.map((p, i) => (
           <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-elevated border border-border-subtle text-xs">
             <div className="flex items-center gap-2">
               <span className="font-semibold text-primary">{p.month}</span>

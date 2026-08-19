@@ -33,6 +33,10 @@ import type {
   ContactResponse,
   ContactUpdate,
   DealCreate,
+  DealLineItemBulkCreate,
+  DealLineItemCreate,
+  DealLineItemResponse,
+  DealLineItemUpdate,
   DealResponse,
   DealStageMoveRequest,
   DealUpdate,
@@ -411,6 +415,74 @@ export function useCRM() {
     },
   });
 
+  // ── Deal Line Items ────────────────────────────────────────────────────────
+
+  const useDealLineItems = (dealId: string | undefined) =>
+    useQuery({
+      queryKey: ['deal_line_items', workspaceId, dealId],
+      queryFn: async () => apiGet<DealLineItemResponse[]>(`/deals/${dealId}/line-items`),
+      enabled: Boolean(workspaceId) && Boolean(dealId),
+    });
+
+  const addDealLineItemMutation = useMutation({
+    mutationFn: async ({ dealId, payload }: { dealId: string; payload: DealLineItemCreate }) => {
+      requireWorkspace();
+      return await apiPost<DealLineItemResponse>(`/deals/${dealId}/line-items`, payload);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deal_line_items', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deal', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+    },
+  });
+
+  const updateDealLineItemMutation = useMutation({
+    mutationFn: async ({
+      dealId,
+      itemId,
+      payload,
+    }: {
+      dealId: string;
+      itemId: string;
+      payload: DealLineItemUpdate;
+    }) => {
+      requireWorkspace();
+      return await apiPatch<DealLineItemResponse>(
+        `/deals/${dealId}/line-items/${itemId}`,
+        payload as Record<string, unknown>
+      );
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deal_line_items', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deal', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+    },
+  });
+
+  const deleteDealLineItemMutation = useMutation({
+    mutationFn: async ({ dealId, itemId }: { dealId: string; itemId: string }) => {
+      requireWorkspace();
+      return await apiDelete<void>(`/deals/${dealId}/line-items/${itemId}`);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deal_line_items', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deal', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+    },
+  });
+
+  const setDealLineItemsMutation = useMutation({
+    mutationFn: async ({ dealId, payload }: { dealId: string; payload: DealLineItemBulkCreate }) => {
+      requireWorkspace();
+      return await apiPost<DealLineItemResponse[]>(`/deals/${dealId}/line-items/bulk`, payload);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['deal_line_items', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deal', workspaceId, variables.dealId] });
+      queryClient.invalidateQueries({ queryKey: ['deals', workspaceId] });
+    },
+  });
+
   // ── Tasks ──────────────────────────────────────────────────────────────────
 
   const tasksQuery = useQuery({
@@ -661,6 +733,15 @@ export function useCRM() {
     deleteDeal: deleteDealMutation.mutateAsync,
     isDeletingDeal: deleteDealMutation.isPending,
     moveDealStage: moveDealStageMutation.mutateAsync,
+    useDealLineItems,
+    addDealLineItem: addDealLineItemMutation.mutateAsync,
+    isAddingDealLineItem: addDealLineItemMutation.isPending,
+    updateDealLineItem: updateDealLineItemMutation.mutateAsync,
+    isUpdatingDealLineItem: updateDealLineItemMutation.isPending,
+    deleteDealLineItem: deleteDealLineItemMutation.mutateAsync,
+    isDeletingDealLineItem: deleteDealLineItemMutation.isPending,
+    setDealLineItems: setDealLineItemsMutation.mutateAsync,
+    isSettingDealLineItems: setDealLineItemsMutation.isPending,
 
     // Tasks
     tasks: tasksQuery.data ?? [],

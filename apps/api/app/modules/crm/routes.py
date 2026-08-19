@@ -40,6 +40,10 @@ from app.modules.crm.schemas import (
     ContactResponse,
     ContactUpdate,
     DealCreate,
+    DealLineItemBulkCreate,
+    DealLineItemCreate,
+    DealLineItemResponse,
+    DealLineItemUpdate,
     DealResponse,
     DealStageMoveRequest,
     DealUpdate,
@@ -54,6 +58,10 @@ from app.modules.crm.schemas import (
     PipelineCreate,
     PipelineResponse,
     PipelineUpdate,
+    ProductCreate,
+    ProductListResponse,
+    ProductResponse,
+    ProductUpdate,
     StageCreate,
     StageReorderRequest,
     StageResponse,
@@ -629,6 +637,214 @@ async def move_deal_stage(
 ) -> DealResponse:
     service = CRMService(db)
     return await service.move_deal_stage(workspace_id, member.id, deal_id, payload)
+
+
+# ── Deal Line Items ────────────────────────────────────────────────────────────
+
+
+@router.get(
+    "/deals/{deal_id}/line-items",
+    response_model=list[DealLineItemResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List Deal Line Items",
+    description="Returns all products and line items attached to a deal.",
+    dependencies=[Depends(require_workspace_permission("deal_line_items.read"))],
+)
+async def list_deal_line_items(
+    deal_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[DealLineItemResponse]:
+    service = CRMService(db)
+    return await service.list_deal_line_items(workspace_id, deal_id)
+
+
+@router.post(
+    "/deals/{deal_id}/line-items",
+    response_model=DealLineItemResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Add Deal Line Item",
+    description="Adds a line item to a deal and recalculates deal value.",
+    dependencies=[Depends(require_workspace_permission("deal_line_items.create"))],
+)
+async def add_deal_line_item(
+    deal_id: UUID,
+    payload: DealLineItemCreate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> DealLineItemResponse:
+    service = CRMService(db)
+    return await service.add_deal_line_item(workspace_id, member.id, deal_id, payload)
+
+
+@router.patch(
+    "/deals/{deal_id}/line-items/{item_id}",
+    response_model=DealLineItemResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Deal Line Item",
+    description="Updates quantity, discount, or price on a line item and recalculates deal totals.",
+    dependencies=[Depends(require_workspace_permission("deal_line_items.update"))],
+)
+async def update_deal_line_item(
+    deal_id: UUID,
+    item_id: UUID,
+    payload: DealLineItemUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> DealLineItemResponse:
+    service = CRMService(db)
+    return await service.update_deal_line_item(workspace_id, member.id, deal_id, item_id, payload)
+
+
+@router.delete(
+    "/deals/{deal_id}/line-items/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Deal Line Item",
+    description="Removes a line item from a deal and recalculates deal totals.",
+    dependencies=[Depends(require_workspace_permission("deal_line_items.delete"))],
+)
+async def delete_deal_line_item(
+    deal_id: UUID,
+    item_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_deal_line_item(workspace_id, member.id, deal_id, item_id)
+
+
+@router.post(
+    "/deals/{deal_id}/line-items/bulk",
+    response_model=list[DealLineItemResponse],
+    status_code=status.HTTP_200_OK,
+    summary="Bulk Set Deal Line Items",
+    description="Atomically replaces all line items on a deal.",
+    dependencies=[Depends(require_workspace_permission("deal_line_items.create"))],
+)
+async def set_deal_line_items(
+    deal_id: UUID,
+    payload: DealLineItemBulkCreate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> list[DealLineItemResponse]:
+    service = CRMService(db)
+    return await service.set_deal_line_items(workspace_id, member.id, deal_id, payload)
+
+
+# ── Product Catalog ────────────────────────────────────────────────────────────
+
+
+@router.post(
+    "/products",
+    response_model=ProductResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Product",
+    description="Creates a new sellable product in the workspace product catalog.",
+    dependencies=[Depends(require_workspace_permission("products.create"))],
+)
+async def create_product(
+    payload: ProductCreate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ProductResponse:
+    service = CRMService(db)
+    return await service.create_product(workspace_id, member.id, payload)
+
+
+@router.get(
+    "/products",
+    response_model=ProductListResponse,
+    status_code=status.HTTP_200_OK,
+    summary="List Products",
+    description="Lists catalog products with search, category filtering, and pagination.",
+    dependencies=[Depends(require_workspace_permission("products.read"))],
+)
+async def list_products(
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+    search: str | None = Query(None, description="Search name, SKU, description"),
+    category: str | None = Query(None, description="Filter by product category"),
+    is_active: bool | None = Query(None, description="Filter active status"),
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=100, description="Items per page"),
+) -> ProductListResponse:
+    service = CRMService(db)
+    return await service.list_products(
+        workspace_id=workspace_id,
+        search=search,
+        category=category,
+        is_active=is_active,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get(
+    "/products/{product_id}",
+    response_model=ProductResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Product",
+    description="Returns product details by ID.",
+    dependencies=[Depends(require_workspace_permission("products.read"))],
+)
+async def get_product(
+    product_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ProductResponse:
+    service = CRMService(db)
+    return await service.get_product(workspace_id, product_id)
+
+
+@router.patch(
+    "/products/{product_id}",
+    response_model=ProductResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Update Product",
+    description="Updates product name, pricing, SKU, category, tax rate, or active status.",
+    dependencies=[Depends(require_workspace_permission("products.update"))],
+)
+async def update_product(
+    product_id: UUID,
+    payload: ProductUpdate,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> ProductResponse:
+    service = CRMService(db)
+    return await service.update_product(workspace_id, member.id, product_id, payload)
+
+
+@router.delete(
+    "/products/{product_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete/Archive Product",
+    description="Archives or deletes a product from the catalog.",
+    dependencies=[Depends(require_workspace_permission("products.delete"))],
+)
+async def delete_product(
+    product_id: UUID,
+    workspace_id: WorkspaceIdDep,
+    member: WorkspaceMemberDep,
+    current_user: CurrentUser,
+    db: Annotated[AsyncSession, Depends(get_db_session)],
+) -> None:
+    service = CRMService(db)
+    await service.delete_product(workspace_id, member.id, product_id)
 
 
 # ── Tasks ──────────────────────────────────────────────────────────────────────

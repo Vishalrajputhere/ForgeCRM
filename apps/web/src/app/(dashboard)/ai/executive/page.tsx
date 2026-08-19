@@ -55,10 +55,33 @@ const EXECUTIVE_SUGGESTIONS: PromptSuggestion[] = [
 
 import { useWorkspaceStore } from '@/stores/workspace-store';
 import { useAIFetch } from '@/hooks/use-ai-fetch';
+import { useAnalytics } from '@/hooks/use-analytics';
+import type { PipelineAnalyticsResponse } from '@/types';
+
+import { useFormatters } from '@/hooks/use-formatters';
+import { CURRENCY_SYMBOLS } from '@/lib/formatters';
 
 export default function AIExecutivePage() {
   const { currentWorkspace } = useWorkspaceStore();
   const { aiFetch } = useAIFetch({ workspaceId: currentWorkspace?.id });
+  const { currency } = useFormatters();
+  const symbol = CURRENCY_SYMBOLS[currency.toUpperCase()] ?? '$';
+
+  // Live pipeline health data
+  const { pipelines, isLoadingPipelines } = useAnalytics();
+  const liveHealthStages = React.useMemo(() => {
+    if (!pipelines || pipelines.length === 0) return [];
+    const allStages = (pipelines as PipelineAnalyticsResponse[]).flatMap((p) => p.stages);
+    if (allStages.length === 0) return [];
+    const maxVal = Math.max(...allStages.map((s) => s.total_value), 1);
+    return allStages.map((s) => ({
+      name: s.stage_name,
+      value: `$${(s.total_value / 1000).toFixed(0)}K`,
+      count: s.deal_count,
+      pct: Math.round((s.total_value / maxVal) * 100),
+    }));
+  }, [pipelines]);
+
   const [messages, setMessages] = React.useState<SkillMessage[]>([
     {
       id: 'welcome',
@@ -188,7 +211,7 @@ export default function AIExecutivePage() {
 
         {/* Executive KPI Header Ribbon */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-elevated/20 border-b border-border-subtle shrink-0">
-          <ExecutiveKPICard label="Annual Recurring Revenue" value="$580K" change="+18.4%" trend="up" target="$600K" icon={<DollarSign className="h-4 w-4" />} />
+          <ExecutiveKPICard label="Annual Recurring Revenue" value={`${symbol}580K`} change="+18.4%" trend="up" target={`${symbol}600K`} icon={<DollarSign className="h-4 w-4" />} />
           <ExecutiveKPICard label="Pipeline Coverage" value="3.8x" change="+0.4x" trend="up" target="3.5x" icon={<BarChart3 className="h-4 w-4" />} />
           <ExecutiveKPICard label="Net Retention Rate" value="124%" change="+4.2%" trend="up" target="120%" icon={<Activity className="h-4 w-4" />} />
           <ExecutiveKPICard label="Sales Velocity" value="34 Days" change="-3 Days" trend="up" target="30 Days" icon={<Sparkles className="h-4 w-4" />} />
@@ -259,7 +282,10 @@ export default function AIExecutivePage() {
       <div className="w-80 shrink-0 hidden lg:flex flex-col bg-surface border-l border-border-subtle overflow-y-auto p-4 space-y-4">
         <CompanyHealthCard />
         <RevenueTrendChart />
-        <PipelineHealthCard />
+        <PipelineHealthCard
+                  stages={liveHealthStages}
+                  isLoading={isLoadingPipelines}
+                />
         <ExecutiveInsightCard title="High Enterprise Expansion Velocity" description="Top 10 accounts increased seat count by 34% post-onboarding." category="revenue" priority="high" />
         <RiskOverviewPanel />
         <BoardSummaryPanel />

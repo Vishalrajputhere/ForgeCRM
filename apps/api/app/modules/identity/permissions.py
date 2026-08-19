@@ -66,6 +66,20 @@ class Permissions:
     DEALS_DELETE = "deals.delete"
     DEALS_MOVE_STAGE = "deals.move_stage"
 
+    # Products & Catalog
+    PRODUCTS_READ = "products.read"
+    PRODUCTS_CREATE = "products.create"
+    PRODUCTS_UPDATE = "products.update"
+    PRODUCTS_DELETE = "products.delete"
+    PRODUCTS_MANAGE = "products.manage"
+
+    # Deal Line Items
+    DEAL_LINE_ITEMS_READ = "deal_line_items.read"
+    DEAL_LINE_ITEMS_CREATE = "deal_line_items.create"
+    DEAL_LINE_ITEMS_UPDATE = "deal_line_items.update"
+    DEAL_LINE_ITEMS_DELETE = "deal_line_items.delete"
+    DEAL_LINE_ITEMS_MANAGE = "deal_line_items.manage"
+
     # Tasks & Activities
     TASKS_READ = "tasks.read"
     TASKS_CREATE = "tasks.create"
@@ -103,7 +117,10 @@ class Permissions:
     INTEGRATIONS_MANAGE = "integrations.manage"
     USAGE_READ = "usage.read"
 
-    # Reports & System Settings
+    # Reports, Analytics & System Settings
+    ANALYTICS_READ = "analytics.read"
+    ANALYTICS_EXPORT = "analytics.export"
+    ANALYTICS_MANAGE = "analytics.manage"
     REPORTS_READ = "reports.read"
     REPORTS_EXPORT = "reports.export"
     SETTINGS_READ = "settings.read"
@@ -152,6 +169,15 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         Permissions.DEALS_CREATE,
         Permissions.DEALS_UPDATE,
         Permissions.DEALS_MOVE_STAGE,
+        Permissions.PRODUCTS_READ,
+        Permissions.PRODUCTS_CREATE,
+        Permissions.PRODUCTS_UPDATE,
+        Permissions.PRODUCTS_MANAGE,
+        Permissions.DEAL_LINE_ITEMS_READ,
+        Permissions.DEAL_LINE_ITEMS_CREATE,
+        Permissions.DEAL_LINE_ITEMS_UPDATE,
+        Permissions.DEAL_LINE_ITEMS_DELETE,
+        Permissions.DEAL_LINE_ITEMS_MANAGE,
         Permissions.TASKS_READ,
         Permissions.TASKS_CREATE,
         Permissions.TASKS_UPDATE,
@@ -161,6 +187,9 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         Permissions.AI_USE,
         Permissions.AI_AGENTS_RUN,
         Permissions.AI_MCP_APPROVE,
+        Permissions.ANALYTICS_READ,
+        Permissions.ANALYTICS_EXPORT,
+        Permissions.ANALYTICS_MANAGE,
         Permissions.REPORTS_READ,
         Permissions.REPORTS_EXPORT,
         Permissions.USAGE_READ,
@@ -180,20 +209,29 @@ DEFAULT_ROLE_PERMISSIONS: dict[str, list[str]] = {
         Permissions.DEALS_CREATE,
         Permissions.DEALS_UPDATE,
         Permissions.DEALS_MOVE_STAGE,
+        Permissions.PRODUCTS_READ,
+        Permissions.DEAL_LINE_ITEMS_READ,
+        Permissions.DEAL_LINE_ITEMS_CREATE,
+        Permissions.DEAL_LINE_ITEMS_UPDATE,
+        Permissions.DEAL_LINE_ITEMS_DELETE,
         Permissions.TASKS_READ,
         Permissions.TASKS_CREATE,
         Permissions.TASKS_UPDATE,
         Permissions.STORAGE_READ,
         Permissions.STORAGE_UPLOAD,
         Permissions.AI_USE,
+        Permissions.ANALYTICS_READ,
     ],
     SystemRoles.VIEWER: [
         Permissions.COMPANIES_READ,
         Permissions.CONTACTS_READ,
         Permissions.LEADS_READ,
         Permissions.DEALS_READ,
+        Permissions.PRODUCTS_READ,
+        Permissions.DEAL_LINE_ITEMS_READ,
         Permissions.TASKS_READ,
         Permissions.STORAGE_READ,
+        Permissions.ANALYTICS_READ,
         Permissions.REPORTS_READ,
     ],
 }

@@ -26,7 +26,7 @@ from app.core.dependencies import (
     get_current_workspace_member,
     require_workspace_permission,
 )
-from app.db.engine import get_db
+from app.db.session import get_db_session
 from app.modules.ai.context import EnterpriseContextBuilder
 from app.modules.ai.mcp import MCPToolRegistry
 from app.modules.ai.memory import AIMemoryManager
@@ -49,7 +49,7 @@ router = APIRouter(prefix="/ai", tags=["AI Copilot Subsystem"])
 )
 async def list_ai_providers(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ) -> list[AIProviderCapability]:
     service = AIService(db)
     return service.list_capabilities()
@@ -65,7 +65,7 @@ async def list_ai_providers(
 async def chat_completion(
     payload: AIChatRequest,
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ) -> AIChatResponse:
     user, workspace = auth
     service = AIService(db)
@@ -83,7 +83,7 @@ async def chat_completion(
 async def chat_stream(
     payload: AIChatRequest,
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     service = AIService(db)
@@ -107,7 +107,7 @@ async def query_rag_engine(
     query_text: str,
     top_k: int = 5,
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     engine = RAGRetrievalEngine(db)
@@ -125,7 +125,7 @@ async def debug_assembled_context(
     active_route: str | None = None,
     entity_type: str | None = None,
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     ws_name = getattr(workspace, "name", "Default Workspace")
@@ -150,7 +150,7 @@ async def debug_assembled_context(
 )
 async def list_workspace_ai_memories(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     manager = AIMemoryManager(db)
@@ -170,7 +170,7 @@ async def create_workspace_ai_memory(
     memory_type: str = "workspace",
     is_pinned: bool = False,
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     manager = AIMemoryManager(db)
@@ -194,7 +194,7 @@ async def create_workspace_ai_memory(
 async def delete_workspace_ai_memory(
     memory_id: uuid.UUID,
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     manager = AIMemoryManager(db)
@@ -211,7 +211,7 @@ async def delete_workspace_ai_memory(
 )
 async def get_vector_health_diagnostics(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     return {
@@ -234,7 +234,7 @@ async def get_vector_health_diagnostics(
 async def list_mcp_tools(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
     member: Any = Depends(get_current_workspace_member),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     registry = MCPToolRegistry(db)
@@ -253,7 +253,7 @@ async def execute_mcp_tool(
     arguments: dict[str, Any],
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
     member: Any = Depends(get_current_workspace_member),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     registry = MCPToolRegistry(db)
@@ -277,7 +277,7 @@ async def execute_mcp_tool(
 )
 async def list_mcp_pending_approvals(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     from app.modules.ai.models import AIPendingAction
@@ -316,7 +316,7 @@ async def resolve_mcp_pending_action(
     action_id: uuid.UUID,
     approved: bool,
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     registry = MCPToolRegistry(db)
@@ -336,7 +336,7 @@ async def resolve_mcp_pending_action(
 )
 async def get_ai_telemetry(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     ws_id = workspace.id if workspace else user.id
@@ -378,7 +378,7 @@ async def get_ai_telemetry(
 )
 async def list_ai_debug_sessions(
     auth: tuple[User, Workspace] = Depends(get_current_user_and_workspace),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db_session),
 ):
     user, workspace = auth
     ws_id = workspace.id if workspace else user.id

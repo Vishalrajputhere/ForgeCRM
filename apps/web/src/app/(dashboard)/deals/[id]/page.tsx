@@ -7,10 +7,24 @@ import { useCallback, useRef, useState } from 'react';
 import { TimelineWidget } from '@/components/crm/timeline-widget';
 import { useToast } from '@/components/ui/toast';
 import { useCRM } from '@/hooks/use-crm';
+import { useProducts } from '@/hooks/use-products';
 import { useFormatters } from '@/hooks/use-formatters';
 import { useStorage } from '@/hooks/use-storage';
-import type { DealUpdate } from '@/types';
-import { Paperclip, Upload, Trash2, Download, File, ImageIcon, FileText, Film, Archive } from 'lucide-react';
+import type { DealLineItemResponse, DealUpdate } from '@/types';
+import {
+  Paperclip,
+  Upload,
+  Trash2,
+  Download,
+  File,
+  ImageIcon,
+  FileText,
+  Film,
+  Archive,
+  Package,
+  Plus,
+  Edit2,
+} from 'lucide-react';
 
 const inputCls = 'w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-forge-500 transition-colors';
 const labelCls = 'block text-xs font-semibold uppercase tracking-wide text-slate-400 mb-1.5';
@@ -43,10 +57,17 @@ export default function DealDetailPage(): React.JSX.Element {
     isUpdatingDeal,
     isDeletingDeal,
     moveDealStage,
+    useDealLineItems,
+    addDealLineItem,
+    updateDealLineItem,
+    deleteDealLineItem,
     pipelines,
     companies,
     contacts,
   } = useCRM();
+
+  const { products } = useProducts({ is_active: true });
+  const { data: lineItems = [] } = useDealLineItems(dealId);
 
   const {
     requestUploadUrl,
@@ -64,7 +85,20 @@ export default function DealDetailPage(): React.JSX.Element {
   const company = companies.find((c) => c.id === deal?.company_id);
   const contact = contacts.find((c) => c.id === deal?.primary_contact_id);
 
-  const [tab, setTab] = useState<'overview' | 'timeline' | 'attachments'>('overview');
+  const [tab, setTab] = useState<'overview' | 'products' | 'timeline' | 'attachments'>('overview');
+
+  // ── Line Item Modal State ──────────────────────────────────────────────────
+  const [isAddingLineItem, setIsAddingLineItem] = useState(false);
+  const [editingLineItem, setEditingLineItem] = useState<DealLineItemResponse | null>(null);
+  const [lineItemForm, setLineItemForm] = useState({
+    product_id: '',
+    product_name: '',
+    sku: '',
+    quantity: 1,
+    unit_price: 0,
+    discount_percent: 0,
+    tax_rate: 0,
+  });
 
   // ── Attachments ───────────────────────────────────────────────────────────
   const { data: attachments = [], refetch: refetchAttachments } = useEntityAttachments('Deal', dealId);
@@ -155,7 +189,136 @@ export default function DealDetailPage(): React.JSX.Element {
     }
   };
 
-  // ── Edit ──────────────────────────────────────────────────────────────────
+  // ── Line Items Handlers ───────────────────────────────────────────────────
+  const subtotalSum = lineItems.reduce((acc, i) => acc + (Number(i.subtotal) || 0), 0);
+  const discountSum = lineItems.reduce((acc, i) => acc + (Number(i.discount_amount) || 0), 0);
+  const taxSum = lineItems.reduce((acc, i) => acc + (Number(i.tax_amount) || 0), 0);
+  const totalSum = lineItems.reduce((acc, i) => acc + (Number(i.total) || 0), 0);
+
+  const handleOpenAddLineItem = () => {
+    setLineItemForm({
+      product_id: '',
+      product_name: '',
+      sku: '',
+      quantity: 1,
+      unit_price: 0,
+      discount_percent: 0,
+      tax_rate: 0,
+    });
+    setIsAddingLineItem(true);
+  };
+
+  const handleSelectCatalogProduct = (productId: string) => {
+    const prod = products.find((p) => p.id === productId);
+    if (prod) {
+      setLineItemForm({
+        ...lineItemForm,
+        product_id: prod.id,
+        product_name: prod.name,
+        sku: prod.sku || '',
+        unit_price: Number(prod.unit_price) || 0,
+        tax_rate: Number(prod.tax_rate) || 0,
+      });
+    } else {
+      setLineItemForm({
+        ...lineItemForm,
+        product_id: '',
+      });
+    }
+  };
+
+  const handleSaveAddLineItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!lineItemForm.product_name.trim()) {
+      toast('error', 'Item name is required');
+      return;
+    }
+    try {
+      await addDealLineItem({
+        dealId,
+        payload: {
+          product_id: lineItemForm.product_id || null,
+          product_name: lineItemForm.product_name.trim(),
+          sku: lineItemForm.sku.trim() || null,
+          quantity: Number(lineItemForm.quantity) || 1,
+          unit_price: Number(lineItemForm.unit_price) || 0,
+          discount_percent: Number(lineItemForm.discount_percent) || 0,
+          tax_rate: Number(lineItemForm.tax_rate) || 0,
+        },
+      });
+      toast('success', 'Line item added', `"${lineItemForm.product_name}" added and deal total updated.`);
+      setIsAddingLineItem(false);
+    } catch (err: unknown) {
+      toast('error', 'Failed to add item', err instanceof Error ? err.message : '');
+    }
+  };
+
+  const handleOpenEditLineItem = (item: DealLineItemResponse) => {
+    setEditingLineItem(item);
+    setLineItemForm({
+      product_id: item.product_id || '',
+      product_name: item.product_name_snapshot,
+      sku: item.sku_snapshot || '',
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      discount_percent: item.discount_percent,
+      tax_rate: item.tax_rate,
+    });
+  };
+
+  const handleSaveEditLineItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLineItem) return;
+    try {
+      await updateDealLineItem({
+        dealId,
+        itemId: editingLineItem.id,
+        payload: {
+          quantity: Number(lineItemForm.quantity) || 1,
+          unit_price: Number(lineItemForm.unit_price) || 0,
+          discount_percent: Number(lineItemForm.discount_percent) || 0,
+          tax_rate: Number(lineItemForm.tax_rate) || 0,
+        },
+      });
+      toast('success', 'Line item updated', `Recalculated line item and deal total.`);
+      setEditingLineItem(null);
+    } catch (err: unknown) {
+      toast('error', 'Failed to update item', err instanceof Error ? err.message : '');
+    }
+  };
+
+  const handleDeleteLineItem = async (itemId: string, name: string) => {
+    try {
+      await deleteDealLineItem({ dealId, itemId });
+      toast('success', 'Line item removed', `"${name}" removed and deal value recalculated.`);
+    } catch (err: unknown) {
+      toast('error', 'Failed to remove item', err instanceof Error ? err.message : '');
+    }
+  };
+
+  // ── Stage Move ────────────────────────────────────────────────────────────
+  const handleMoveStage = async (stageId: string) => {
+    try {
+      await moveDealStage({ dealId, payload: { stage_id: stageId } });
+      toast('success', 'Stage updated');
+    } catch (err: unknown) {
+      toast('error', 'Stage move failed', err instanceof Error ? err.message : '');
+    }
+  };
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const handleDelete2 = async () => {
+    try {
+      await deleteDeal(dealId);
+      toast('success', 'Deal cancelled');
+      router.push('/deals');
+    } catch (err: unknown) {
+      toast('error', 'Delete failed', err instanceof Error ? err.message : '');
+    }
+  };
+
+  // ── Edit Form State ───────────────────────────────────────────────────────
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<DealUpdate>>({});
 
@@ -180,28 +343,6 @@ export default function DealDetailPage(): React.JSX.Element {
       toast('success', 'Deal updated');
     } catch (err: unknown) {
       toast('error', 'Update failed', err instanceof Error ? err.message : '');
-    }
-  };
-
-  // ── Stage Move ────────────────────────────────────────────────────────────
-  const handleMoveStage = async (stageId: string) => {
-    try {
-      await moveDealStage({ dealId, payload: { stage_id: stageId } });
-      toast('success', 'Stage updated');
-    } catch (err: unknown) {
-      toast('error', 'Stage move failed', err instanceof Error ? err.message : '');
-    }
-  };
-
-  // ── Delete ────────────────────────────────────────────────────────────────
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const handleDelete2 = async () => {
-    try {
-      await deleteDeal(dealId);
-      toast('success', 'Deal cancelled');
-      router.push('/deals');
-    } catch (err: unknown) {
-      toast('error', 'Delete failed', err instanceof Error ? err.message : '');
     }
   };
 
@@ -338,6 +479,22 @@ export default function DealDetailPage(): React.JSX.Element {
           Overview &amp; Details
         </button>
         <button
+          onClick={() => setTab('products')}
+          className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 flex items-center gap-1.5 ${
+            tab === 'products'
+              ? 'border-forge-500 text-forge-400 font-semibold'
+              : 'border-transparent text-slate-400 hover:text-white'
+          }`}
+        >
+          <Package className="h-3.5 w-3.5" />
+          Products &amp; Line Items
+          {lineItems.length > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-forge-500/20 text-forge-400 text-[10px] font-bold">
+              {lineItems.length}
+            </span>
+          )}
+        </button>
+        <button
           onClick={() => setTab('timeline')}
           className={`pb-3 px-1 text-sm font-medium transition-colors border-b-2 ${
             tab === 'timeline'
@@ -364,6 +521,148 @@ export default function DealDetailPage(): React.JSX.Element {
           )}
         </button>
       </div>
+
+      {/* Products & Line Items Tab */}
+      {tab === 'products' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h3 className="text-base font-semibold text-white">Line Items Breakdown</h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Manage products, pricing, discounts, and real-time deal total calculations.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenAddLineItem}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-forge-500 px-3.5 py-2 text-xs font-semibold text-white hover:bg-forge-400 transition-all shadow"
+            >
+              <Plus className="h-4 w-4" />
+              Add Product / Line Item
+            </button>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left 2 Cols: Line Items Table */}
+            <div className="lg:col-span-2">
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 overflow-hidden">
+                {lineItems.length === 0 ? (
+                  <div className="p-12 text-center">
+                    <Package className="h-10 w-10 text-slate-600 mx-auto mb-3" />
+                    <p className="text-sm font-semibold text-slate-300">No Line Items Attached</p>
+                    <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                      Add products from your workspace catalog or custom quote items to calculate subtotal, discounts, taxes, and deal value.
+                    </p>
+                    <button
+                      onClick={handleOpenAddLineItem}
+                      className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-700 transition-all"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add First Item
+                    </button>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-slate-800 bg-slate-950/40 text-slate-400 font-semibold uppercase tracking-wider">
+                          <th className="py-3 px-4">Item / Product</th>
+                          <th className="py-3 px-3 text-right">Qty</th>
+                          <th className="py-3 px-3 text-right">Unit Price</th>
+                          <th className="py-3 px-3 text-right">Disc %</th>
+                          <th className="py-3 px-3 text-right">Tax %</th>
+                          <th className="py-3 px-4 text-right">Total</th>
+                          <th className="py-3 px-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800">
+                        {lineItems.map((item) => (
+                          <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
+                            <td className="py-3 px-4 font-medium text-white">
+                              <div>
+                                <span className="font-semibold">{item.product_name_snapshot}</span>
+                                {item.sku_snapshot && (
+                                  <span className="ml-2 font-mono text-[10px] px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-400">
+                                    {item.sku_snapshot}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-3 text-right font-mono text-slate-300">{item.quantity}</td>
+                            <td className="py-3 px-3 text-right font-mono text-slate-300">
+                              ${Number(item.unit_price).toFixed(2)}
+                            </td>
+                            <td className="py-3 px-3 text-right font-mono text-slate-400">
+                              {item.discount_percent > 0 ? (
+                                <span className="text-amber-400">-{item.discount_percent}%</span>
+                              ) : (
+                                '0%'
+                              )}
+                            </td>
+                            <td className="py-3 px-3 text-right font-mono text-slate-400">
+                              {item.tax_rate > 0 ? `${item.tax_rate}%` : '0%'}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-bold text-emerald-400">
+                              ${Number(item.total).toFixed(2)}
+                            </td>
+                            <td className="py-3 px-3 text-right">
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => handleOpenEditLineItem(item)}
+                                  className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                                  title="Edit Line Item"
+                                >
+                                  <Edit2 className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteLineItem(item.id, item.product_name_snapshot)}
+                                  className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+                                  title="Remove Line Item"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right 1 Col: Financial Summary Card */}
+            <div>
+              <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-5 space-y-4">
+                <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+                  Financial Summary
+                </h4>
+                <div className="space-y-2.5 text-xs">
+                  <div className="flex justify-between text-slate-400">
+                    <span>Items Subtotal</span>
+                    <span className="font-mono text-slate-200">${subtotalSum.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Discounts Applied</span>
+                    <span className="font-mono text-amber-400">-${discountSum.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Taxes &amp; Duties</span>
+                    <span className="font-mono text-slate-200">+${taxSum.toFixed(2)}</span>
+                  </div>
+                  <div className="pt-3 border-t border-slate-800 flex justify-between items-baseline font-bold text-sm">
+                    <span className="text-white">Deal Grand Total</span>
+                    <span className="font-mono text-lg text-emerald-400">${totalSum.toFixed(2)}</span>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-500 border-t border-slate-800/80 pt-3">
+                  Deal value is automatically synced from total line items.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Overview Tab */}
       {tab === 'overview' && (
@@ -582,6 +881,284 @@ export default function DealDetailPage(): React.JSX.Element {
                 {isDeletingDeal ? 'Cancelling…' : 'Confirm Cancel'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Add Line Item */}
+      {isAddingLineItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white">Add Line Item / Product</h3>
+              <button onClick={() => setIsAddingLineItem(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveAddLineItem} className="space-y-3.5 text-xs">
+              <div>
+                <label className={labelCls}>Select from Catalog (Optional)</label>
+                <select
+                  value={lineItemForm.product_id}
+                  onChange={(e) => handleSelectCatalogProduct(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">-- Custom Quote Item --</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.sku || 'No SKU'}) — ${p.unit_price}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={labelCls}>
+                  Item / Product Name <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  placeholder="e.g. Annual License or Implementation Fee"
+                  value={lineItemForm.product_name}
+                  onChange={(e) => setLineItemForm({ ...lineItemForm, product_name: e.target.value })}
+                  className={inputCls}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelCls}>SKU / Code</label>
+                  <input
+                    type="text"
+                    placeholder="Optional item code"
+                    value={lineItemForm.sku}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, sku: e.target.value })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={lineItemForm.quantity}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, quantity: Math.max(1, parseFloat(e.target.value) || 1) })}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Unit Price ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={lineItemForm.unit_price}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, unit_price: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Discount (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={lineItemForm.discount_percent}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, discount_percent: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Tax Rate (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={lineItemForm.tax_rate}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, tax_rate: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+
+              {/* Calculated Preview */}
+              {(() => {
+                const sub = lineItemForm.quantity * lineItemForm.unit_price;
+                const disc = sub * (lineItemForm.discount_percent / 100);
+                const taxable = Math.max(0, sub - disc);
+                const tax = taxable * (lineItemForm.tax_rate / 100);
+                const tot = taxable + tax;
+                return (
+                  <div className="rounded-lg bg-slate-950/60 p-3 border border-slate-800 space-y-1 text-[11px] font-mono">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Subtotal:</span>
+                      <span>${sub.toFixed(2)}</span>
+                    </div>
+                    {disc > 0 && (
+                      <div className="flex justify-between text-amber-400">
+                        <span>Discount:</span>
+                        <span>-${disc.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {tax > 0 && (
+                      <div className="flex justify-between text-slate-400">
+                        <span>Tax:</span>
+                        <span>+${tax.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-emerald-400 font-bold border-t border-slate-800 pt-1 text-xs">
+                      <span>Item Total:</span>
+                      <span>${tot.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsAddingLineItem(false)}
+                  className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-forge-500 px-4 py-2 text-xs font-semibold text-white hover:bg-forge-400"
+                >
+                  Add to Deal
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Line Item */}
+      {editingLineItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg rounded-xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-lg font-bold text-white">Edit Line Item</h3>
+              <button onClick={() => setEditingLineItem(null)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <form onSubmit={handleSaveEditLineItem} className="space-y-3.5 text-xs">
+              <div>
+                <label className={labelCls}>Product Name (Snapshot)</label>
+                <input
+                  disabled
+                  type="text"
+                  value={editingLineItem.product_name_snapshot}
+                  className={`${inputCls} opacity-60`}
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelCls}>Quantity</label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={lineItemForm.quantity}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, quantity: Math.max(1, parseFloat(e.target.value) || 1) })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Unit Price ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={lineItemForm.unit_price}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, unit_price: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className={labelCls}>Discount (%)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={lineItemForm.discount_percent}
+                    onChange={(e) => setLineItemForm({ ...lineItemForm, discount_percent: parseFloat(e.target.value) || 0 })}
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelCls}>Tax Rate (%)</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={lineItemForm.tax_rate}
+                  onChange={(e) => setLineItemForm({ ...lineItemForm, tax_rate: parseFloat(e.target.value) || 0 })}
+                  className={inputCls}
+                />
+              </div>
+
+              {/* Calculated Preview */}
+              {(() => {
+                const sub = lineItemForm.quantity * lineItemForm.unit_price;
+                const disc = sub * (lineItemForm.discount_percent / 100);
+                const taxable = Math.max(0, sub - disc);
+                const tax = taxable * (lineItemForm.tax_rate / 100);
+                const tot = taxable + tax;
+                return (
+                  <div className="rounded-lg bg-slate-950/60 p-3 border border-slate-800 space-y-1 text-[11px] font-mono">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Subtotal:</span>
+                      <span>${sub.toFixed(2)}</span>
+                    </div>
+                    {disc > 0 && (
+                      <div className="flex justify-between text-amber-400">
+                        <span>Discount:</span>
+                        <span>-${disc.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {tax > 0 && (
+                      <div className="flex justify-between text-slate-400">
+                        <span>Tax:</span>
+                        <span>+${tax.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-emerald-400 font-bold border-t border-slate-800 pt-1 text-xs">
+                      <span>Recalculated Item Total:</span>
+                      <span>${tot.toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingLineItem(null)}
+                  className="rounded-lg px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-forge-500 px-4 py-2 text-xs font-semibold text-white hover:bg-forge-400"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

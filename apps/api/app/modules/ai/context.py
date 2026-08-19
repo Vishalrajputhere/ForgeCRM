@@ -6,14 +6,18 @@ Assembles 6-layer unified context payload:
 2. User & Permission Context
 3. Route & Entity Context
 4. Related CRM Records
-5. RAG Document Snippets
-6. Conversation Memory & Preferences
+5. RAG Document Snippets  (real DB retrieval — no demo citations)
+6. Conversation Memory & Preferences (real AIMemory records from PostgreSQL)
+
+Quality metrics are computed dynamically from actual context coverage,
+not hardcoded. Build duration is measured with time.monotonic().
 
 Documentation: docs/03_Backend/301_BACKEND_OVERVIEW.md
 """
 
 from __future__ import annotations
 
+import time
 import uuid
 from typing import Any
 
@@ -45,7 +49,7 @@ class EnterpriseContextPayload(BaseModel):
 
 
 class EnterpriseContextBuilder:
-    """Enterprise Context Builder Engine."""
+    """Enterprise Context Builder Engine — all data sourced from live DB."""
 
     def __init__(self, db: AsyncSession) -> None:
         self.db = db
@@ -65,15 +69,17 @@ class EnterpriseContextBuilder:
         user_prompt: str | None = None,
         model_name: str = "gemini-1.5-flash",
     ) -> EnterpriseContextPayload:
+        build_start = time.monotonic()
+
         perms = permissions or ["companies.view", "deals.view", "leads.view", "contacts.view"]
         token_budget = RouteContextPrioritizer.get_token_budget(model_name)
 
-        # 1. Mask sensitive entity fields if entity data present
+        # ── 1. Mask sensitive entity fields if entity data present ────────────
         masked_entity_data = None
         if raw_entity_data:
             masked_entity_data = AISecuritySanitizer.mask_sensitive_entity_dict(raw_entity_data)
 
-        # 2. Prioritize route & entity context
+        # ── 2. Prioritize route & entity context ──────────────────────────────
         prioritized_entity = RouteContextPrioritizer.prioritize_context(
             current_route=active_route,
             entity_type=entity_type,
@@ -81,65 +87,97 @@ class EnterpriseContextBuilder:
             related_data=None,
         )
 
-        # 3. Retrieve RAG snippets if prompt provided
-        rag_citations = []
-        if user_prompt:
-            rag_res = await self.rag_engine.search(
+        # ── 3. Retrieve RAG snippets (real DB — no fallback demo) ─────────────
+        rag_citations: list[dict[str, Any]] = []
+        # When no explicit user_prompt is provided, synthesise a context query
+        # from the active route and entity type so RAG fires for entity-page context.
+        effective_query = user_prompt or (
+            f"{entity_type} {active_route}" if (entity_type or active_route) else None
+        )
+        if effective_query:
+            try:
+                rag_res = await self.rag_engine.search(
+                    workspace_id=workspace_id,
+                    user_id=user_id,
+                    query=effective_query,
+                    top_k=3,
+                    entity_type=entity_type,
+                )
+                rag_citations = [c.model_dump(mode="json") for c in rag_res.results]
+            except Exception:
+                # RAG is non-critical — silently skip if unavailable
+                rag_citations = []
+
+        # ── 4. Load real conversation memory from PostgreSQL ──────────────────
+        conversation_memory: list[str] = []
+        try:
+            from app.modules.ai.memory import AIMemoryManager
+            memory_manager = AIMemoryManager(self.db)
+            memory_items = await memory_manager.list_memories(
                 workspace_id=workspace_id,
                 user_id=user_id,
-                query=user_prompt,
-                top_k=3,
-                entity_type=entity_type,
             )
-            rag_citations = [c.model_dump(mode="json") for c in rag_res.results]
-
-        if not rag_citations:
-            rag_citations = [
-                {
-                    "citation": "Q3_Renewal_Proposal.pdf, Page 4",
-                    "snippet": "Enterprise Cloud Renewal ($450,000 ARR) scheduled for Q3 2026.",
-                    "similarity_score": 0.92,
-                    "confidence_tier": "High",
-                }
+            # Convert to plain strings for context injection
+            conversation_memory = [
+                f"{item.key}: {item.value}"
+                for item in memory_items
+                if item.value.strip()
             ]
+        except Exception:
+            # Memory is non-critical — silently skip if unavailable
+            conversation_memory = []
 
-        conversation_memory = [
-            "User prefers bulleted executive summaries with tabular deal data.",
-            "Target ICP: Mid-Market B2B SaaS companies (>50 employees).",
-        ]
+        # ── 5. Compute quality metrics dynamically from actual coverage ───────
+        has_entity = bool(prioritized_entity)
+        has_rag = len(rag_citations) > 0
+        has_memory = len(conversation_memory) > 0
 
-        quality_metrics = {
-            "quality_score": 0.94,
-            "coverage_score": 0.88,
-            "confidence_score": 0.91,
+        # Coverage score: proportion of context layers that have real data
+        layers_with_data = sum([has_entity, has_rag, has_memory, bool(perms)])
+        coverage_score = round(layers_with_data / 4.0, 2)
+        # Confidence: scaled by rag snippet count (more citations = more grounded)
+        confidence_score = round(min(0.6 + (len(rag_citations) * 0.1), 0.99), 2)
+        # Quality: composite of coverage and confidence
+        quality_score = round((coverage_score + confidence_score) / 2, 2)
+
+        quality_metrics: dict[str, float] = {
+            "quality_score": quality_score,
+            "coverage_score": coverage_score,
+            "confidence_score": confidence_score,
+            "rag_citations_count": float(len(rag_citations)),
+            "memory_items_count": float(len(conversation_memory)),
         }
 
+        # ── 6. Assemble system prompt ─────────────────────────────────────────
         system_prompt = (
             f"You are ForgeCRM Sales Copilot for workspace '{workspace_name}'. "
             f"Ground all answers in the provided CRM records, workspace history, and RAG document citations. "
             f"User role: {user_role}. Always adhere strictly to RBAC boundaries."
         )
 
+        build_duration_ms = int((time.monotonic() - build_start) * 1000)
+
+        # ── 7. Persist context snapshot for explainability ────────────────────
         snapshot_id = uuid.uuid4()
-        snapshot = AIContextSnapshot(
-            id=snapshot_id,
-            workspace_id=workspace_id,
-            user_id=user_id,
-            route=active_route,
-            assembled_context={
-                "entity": prioritized_entity,
-                "rag": rag_citations,
-                "memory": conversation_memory,
-            },
-            discarded_context={"raw_password_hash": "[REDACTED]"},
-            quality_metrics=quality_metrics,
-            build_duration_ms=12,
-        )
         try:
+            snapshot = AIContextSnapshot(
+                id=snapshot_id,
+                workspace_id=workspace_id,
+                user_id=user_id,
+                route=active_route,
+                assembled_context={
+                    "entity": prioritized_entity,
+                    "rag": rag_citations,
+                    "memory": conversation_memory,
+                },
+                discarded_context={},
+                quality_metrics=quality_metrics,
+                build_duration_ms=build_duration_ms,
+            )
             self.db.add(snapshot)
             await self.db.flush()
         except Exception:
-            pass
+            pass  # Snapshot is audit-only — never abort request for this
 
         return EnterpriseContextPayload(
             snapshot_id=snapshot_id,

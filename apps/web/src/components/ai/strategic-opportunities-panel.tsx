@@ -3,11 +3,17 @@
 import * as React from 'react';
 import { Target, Zap } from 'lucide-react';
 
+import { useFormatters } from '@/hooks/use-formatters';
+import { CURRENCY_SYMBOLS } from '@/lib/formatters';
+
 export function StrategicOpportunitiesPanel() {
+  const { currency } = useFormatters();
+  const symbol = CURRENCY_SYMBOLS[currency.toUpperCase()] ?? '$';
+
   const opps = [
-    { title: 'Fintech Vertical Expansion', arr: '+$180K ARR', timeline: 'Q4 2026' },
-    { title: 'Enterprise SSO & Audit Module', arr: '+$120K ARR', timeline: 'Q4 2026' },
-    { title: 'AI Copilot Add-On Pricing Tier', arr: '+$95K ARR', timeline: 'Q1 2027' },
+    { title: 'Fintech Vertical Expansion', arr: `+${symbol}180K ARR`, timeline: 'Q4 2026' },
+    { title: 'Enterprise SSO & Audit Module', arr: `+${symbol}120K ARR`, timeline: 'Q4 2026' },
+    { title: 'AI Copilot Add-On Pricing Tier', arr: `+${symbol}95K ARR`, timeline: 'Q1 2027' },
   ];
 
   return (
@@ -17,7 +23,7 @@ export function StrategicOpportunitiesPanel() {
           <Target className="h-4 w-4 text-amber-400" />
           <h3 className="text-xs font-bold text-primary">Strategic Growth Opportunities</h3>
         </div>
-        <span className="text-[10px] text-amber-400 font-bold">+$395K Potential ARR</span>
+        <span className="text-[10px] text-amber-400 font-bold">+{symbol}395K Potential ARR</span>
       </div>
 
       <div className="space-y-2 text-xs">

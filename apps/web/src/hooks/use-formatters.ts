@@ -12,6 +12,7 @@ import {
   formatCurrency as fmtCurrency,
   formatDate as fmtDate,
   formatDateTime as fmtDateTime,
+  formatPercent as fmtPercent,
   formatTime as fmtTime,
 } from '@/lib/formatters';
 
@@ -36,5 +37,7 @@ export function useFormatters() {
       fmtDateTime(dateVal, timezone),
     formatTime: (dateVal: string | Date | null | undefined) =>
       fmtTime(dateVal, timezone),
+    formatPercent: (val: number | null | undefined, decimals = 1) =>
+      fmtPercent(val, decimals),
   };
 }

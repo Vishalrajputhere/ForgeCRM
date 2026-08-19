@@ -378,6 +378,97 @@ export interface PipelineResponse {
   stages: StageResponse[];
 }
 
+export interface ProductResponse {
+  id: string;
+  workspace_id: string;
+  name: string;
+  sku?: string | null;
+  description?: string | null;
+  category?: string | null;
+  unit_price: number;
+  currency: string;
+  tax_rate: number;
+  is_active: boolean;
+  created_by_member_id?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type Product = ProductResponse;
+
+export interface ProductCreate {
+  name: string;
+  sku?: string | null;
+  description?: string | null;
+  category?: string | null;
+  unit_price?: number;
+  currency?: string;
+  tax_rate?: number;
+  is_active?: boolean;
+}
+
+export interface ProductUpdate {
+  name?: string;
+  sku?: string | null;
+  description?: string | null;
+  category?: string | null;
+  unit_price?: number;
+  currency?: string;
+  tax_rate?: number;
+  is_active?: boolean;
+}
+
+export interface ProductListResponse {
+  items: ProductResponse[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface DealLineItemResponse {
+  id: string;
+  workspace_id: string;
+  deal_id: string;
+  product_id?: string | null;
+  product_name_snapshot: string;
+  sku_snapshot?: string | null;
+  quantity: number;
+  unit_price: number;
+  discount_percent: number;
+  discount_amount: number;
+  tax_rate: number;
+  subtotal: number;
+  taxable_amount: number;
+  tax_amount: number;
+  total: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DealLineItem = DealLineItemResponse;
+
+export interface DealLineItemCreate {
+  product_id?: string | null;
+  product_name?: string | null;
+  sku?: string | null;
+  quantity?: number;
+  unit_price?: number;
+  discount_percent?: number;
+  tax_rate?: number;
+}
+
+export interface DealLineItemUpdate {
+  quantity?: number;
+  unit_price?: number;
+  discount_percent?: number;
+  tax_rate?: number;
+}
+
+export interface DealLineItemBulkCreate {
+  line_items: DealLineItemCreate[];
+}
+
 export interface DealProductSchema {
   product_name: string;
   quantity: number;
@@ -402,7 +493,8 @@ export interface DealResponse {
   loss_reason?: string;
   description?: string;
   created_at: string;
-  products?: DealProductSchema[];
+  line_items?: DealLineItemResponse[];
+  products?: DealLineItemResponse[];
 }
 
 export interface DealCreate {
@@ -415,6 +507,9 @@ export interface DealCreate {
   expected_close_date?: string;
   probability?: number;
   description?: string;
+  owner_member_id?: string;
+  line_items?: DealLineItemCreate[];
+  products?: DealLineItemCreate[];
 }
 
 export interface DealUpdate {
@@ -428,6 +523,7 @@ export interface DealUpdate {
   status?: string;
   loss_reason?: string;
   description?: string;
+  owner_member_id?: string;
 }
 
 export interface StageCreate {
@@ -652,6 +748,153 @@ export interface ExecutiveOverviewResponse {
   pending_tasks: number;
   overdue_tasks: number;
   recent_activities_count: number;
+}
+
+// ── Phase 8.5 Enterprise Analytics & BI DTOs ──────────────────────────────────
+
+export interface RepLeaderboardItem {
+  member_id: string;
+  rep_name: string;
+  won_revenue: number;
+  deals_won: number;
+  deals_open: number;
+  win_rate_percent: number;
+  activities_count: number;
+}
+
+export interface SalesPerformanceResponse {
+  total_won_revenue: number;
+  total_deals_won: number;
+  avg_deal_size: number;
+  win_rate_percent: number;
+  avg_sales_cycle_days: number;
+  leaderboard: RepLeaderboardItem[];
+}
+
+export interface ActivityTypeMetricItem {
+  activity_type: string;
+  count: number;
+}
+
+export interface ActivityAnalyticsResponse {
+  total_activities: number;
+  activities_by_type: ActivityTypeMetricItem[];
+  tasks_created: number;
+  tasks_completed: number;
+  tasks_overdue: number;
+  task_completion_rate_percent: number;
+}
+
+export interface TopWorkflowMetricItem {
+  rule_id: string;
+  rule_name: string;
+  total_runs: number;
+  success_rate_percent: number;
+}
+
+export interface AutomationAnalyticsResponse {
+  total_rules: number;
+  active_rules: number;
+  total_runs: number;
+  successful_runs: number;
+  failed_runs: number;
+  success_rate_percent: number;
+  avg_duration_ms: number;
+  top_workflows: TopWorkflowMetricItem[];
+}
+
+export interface AIModelSpendItem {
+  provider: string;
+  model: string;
+  request_count: number;
+  total_tokens: number;
+  total_cost_usd: number;
+}
+
+export interface AIAnalyticsResponse {
+  total_requests: number;
+  total_tokens_consumed: number;
+  total_cost_usd: number;
+  active_budget_usd: number;
+  usage_by_model: AIModelSpendItem[];
+}
+
+export interface TopAccountItem {
+  company_id: string;
+  company_name: string;
+  total_revenue: number;
+  open_deals_count: number;
+  contacts_count: number;
+}
+
+export interface AccountAnalyticsResponse {
+  active_companies: number;
+  active_contacts: number;
+  new_companies_period: number;
+  top_accounts: TopAccountItem[];
+}
+
+export interface DashboardWidget {
+  id?: string;
+  widget_type: string;
+  title: string;
+  position_x: number;
+  position_y: number;
+  width: number;
+  height: number;
+  config_json: Record<string, unknown>;
+}
+
+export interface AnalyticsDashboard {
+  id: string;
+  workspace_id: string;
+  created_by_member_id: string;
+  name: string;
+  description?: string | null;
+  is_default: boolean;
+  layout_json: Record<string, unknown>;
+  widgets: DashboardWidget[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DashboardCreatePayload {
+  name: string;
+  description?: string | null | undefined;
+  is_default?: boolean | undefined;
+  layout_json?: Record<string, unknown> | undefined;
+  widgets?: DashboardWidget[] | undefined;
+}
+
+export interface SavedReport {
+  id: string;
+  workspace_id: string;
+  created_by_member_id: string;
+  name: string;
+  description?: string | null | undefined;
+  entity_type: string;
+  metrics_json: string[];
+  dimensions_json: string[];
+  filters_json: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SavedReportCreatePayload {
+  name: string;
+  description?: string | null | undefined;
+  entity_type: string;
+  metrics_json?: string[] | undefined;
+  dimensions_json?: string[] | undefined;
+  filters_json?: Record<string, unknown> | undefined;
+}
+
+export interface AnalyticsExportPayload {
+  report_type: string;
+  start_date?: string | null | undefined;
+  end_date?: string | null | undefined;
+  time_range?: string | null | undefined;
+  filters?: Record<string, unknown> | undefined;
 }
 
 // ── AI Integration DTOs ───────────────────────────────────────────────────────
