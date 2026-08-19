@@ -1,0 +1,107 @@
+/**
+ * ForgeCRM V2 — Typed Design Tokens Helper
+ * Programmatic access to Design Tokens for Canvas, Charts, Recharts, and JS rendering.
+ */
+
+export const DESIGN_TOKENS = {
+  colors: {
+    surfaces: {
+      canvas:   'var(--bg-canvas)',
+      surface:  'var(--bg-surface)',
+      elevated: 'var(--bg-elevated)',
+      overlay:  'var(--bg-overlay)',
+      sunken:   'var(--bg-sunken)',
+      subtle:   'var(--bg-subtle)',
+      hover:    'var(--bg-hover)',
+      active:   'var(--bg-active)',
+    },
+    text: {
+      primary:   'var(--text-primary)',
+      secondary: 'var(--text-secondary)',
+      muted:     'var(--text-muted)',
+      inverse:   'var(--text-inverse)',
+    },
+    borders: {
+      subtle:  'var(--border-subtle)',
+      default: 'var(--border-default)',
+      muted:   'var(--border-muted)',
+      strong:  'var(--border-strong)',
+    },
+    accent: {
+      primary:     'var(--accent-primary)',
+      hover:       'var(--accent-hover)',
+      active:      'var(--accent-active)',
+      subtle:      'var(--accent-subtle)',
+      foreground:  'var(--accent-foreground)',
+    },
+    status: {
+      success:    'var(--status-success)',
+      successBg:  'var(--status-success-bg)',
+      successFg:  'var(--status-success-fg)',
+      warning:    'var(--status-warning)',
+      warningBg:  'var(--status-warning-bg)',
+      warningFg:  'var(--status-warning-fg)',
+      danger:     'var(--status-danger)',
+      dangerBg:   'var(--status-danger-bg)',
+      dangerFg:   'var(--status-danger-fg)',
+      info:       'var(--status-info)',
+      infoBg:     'var(--status-info-bg)',
+      infoFg:     'var(--status-info-fg)',
+    },
+  },
+  spacing: {
+    0:   'var(--space-0)',
+    0.5: 'var(--space-0-5)',
+    1:   'var(--space-1)',
+    1.5: 'var(--space-1-5)',
+    2:   'var(--space-2)',
+    2.5: 'var(--space-2-5)',
+    3:   'var(--space-3)',
+    3.5: 'var(--space-3-5)',
+    4:   'var(--space-4)',
+    5:   'var(--space-5)',
+    6:   'var(--space-6)',
+    8:   'var(--space-8)',
+    10:  'var(--space-10)',
+    12:  'var(--space-12)',
+    16:  'var(--space-16)',
+  },
+  radius: {
+    none: 'var(--radius-none)',
+    xs:   'var(--radius-xs)',
+    sm:   'var(--radius-sm)',
+    md:   'var(--radius-md)',
+    lg:   'var(--radius-lg)',
+    xl:   'var(--radius-xl)',
+    '2xl': 'var(--radius-2xl)',
+    full: 'var(--radius-full)',
+  },
+  shadows: {
+    xs:  'var(--shadow-xs)',
+    sm:  'var(--shadow-sm)',
+    md:  'var(--shadow-md)',
+    lg:  'var(--shadow-lg)',
+    xl:  'var(--shadow-xl)',
+    inner: 'var(--shadow-inner)',
+  },
+  motion: {
+    easeStandard: 'var(--ease-standard)',
+    easeIn:       'var(--ease-in)',
+    easeOut:      'var(--ease-out)',
+    durationFast:   'var(--duration-fast)',
+    durationNormal: 'var(--duration-normal)',
+    durationSlow:   'var(--duration-slow)',
+  },
+  zIndex: {
+    dropdown: 1000,
+    sticky:   1100,
+    fixed:    1200,
+    modalBg:  1300,
+    modal:    1400,
+    popover:  1500,
+    toast:    1600,
+    tooltip:  1700,
+  },
+} as const;
+
+export type DesignTokenSystem = typeof DESIGN_TOKENS;
