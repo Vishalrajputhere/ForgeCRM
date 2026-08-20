@@ -79,9 +79,9 @@ class AutomationRule(BaseModel):
 
 
 # ── AutomationCondition ────────────────────────────────────────────────────────
-
-
-class AutomationCondition(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+ 
+ 
+class AutomationCondition(Base, UUIDPrimaryKeyMixin):
     """
     A single condition predicate for an automation rule.
 
@@ -103,6 +103,7 @@ class AutomationCondition(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     operator: Mapped[str] = mapped_column(VARCHAR(30), nullable=False)
     value: Mapped[str | None] = mapped_column(Text, nullable=True)
     value_type: Mapped[str] = mapped_column(VARCHAR(20), default="string", server_default="string", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     rule: Mapped[AutomationRule] = relationship("AutomationRule", back_populates="conditions")
@@ -111,7 +112,7 @@ class AutomationCondition(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 # ── AutomationAction ───────────────────────────────────────────────────────────
 
 
-class AutomationAction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+class AutomationAction(Base, UUIDPrimaryKeyMixin):
     """
     An ordered action step within an automation rule.
 
@@ -131,6 +132,7 @@ class AutomationAction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     position: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     action_type: Mapped[str] = mapped_column(VARCHAR(60), nullable=False)
     config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     rule: Mapped[AutomationRule] = relationship("AutomationRule", back_populates="actions")
@@ -139,7 +141,7 @@ class AutomationAction(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 # ── AutomationRun ──────────────────────────────────────────────────────────────
 
 
-class AutomationRun(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+class AutomationRun(Base, UUIDPrimaryKeyMixin):
     """
     Immutable execution record for one invocation of an automation rule.
 
@@ -186,7 +188,7 @@ class AutomationRun(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 # ── AutomationLog ──────────────────────────────────────────────────────────────
 
 
-class AutomationLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+class AutomationLog(Base, UUIDPrimaryKeyMixin):
     """Per-step action execution log within a single automation run."""
 
     __tablename__ = "automation_logs"
@@ -204,6 +206,7 @@ class AutomationLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
     result_data: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # Relationships
     run: Mapped[AutomationRun] = relationship("AutomationRun", back_populates="logs")
@@ -212,7 +215,7 @@ class AutomationLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
 # ── AutomationTemplate ─────────────────────────────────────────────────────────
 
 
-class AutomationTemplate(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+class AutomationTemplate(Base, UUIDPrimaryKeyMixin):
     """
     Pre-built automation recipe. Global (no workspace_id).
 
@@ -230,6 +233,7 @@ class AutomationTemplate(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     template_config: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")
     is_featured: Mapped[bool] = mapped_column(BOOLEAN, default=False, server_default="false", nullable=False)
     use_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 __all__ = [

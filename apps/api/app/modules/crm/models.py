@@ -35,7 +35,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, BaseModel, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, BaseModel, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
 
 if TYPE_CHECKING:
     from app.modules.workspace.models import WorkspaceMember
@@ -264,7 +264,7 @@ class Deal(BaseModel):
     products: Mapped[list[DealLineItem]] = relationship("DealLineItem", cascade="all, delete-orphan", viewonly=True)
 
 
-class Product(BaseModel):
+class Product(Base, UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin):
     """Represents a sellable product / service in the workspace product catalog."""
 
     __tablename__ = "products"
